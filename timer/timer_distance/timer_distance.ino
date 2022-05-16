@@ -1,6 +1,7 @@
 int TRIG = 10;
 int ECHO = 9;
 long duration, cm;
+boolean stop_flag = 0;
 
 void setup() {
   pinMode(13, OUTPUT);
@@ -8,7 +9,6 @@ void setup() {
   pinMode(ECHO,INPUT);
   pinMode(TRIG,OUTPUT);
 
-  
   TCCR1A  = 0;           
   TCCR1B  = 0;          
   TCCR1B |= (1 << WGM12) | (1 << CS12);   //CTC mode //256分周(16micros,62.5kHz)
@@ -26,10 +26,12 @@ ISR(TIMER1_COMPA_vect) {
   duration = pulseIn(ECHO,HIGH);
   cm = microsecTocm(duration);
   if(cm < 10){
+    stop_flag = 1;
     Serial.print("STOP!:");
     Serial.println(cm);
   }else{
     Serial.println("GO!GO!");
+    stop_flag = 0;
   }
 }
 
