@@ -1,9 +1,9 @@
 const int ENABLE = 7;
 
-const int CH3 = 9;
-const int CH4 = 8;
 const int CH1 = 11;
 const int CH2 = 10;
+//const int CH3 = 9;
+//const int CH4 = 8;
 const int TrigPIN =12; 
 const int EchoPIN = 13;
 
@@ -16,8 +16,8 @@ void setup() {
   pinMode(ENABLE,OUTPUT);  // 7番ピンをOUTPUT指定
   pinMode(CH1,OUTPUT);    // 5番ピンをOUTPUT指定
   pinMode(CH2,OUTPUT);    // 3版ピンをOUTPUT指定
-  pinMode(CH3,OUTPUT);    // 5番ピンをOUTPUT指定
-  pinMode(CH4,OUTPUT);    // 3版ピンをOUTPUT指定
+//  pinMode(CH3,OUTPUT);    // 5番ピンをOUTPUT指定
+//  pinMode(CH4,OUTPUT);    // 3版ピンをOUTPUT指定
 
   // 初期化 DCモータが突然動きださないように
   digitalWrite(ENABLE,LOW); // disable
