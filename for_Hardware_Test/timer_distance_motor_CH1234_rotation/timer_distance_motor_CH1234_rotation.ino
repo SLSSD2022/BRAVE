@@ -93,7 +93,7 @@ void loop() {
       delay(200); 
     }
     
-    Serial.println("0:STOP");
+    Serial.println("0:STOP");  
     digitalWrite(ENABLE,LOW); // disable
     delay(400);
 
