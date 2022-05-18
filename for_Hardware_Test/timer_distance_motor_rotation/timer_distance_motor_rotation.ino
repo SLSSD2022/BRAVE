@@ -21,6 +21,7 @@ void setup() {
   // 初期化 DCモータが突然動きださないように
   digitalWrite(ENABLE,LOW); // disable
 
+  //割り込みタイマーの設定
   TCCR1A  = 0;           
   TCCR1B  = 0;          
   TCCR1B |= (1 << WGM12) | (1 << CS12);   //CTC mode //256分周(16micros,62.5kHz)
@@ -28,6 +29,8 @@ void setup() {
   TIMSK1 |= (1 << OCIE1A);
 }
 
+
+//割り込み関数
 ISR(TIMER1_COMPA_vect) {
   digitalWrite(13, !digitalRead(13));
 //  Serial.println("Hello world!");
@@ -55,33 +58,6 @@ ISR(TIMER1_COMPA_vect) {
 
 void loop() {
     digitalWrite(ENABLE,LOW); // disable
-    if(stop_flag == 0){ 
-      Serial.println("1:Normal rotaion");
-      digitalWrite(ENABLE,HIGH); // enable on
-      digitalWrite(CH1,HIGH);    
-      digitalWrite(CH2,LOW); 
-      digitalWrite(CH3,HIGH);    
-      digitalWrite(CH4,LOW);
-      delay(1000); 
-    }
-
-    Serial.println("0:STOP");
-    digitalWrite(ENABLE,LOW); // disable
-    delay(400);
-    
-    if(stop_flag == 0){ 
-      Serial.println("2:Reverse rotation");
-      digitalWrite(ENABLE,HIGH); // enable on
-      digitalWrite(CH1,LOW);
-      digitalWrite(CH2,HIGH); 
-      digitalWrite(CH3,LOW);
-      digitalWrite(CH4,HIGH); 
-      delay(1000);
-    }
-    
-    Serial.println("0:STOP");
-    digitalWrite(ENABLE,LOW); // disable
-    delay(400);
 
     if(stop_flag == 0){ 
       Serial.println("3:Twist right");
@@ -90,7 +66,7 @@ void loop() {
       digitalWrite(CH2,HIGH); 
       digitalWrite(CH3,HIGH);
       digitalWrite(CH4,LOW);
-      delay(200); 
+      delay(50); 
     }
     
     Serial.println("0:STOP");
@@ -104,7 +80,7 @@ void loop() {
       digitalWrite(CH2,LOW); 
       digitalWrite(CH3,LOW);
       digitalWrite(CH4,HIGH);
-      delay(200); 
+      delay(50); 
     }
     
     Serial.println("0:STOP");
