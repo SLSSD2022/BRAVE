@@ -84,13 +84,27 @@ void loop() {
     delay(400);
 
     if(stop_flag == 0){ 
-      Serial.println("2:Reverse rotation");
+      Serial.println("3:Twist right");
       digitalWrite(ENABLE,HIGH); // enable on
       analogWrite(CH1,LOW);
       digitalWrite(CH2,HIGH); 
+      analogWrite(CH3,HIGH);
+      digitalWrite(CH4,LOW);
+      delay(400); 
+    }
+    
+    Serial.println("0:STOP");
+    digitalWrite(ENABLE,LOW); // disable
+    delay(400);
+
+    if(stop_flag == 0){ 
+      Serial.println("4:Twist left");
+      digitalWrite(ENABLE,HIGH); // enable on
+      analogWrite(CH1,HIGH);
+      digitalWrite(CH2,LOW); 
       analogWrite(CH3,LOW);
       digitalWrite(CH4,HIGH);
-      delay(1000); 
+      delay(400); 
     }
     
     Serial.println("0:STOP");
