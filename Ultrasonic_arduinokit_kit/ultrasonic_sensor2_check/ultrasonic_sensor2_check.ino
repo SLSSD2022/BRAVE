@@ -1,5 +1,5 @@
-const int TrigPIN =10; 
-const int EchoPIN = 9;
+const int TrigPIN = 53; 
+const int EchoPIN = 52;
 
 void setup() {
   // put your setup code here, to run once:
