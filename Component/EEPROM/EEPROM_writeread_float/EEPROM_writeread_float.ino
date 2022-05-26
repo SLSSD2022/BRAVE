@@ -4,7 +4,7 @@
 
 //デバイスアドレス(スレーブ)
 uint8_t DEVICE_ADDRESS = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
-double d = 2.765432;
+double d = -122.497033;
 
 void setup() {
   // put your setup code here, to run once:
@@ -15,6 +15,7 @@ void setup() {
 
   Serial.print("SendData:");
   Serial.println(d,6);
+  Serial.println("---------Write to EEPROM--------");
   
   unsigned char *p = (unsigned char *)&d;
   int i;
@@ -25,6 +26,21 @@ void setup() {
     writeEEPROM(DEVICE_ADDRESS, DATA_ADDRESS+i, p[i]);
   }
   Serial.println("");
+
+  
+  Serial.println("---------Read from EEPROM--------");
+  unsigned char p_read[4];
+  for (int i = 0; i < 4; i++){
+    Serial.print(i+1);
+    Serial.print("th byte:");
+    p_read[i] = readEEPROM(DEVICE_ADDRESS, DATA_ADDRESS+i);
+    Serial.println(p_read[i]);
+  }
+  Serial.println("");
+  double *d = (double *)p_read;
+  double data = *d;
+  Serial.print("ReceiveData:");
+  Serial.println(data,6);
 }
 
 
@@ -43,13 +59,27 @@ void loop() {
 //  delay(1000);
 }
 
-void writeEEPROM(int deviceaddress, unsigned int eeaddress, byte data ) 
+void writeEEPROM(int addr_device, unsigned int addr_res, byte data ) 
 {
-  Wire.beginTransmission(deviceaddress);
-  Wire.write((int)(eeaddress >> 8));   // MSB
-  Wire.write((int)(eeaddress & 0xFF)); // LSB
+  Wire.beginTransmission(addr_device);
+  Wire.write((int)(addr_res >> 8));   // MSB
+  Wire.write((int)(addr_res & 0xFF)); // LSB
   Wire.write(data);
   Wire.endTransmission();
  
   delay(5);
+}
+
+byte readEEPROM(int deviceaddress, unsigned int eeaddress ) 
+{
+  byte rdata = 0xFF;
+ 
+  Wire.beginTransmission(deviceaddress);
+  Wire.write((int)(eeaddress >> 8));   // MSB
+  Wire.write((int)(eeaddress & 0xFF)); // LSB
+  Wire.endTransmission();
+ 
+  Wire.requestFrom(deviceaddress,1);
+  if (Wire.available()) rdata = Wire.read();
+  return rdata;
 }
