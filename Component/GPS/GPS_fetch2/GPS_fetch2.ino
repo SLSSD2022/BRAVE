@@ -4,6 +4,7 @@
 TinyGPSPlus gps;
 SoftwareSerial mySerial(2, 3); // RX, TX
 //TinyGPSCustom magneticVariation(gps, "GPRMC", 10);
+
  
 void setup() {
  // Open serial communications and wait for port to open:
@@ -20,13 +21,15 @@ void setup() {
 }
  
 void loop() { // run over and over
- while (mySerial.available() > 0){
- char c = mySerial.read();
- //Serial.print(c);
- gps.encode(c);
- if (gps.location.isUpdated()){
- Serial.print("LAT="); Serial.println(gps.location.lat(), 6);
- Serial.print("LONG="); Serial.println(gps.location.lng(), 6);
- }
- }
+  int i = 0;
+  while (mySerial.available() > 0){
+  char c = mySerial.read();
+    //Serial.print(c);
+    gps.encode(c);
+    if (gps.location.isUpdated()){
+      Serial.print("LAT="); Serial.println(gps.location.lat(), 6);
+      Serial.print("LONG="); Serial.println(gps.location.lng(), 6);
+    }
+    i += 1;
+  }
 }
