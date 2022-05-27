@@ -18,20 +18,10 @@ void setup() {
 
 void loop() {
   if(i<1000){
-//    Serial.print(i);
-  //  Serial.println("---------Write to EEPROM--------");
-  //  Serial.print("SendADDR:");
-  //  Serial.print(DATA_ADDRESS,HEX);
-  //  
-  //  Serial.print("   SendData:");
-  //  Serial.println(send_data,6);
-  //  
-  //  
-  //  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS, send_data);
   
 //    Serial.print("ReceADDR:");
-    Serial.print(DATA_ADDRESS/8);
-    Serial.print(",");
+//    Serial.print(DATA_ADDRESS/8);
+//    Serial.print(",");
     
     rec_data = EEPROM_read_float(DEVICE_ADDRESS, DATA_ADDRESS);
 //    Serial.print("   ReceiveData:");
