@@ -69,7 +69,8 @@ void setup()
   pinMode( CH4, OUTPUT );
   digitalWrite(ENABLE,LOW); // disable
   
-  float degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+  degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+  Serial.println(degRtoA);
   
   delay(1000);
 }
@@ -166,61 +167,82 @@ void loop()
   filterVal = medianFilter();
   x = filterVal;
 
+  
+  Serial.print("axis:");
+  Serial.print(x);
+  Serial.print(":");
+  
 
-if (x < degRtoA){
-    float delta_theta = degRtoA - x;
+  if (x < degRtoA){
+    delta_theta = degRtoA - x;
+    Serial.print("x < degRtoA:");
+    Serial.print(delta_theta);
+    Serial.print(":");
     
     //閾値内にあるときは真っ直ぐ
-    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
+    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
       speed_R = Normal_speed;
       speed_L = Normal_speed;
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
+      analogWrite( CH1, speed_R );
+      analogWrite( CH3, speed_L );
+      Serial.print("Go straight");
     }
     //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
     else if (threshold/2 < delta_theta && delta_theta <= 180){ 
       speed_R = Normal_speed;
       speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
+      analogWrite( CH1, speed_R );
+      analogWrite( CH3, speed_L ); 
+      Serial.print("turn left");
     }
 
     //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
     else { 
-      speed_R = ((delta_theta - 180) / (180 - (threshold / 2))) * Normal_speed;
+      speed_R = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
       speed_L = Normal_speed;
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
+      analogWrite( CH1, speed_R );
+      analogWrite( CH3, speed_L );
+      Serial.print("turn right");
     }
-}
+  }
 
   
-else {
-//    float delta_theta = 360 + degRtoA - x;
+  else{
+    delta_theta = x - degRtoA;
+    Serial.print("degRtoA < x:");
+    Serial.print(delta_theta);
+    Serial.print(":");
    
     //閾値内にあるときは真っ直ぐ
     if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
       speed_R = Normal_speed;
       speed_L = Normal_speed;
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
+      analogWrite( CH1, speed_R );
+      analogWrite( CH3, speed_L );
+      Serial.print("Go straight");
     }
-    //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+    //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
     else if (threshold/2 < delta_theta && delta_theta <= 180){ 
-      speed_R = Normal_speed;
-      speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
+      speed_R = Normal_speed - (delta_theta * Normal_speed / 180);
+      speed_L = Normal_speed;
+      analogWrite( CH1, speed_R );
+      analogWrite( CH3, speed_L );
+      Serial.print("turn right");
     }
 
-    //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
     else { 
-      speed_R = ((delta_theta - 180) / (180 - (threshold / 2))) * Normal_speed;
-      speed_L = Normal_speed;
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
+      speed_R = Normal_speed;
+      speed_L = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
+      analogWrite( CH1, speed_R );
+      analogWrite( CH3, speed_L );
+      Serial.print("turn left");
     }
   }
+  Serial.print(",");
+  Serial.print(speed_L);
+  Serial.print(",");
+  Serial.println(speed_R);
 
 }
 
