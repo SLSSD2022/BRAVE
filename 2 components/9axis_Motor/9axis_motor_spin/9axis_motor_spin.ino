@@ -5,11 +5,6 @@
 #define Addr_Mag 0x13   // (JP1,JP2,JP3 = Openの時)
 
 
-//デバイスアドレス(スレーブ)
-uint8_t DEVICE_ADDRESS = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
-unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使える) 
-
-
 // センサーの値を保存するグローバル変数
 float xGyro = 0.00;
 float yGyro = 0.00;
@@ -176,11 +171,6 @@ void loop()
   Serial.print("axis:");
   Serial.print(x);
   Serial.print(":");
-
-  
-
-  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,x);
-  DATA_ADDRESS += 4;
   
 
   if (x < degRtoA){
@@ -217,46 +207,43 @@ void loop()
   }
 
   
-  else {
-      delta_theta = x - degRtoA;
-      Serial.print("degRtoA < x:");
-      Serial.print(delta_theta);
-      Serial.print(":");
-     
-      //閾値内にあるときは真っ直ぐ
-      if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
-        speed_R = Normal_speed;
-        speed_L = Normal_speed;
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
-        Serial.print("Go straight");
-      }
-      //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      else if (threshold/2 < delta_theta && delta_theta <= 180){ 
-        speed_R = Normal_speed - (delta_theta * Normal_speed / 180);
-        speed_L = Normal_speed;
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
-        Serial.print("turn right");
-      }
-  
-      //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-      else { 
-        speed_R = Normal_speed;
-        speed_L = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
-        Serial.print("turn left");
-      }
+  else{
+    delta_theta = x - degRtoA;
+    Serial.print("degRtoA < x:");
+    Serial.print(delta_theta);
+    Serial.print(":");
+   
+    //閾値内にあるときは真っ直ぐ
+    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
+      speed_R = Normal_speed;
+      speed_L = Normal_speed;
+      analogWrite( CH1, speed_R );
+      analogWrite( CH3, speed_L );
+      Serial.print("Go straight");
+    }
+    //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+    else if (threshold/2 < delta_theta && delta_theta <= 180){ 
+      speed_R = Normal_speed - (delta_theta * Normal_speed / 180);
+      speed_L = Normal_speed;
+      analogWrite( CH1, speed_R );
+      analogWrite( CH3, speed_L );
+      Serial.print("turn right");
+    }
+
+    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+    else { 
+      speed_R = Normal_speed;
+      speed_L = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
+      analogWrite( CH1, speed_R );
+      analogWrite( CH3, speed_L );
+      Serial.print("turn left");
+    }
   }
   Serial.print(",");
   Serial.print(speed_L);
-  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,speed_L);
-  DATA_ADDRESS += 4;
   Serial.print(",");
   Serial.println(speed_R);
-  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,speed_R);
-  DATA_ADDRESS += 4;
+
 }
 
 //=====================================================================================//
@@ -322,7 +309,7 @@ void BMX055_Init()
   Wire.write(0x16);  // No. of Repetitions for Z-Axis = 15
   Wire.endTransmission();
 }
-
+//=====================================================================================//
 void BMX055_Gyro()
 {
   unsigned int data[6];
@@ -349,7 +336,7 @@ void BMX055_Gyro()
   yGyro = yGyro * 0.0038; //  Full scale = +/- 125 degree/s
   zGyro = zGyro * 0.0038; //  Full scale = +/- 125 degree/s
 }
-
+//=====================================================================================//
 void BMX055_Mag()
 {
   unsigned int data[8];
@@ -371,59 +358,4 @@ void BMX055_Mag()
   if (yMag > 4095)  yMag -= 8192;
   zMag = ((data[5] <<7) | (data[4]>>1));
   if (zMag > 16383)  zMag -= 32768;
-}
-
-
-//=====================================================================================//
-
-void writeEEPROM(int addr_device, unsigned int addr_res, byte data ) 
-{
-  Wire.beginTransmission(addr_device);
-  Wire.write((int)(addr_res >> 8));   // MSB
-  Wire.write((int)(addr_res & 0xFF)); // LSB
-  Wire.write(data);
-  Wire.endTransmission();
- 
-  delay(5);
-}
-
-void EEPROM_write_float(int addr_device, unsigned int addr_res, double data){
-  unsigned char *p = (unsigned char *)&data;
-  int i;
-  for (i = 0; i < (int)sizeof(data); i++){
-//    Serial.print(i+1);
-//    Serial.print("th byte:");
-//    Serial.println(p[i]);
-    writeEEPROM(addr_device, addr_res+i, p[i]);
-  }
-//  Serial.println("");
-}
-
-byte readEEPROM(int addr_device, unsigned int addr_res ) 
-{
-  byte rdata = 0xFF;
- 
-  Wire.beginTransmission(addr_device);
-  Wire.write((int)(addr_res >> 8));   // MSB
-  Wire.write((int)(addr_res & 0xFF)); // LSB
-  Wire.endTransmission();
- 
-  Wire.requestFrom(addr_device,1);
-  if (Wire.available()) rdata = Wire.read();
-  return rdata;
-}
-
-
-double EEPROM_read_float(int addr_device, unsigned int addr_res){
-  unsigned char p_read[4];
-  for (int i = 0; i < 4; i++){
-//    Serial.print(i+1);
-//    Serial.print("th byte:");
-    p_read[i] = readEEPROM(addr_device, addr_res+i);
-//    Serial.println(p_read[i]);
-  }
-//  Serial.println("");
-  double *d = (double *)p_read;
-  double data = *d;
-  return data;
 }

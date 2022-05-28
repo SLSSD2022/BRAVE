@@ -1,13 +1,15 @@
+#include <TinyGPSPlus.h>
+#include <SoftwareSerial.h>
 #include<Wire.h>
 // BMX055 ジャイロセンサのI2Cアドレス
 #define Addr_Gyro 0x69  // (JP1,JP2,JP3 = Openの時)
 // BMX055 磁気センサのI2Cアドレス
 #define Addr_Mag 0x13   // (JP1,JP2,JP3 = Openの時)
 
+TinyGPSPlus gps;
 
-//デバイスアドレス(スレーブ)
-uint8_t DEVICE_ADDRESS = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
-unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使える) 
+//GPSのシリアル通信
+SoftwareSerial mySerial(12, 13); // RX, TX
 
 
 // センサーの値を保存するグローバル変数
@@ -19,29 +21,14 @@ int   yMag  = 0;
 int   zMag  = 0;
 
 
-//モーター
-const int ENABLE = 3;
-const int CH1 = 4;
-const int CH2 = 5;
-const int CH3 = 6;
-const int CH4 = 7;
-
-double Calib = 81; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calibx = 45;
+double Calib = -60; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calibx =10;
 double Caliby = 55;
-float LatA = 35.709771, LongA =139.808893;  //目的地Aの緯度経度(スカイツリー)
-float LatR = 35.715328, LongR = 139.761138;  //目的地Aの緯度経度(7号館屋上)
+float LatA = 35.7121612, LongA =139.760561;  //目的地Aの緯度経度
+float LatR, LongR;
 
-float degRtoA;
-
-float delta_theta; //GPSと9軸の差分
-float threshold = 30; //角度の差分の閾値
-
-int flag = 1;
-
-int Normal_speed = 100;
-int speed_R;
-int speed_L;
+float degRtoA; //目的地とGPS現在地の角度
+int threshold = 30; //角度の差分の閾値
 
 
 //バッファの長さ
@@ -51,12 +38,15 @@ int speed_L;
 int buf[BUF_LEN];
 int index = 0;
 
+int buf_degRtoA[BUF_LEN];
+int index_degRtoA = 0;
+
 //フィルター後の値
 float filterVal =0;
 
 float deg2rad(float deg) {
-  return deg * PI / 180.0;
-}
+        return deg * PI / 180.0;
+    }
 
 
 void setup()
@@ -65,21 +55,12 @@ void setup()
   Wire.begin();
   // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);
+  mySerial.begin(9600);
   //BMX055 初期化
   BMX055_Init();
-
-  pinMode( CH1, OUTPUT );
-  pinMode( CH2, OUTPUT );
-  pinMode( CH3, OUTPUT );
-  pinMode( CH4, OUTPUT );
-  digitalWrite(ENABLE,LOW); // disable
-  
-  degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-  Serial.println(degRtoA);
-  
-  delay(1000);
+  delay(500);
 }
-  
+
 
 
 //Hubenyの式
@@ -90,7 +71,7 @@ float calculateDistance(float latitude1, float longitude1, float latitude2, floa
     float Rx = 6378137.0;             // WGS84における「赤道半径Rx」
     float m_numer = 6335439.32729246; // WGS84における「子午線曲率半径M」の分子(Rx(1-e^2))
 
-   
+ 
 
     float rad_lat1 = deg2rad(latitude1);
     float rad_lon1 = deg2rad(longitude1);
@@ -139,48 +120,61 @@ int quicksortFunc(const void *a, const void *b) {
 
 void loop()
 {
-  
 
   //BMX055 ジャイロの読み取り
   BMX055_Gyro();
   //BMX055 磁気の読み取り
   BMX055_Mag();
-
-  float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; 
+  float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; //磁北を0°(or360°)として出力
   x = (x+Calib);
+  x = x + 7;  //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
 
-  x = x + 7; 
+  //calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
 
   if (x>360) {
     x = x-360;
   }
 
   else if (x<0){
-    x = x+360;
+   x = x+360;
   }
 
   else {
-    x = x;
+   x = x;
   }
 
- // バッファに取り込んで、インデックスを更新する。
+  // バッファに取り込んで、インデックスを更新する。
   buf[index] = x;
   index = (index+1)%BUF_LEN;
-
-//フィルタ後の値を計算
-
+  //フィルタ後の値を計算
   filterVal = medianFilter();
   x = filterVal;
 
+  //---------------------GPS取得--------------------------------------------------
+  if (mySerial.available() > 0){
+    char c = mySerial.read();
+    gps.encode(c);
+    if (gps.location.isUpdated()){
+      float LatR = gps.location.lat(); //roverの緯度を計算
+      float LongR = gps.location.lng(); //roverの経度を計算
+      degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+      //float RtoA = calculateDistance(LatA, LongA, LatR, LongR);
+      // バッファに取り込んで、インデックスを更新する。
+      index_degRtoA = (index_degRtoA+1)%BUF_LEN;
+      buf_degRtoA[index_degRtoA] = degRtoA;
+    }
+  }
+  //---------------------GPS取得--------------------------------------------------
+  //バッファから取り出す(一番最後に取得したGPSを取り出す)
+  degRtoA = buf_degRtoA[index_degRtoA];
+  Serial.print("degRtoA:");
+  Serial.print(degRtoA);
+  Serial.print(":");
   
+      
   Serial.print("axis:");
   Serial.print(x);
   Serial.print(":");
-
-  
-
-  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,x);
-  DATA_ADDRESS += 4;
   
 
   if (x < degRtoA){
@@ -191,72 +185,30 @@ void loop()
     
     //閾値内にあるときは真っ直ぐ
     if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
-      speed_R = Normal_speed;
-      speed_L = Normal_speed;
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L );
-      Serial.print("Go straight");
+      Serial.println("This is the right direction!");
     }
-    //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-    else if (threshold/2 < delta_theta && delta_theta <= 180){ 
-      speed_R = Normal_speed;
-      speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L ); 
-      Serial.print("turn left");
-    }
-
-    //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-    else { 
-      speed_R = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
-      speed_L = Normal_speed;
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L );
-      Serial.print("turn right");
+    else {
+      Serial.println("This is the wrong direction!");
     }
   }
-
   
-  else {
-      delta_theta = x - degRtoA;
-      Serial.print("degRtoA < x:");
-      Serial.print(delta_theta);
-      Serial.print(":");
-     
-      //閾値内にあるときは真っ直ぐ
-      if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
-        speed_R = Normal_speed;
-        speed_L = Normal_speed;
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
-        Serial.print("Go straight");
-      }
-      //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      else if (threshold/2 < delta_theta && delta_theta <= 180){ 
-        speed_R = Normal_speed - (delta_theta * Normal_speed / 180);
-        speed_L = Normal_speed;
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
-        Serial.print("turn right");
-      }
   
-      //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-      else { 
-        speed_R = Normal_speed;
-        speed_L = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
-        analogWrite( CH1, speed_R );
-        analogWrite( CH3, speed_L );
-        Serial.print("turn left");
-      }
+  else{
+    delta_theta = x - degRtoA;
+    Serial.print("degRtoA < x:");
+    Serial.print(delta_theta);
+    Serial.print(":");
+   
+    //閾値内にあるときは真っ直ぐ
+    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
+      Serial.println("This is the right direction!");
+    }
+  
+    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+    else {
+      Serial.println("This is the wrong direction!");
+    }
   }
-  Serial.print(",");
-  Serial.print(speed_L);
-  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,speed_L);
-  DATA_ADDRESS += 4;
-  Serial.print(",");
-  Serial.println(speed_R);
-  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,speed_R);
-  DATA_ADDRESS += 4;
 }
 
 //=====================================================================================//
@@ -322,7 +274,7 @@ void BMX055_Init()
   Wire.write(0x16);  // No. of Repetitions for Z-Axis = 15
   Wire.endTransmission();
 }
-
+//=====================================================================================//
 void BMX055_Gyro()
 {
   unsigned int data[6];
@@ -349,7 +301,7 @@ void BMX055_Gyro()
   yGyro = yGyro * 0.0038; //  Full scale = +/- 125 degree/s
   zGyro = zGyro * 0.0038; //  Full scale = +/- 125 degree/s
 }
-
+//=====================================================================================//
 void BMX055_Mag()
 {
   unsigned int data[8];
@@ -371,59 +323,4 @@ void BMX055_Mag()
   if (yMag > 4095)  yMag -= 8192;
   zMag = ((data[5] <<7) | (data[4]>>1));
   if (zMag > 16383)  zMag -= 32768;
-}
-
-
-//=====================================================================================//
-
-void writeEEPROM(int addr_device, unsigned int addr_res, byte data ) 
-{
-  Wire.beginTransmission(addr_device);
-  Wire.write((int)(addr_res >> 8));   // MSB
-  Wire.write((int)(addr_res & 0xFF)); // LSB
-  Wire.write(data);
-  Wire.endTransmission();
- 
-  delay(5);
-}
-
-void EEPROM_write_float(int addr_device, unsigned int addr_res, double data){
-  unsigned char *p = (unsigned char *)&data;
-  int i;
-  for (i = 0; i < (int)sizeof(data); i++){
-//    Serial.print(i+1);
-//    Serial.print("th byte:");
-//    Serial.println(p[i]);
-    writeEEPROM(addr_device, addr_res+i, p[i]);
-  }
-//  Serial.println("");
-}
-
-byte readEEPROM(int addr_device, unsigned int addr_res ) 
-{
-  byte rdata = 0xFF;
- 
-  Wire.beginTransmission(addr_device);
-  Wire.write((int)(addr_res >> 8));   // MSB
-  Wire.write((int)(addr_res & 0xFF)); // LSB
-  Wire.endTransmission();
- 
-  Wire.requestFrom(addr_device,1);
-  if (Wire.available()) rdata = Wire.read();
-  return rdata;
-}
-
-
-double EEPROM_read_float(int addr_device, unsigned int addr_res){
-  unsigned char p_read[4];
-  for (int i = 0; i < 4; i++){
-//    Serial.print(i+1);
-//    Serial.print("th byte:");
-    p_read[i] = readEEPROM(addr_device, addr_res+i);
-//    Serial.println(p_read[i]);
-  }
-//  Serial.println("");
-  double *d = (double *)p_read;
-  double data = *d;
-  return data;
 }

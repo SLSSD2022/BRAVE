@@ -184,36 +184,36 @@ void loop()
   
 
   if (x < degRtoA){
-    delta_theta = degRtoA - x;
-    Serial.print("x < degRtoA:");
-    Serial.print(delta_theta);
-    Serial.print(":");
-    
-    //閾値内にあるときは真っ直ぐ
-    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
-      speed_R = Normal_speed;
-      speed_L = Normal_speed;
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L );
-      Serial.print("Go straight");
-    }
-    //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-    else if (threshold/2 < delta_theta && delta_theta <= 180){ 
-      speed_R = Normal_speed;
-      speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L ); 
-      Serial.print("turn left");
-    }
-
-    //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-    else { 
-      speed_R = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
-      speed_L = Normal_speed;
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L );
-      Serial.print("turn right");
-    }
+      delta_theta = degRtoA - x;
+      Serial.print("x < degRtoA:");
+      Serial.print(delta_theta);
+      Serial.print(":");
+      
+      //閾値内にあるときは真っ直ぐ
+      if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
+        speed_R = Normal_speed;
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("Go straight");
+      }
+      //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+      else if (threshold/2 < delta_theta && delta_theta <= 180){ 
+        speed_R = Normal_speed;
+        speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L ); 
+        Serial.print("turn left");
+      }
+  
+      //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+      else { 
+        speed_R = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("turn right");
+      }
   }
 
   
@@ -247,6 +247,7 @@ void loop()
         analogWrite( CH1, speed_R );
         analogWrite( CH3, speed_L );
         Serial.print("turn left");
+        
       }
   }
   Serial.print(",");
