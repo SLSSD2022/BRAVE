@@ -8,9 +8,12 @@
 int   xMag  = 0;
 int   yMag  = 0;
 int   zMag  = 0;
+double Calib = 180; //キャリブレーション用定数
+double Calibx = 28;
+double Caliby = 143;
 
-int med = 0;
-float degree[5] = {0};
+//int med = 0;
+//float degree[5] = {0};
 
 //----------------------------------------------------------------------------
 //バッファの長さ
@@ -46,42 +49,16 @@ void setup()
   
 
 
-//----------------------------------------------------------------------------
-
-
-//Medianフィルタ関数
-int medianFilter() {
-  //ソート用のバッファ
-  static int sortBuf[BUF_LEN];
-
-  //ソート用バッファにデータをコピー
-  for(int i=0; i<BUF_LEN; i++) {
-    sortBuf[i] = buf[i];
-  }
-
-  //クイックソートで並べ替える
-  qsort(sortBuf, BUF_LEN, sizeof(int), quicksortFunc);
-
-  return sortBuf[(int)BUF_LEN/2];
-}
-
-//クイックソート関数
-int quicksortFunc(const void *a, const void *b) {
-  return *(int *)a - *(int *)b;
-}
-
-//----------------------------------------------------------------------------
-
-
-
 void loop()
 {
   
   //BMX055 磁気の読み取り
   BMX055_Mag();
-  double Calib = 100; //キャリブレーション用定数
-  double Calibx = 10;
-  double Caliby = 55;
+
+  Serial.print(xMag-Calibx);
+  Serial.print(",");
+  Serial.print(yMag-Caliby);
+  Serial.print(",");
 
   float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180;
   x = (x+Calib);
@@ -97,6 +74,9 @@ void loop()
   else {
    x = x;
  }
+  
+  Serial.print(x);
+  Serial.print(",");
 
  //----------------------------------------------------------------------------
 
@@ -153,6 +133,35 @@ void loop()
   
   delay(100);
 }
+
+
+
+//----------------------------------------------------------------------------
+
+
+//Medianフィルタ関数
+int medianFilter() {
+  //ソート用のバッファ
+  static int sortBuf[BUF_LEN];
+
+  //ソート用バッファにデータをコピー
+  for(int i=0; i<BUF_LEN; i++) {
+    sortBuf[i] = buf[i];
+  }
+
+  //クイックソートで並べ替える
+  qsort(sortBuf, BUF_LEN, sizeof(int), quicksortFunc);
+
+  return sortBuf[(int)BUF_LEN/2];
+}
+
+//クイックソート関数
+int quicksortFunc(const void *a, const void *b) {
+  return *(int *)a - *(int *)b;
+}
+
+//----------------------------------------------------------------------------
+
 
 //=====================================================================================//
 void BMX055_Init()

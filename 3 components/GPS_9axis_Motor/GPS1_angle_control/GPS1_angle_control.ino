@@ -1,5 +1,4 @@
 #include <TinyGPSPlus.h>
-#include <SoftwareSerial.h>
 #include<Wire.h>
 // BMX055 ジャイロセンサのI2Cアドレス
 #define Addr_Gyro 0x69  // (JP1,JP2,JP3 = Openの時)
@@ -7,10 +6,6 @@
 #define Addr_Mag 0x13   // (JP1,JP2,JP3 = Openの時)
 
 TinyGPSPlus gps;
-
-//GPSのシリアル通信
-SoftwareSerial mySerial(12, 13); // RX, TX
-
 
 // センサーの値を保存するグローバル変数
 float xGyro = 0.00;

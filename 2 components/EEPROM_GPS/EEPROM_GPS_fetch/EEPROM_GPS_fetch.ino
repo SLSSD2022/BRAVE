@@ -1,5 +1,4 @@
 #include <TinyGPSPlus.h>
-#include <SoftwareSerial.h>
 #include <Wire.h>
 
 //デバイスアドレス(スレーブ)
@@ -7,7 +6,6 @@ uint8_t DEVICE_ADDRESS = 0x50;//24lC1025の場合1010000(前半)or1010100(後半
 unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使える) 
 
 TinyGPSPlus gps;
-SoftwareSerial mySerial(12, 13); // RX, TX
 //TinyGPSCustom magneticVariation(gps, "GPRMC", 10);
  
 void setup() {
@@ -16,15 +14,20 @@ void setup() {
   
   // Open serial communications and wait for port to open:
   Serial.begin(9600);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
+
+  Serial1.begin(9600);
+  while (!Serial1) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
   
-  // set the data rate for the SoftwareSerial port
-  mySerial.begin(9600);
-  // mySerial.println("Hello, world?");
 }
  
 void loop() { // run over and over
-  while (mySerial.available() > 0){
-    char c = mySerial.read();
+  while (Serial1.available() > 0){
+    char c = Serial1.read();
     //Serial.print(c);
     gps.encode(c);
     if (gps.location.isUpdated()){

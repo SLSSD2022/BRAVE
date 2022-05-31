@@ -4,14 +4,10 @@
 //参考URL3https://www.pasco.co.jp/recommend/word/word046/
 //================================================================//
 #include <TinyGPSPlus.h>
-#include <SoftwareSerial.h>
 #include<Wire.h>
 
 //GPS用のモジュール
 TinyGPSPlus gps;
-
-//GPSのシリアル通信
-SoftwareSerial mySerial(13, 12); // RX, TX
 
 
 // BMX055 磁気センサのI2Cアドレス
@@ -19,13 +15,34 @@ SoftwareSerial mySerial(13, 12); // RX, TX
 
 // センサーの値を保存するグローバル変数
 
+// センサーの値を保存するグローバル変数
 int   xMag  = 0;
 int   yMag  = 0;
 int   zMag  = 0;
-double Calib = -35; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calib = 180; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calibx = 28;
+double Caliby = 143;
 
 float LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(今回はスカイツリー)
 int threshold = 30; //角度の差分の閾値
+
+
+//バッファの長さ
+#define BUF_LEN 10
+
+//バッファ
+int buf[BUF_LEN];
+int index = 0;
+
+int buf_degRtoA[BUF_LEN];
+int index_degRtoA = 0;
+
+//フィルター後の値
+float filterVal =0;
+
+float deg2rad(float deg) {
+        return deg * PI / 180.0;
+}
 
 void setup()
 {
@@ -33,7 +50,7 @@ void setup()
   Wire.begin();
   // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);
-  mySerial.begin(9600);
+  Serial1.begin(9600);
   //BMX055 初期化
   BMX055_Init();
   delay(300);
@@ -43,8 +60,8 @@ void loop()
 {
   //Serial.println("--------------------------------------");
 
-  while (mySerial.available() > 0){
-    char c = mySerial.read();
+  while (Serial1.available() > 0){
+    char c = Serial1.read();
     //Serial.print(c);
     gps.encode(c);
     //GPSが更新されたら、ローバーの緯度経度からローバーと目的地の真北を基準にした角度のずれを計算
@@ -56,7 +73,7 @@ void loop()
       //Serial.print(atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180);
      
       float degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-      Serial.println(degRtoA);
+      Serial.print("degRtoA:");Serial.print(degRtoA);
       //degRtoAはroverと目的地Aの真北を基準にした角度のずれ
        
       // Serial.print("deg: The distance between Rover and A is= ");    
@@ -64,27 +81,33 @@ void loop()
       // Serial.print(RtoA);
       // Serial.println("m");
 
-      
       //BMX055 磁気の読み取り
       BMX055_Mag();
-      float x = atan2(yMag-105,xMag+60)/3.14*180+180; //磁北を0°(or360°)として出力
-      x = (x+Calib); //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-      
-      //calibを足したことでcalib°~360+calib°で出力されてしまうので、0°~360°になるよう調整
+      float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; //磁北を0°(or360°)として出力
+      x = (x+Calib);
+      x = x - 7;  //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
+    
+      //calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
+    
       if (x>360) {
         x = x-360;
       }
-      
+    
       else if (x<0){
-        x = x+360;
+       x = x+360;
       }
-      
+    
       else {
-        x = x;
+       x = x;
       }
-      
-      x += 7;
-      Serial.println(x);
+    
+      // バッファに取り込んで、インデックスを更新する。
+      buf[index] = x;
+      index = (index+1)%BUF_LEN;
+      //フィルタ後の値を計算
+      filterVal = medianFilter();
+      x = filterVal;
+      Serial.print(":x:");Serial.print(x);
         
       //delay(100);
     
@@ -96,39 +119,94 @@ void loop()
       
       if (x < degRtoA){
         delta_theta = degRtoA - x;
-        Serial.print("x < degRtoA:");
+        Serial.print(":x < degRtoA:");
         Serial.print(delta_theta);
-        Serial.print(":");
         
         //閾値内にあるときは真っ直ぐ
         if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
-          Serial.println("This is the right direction!");
+          Serial.println(":This is the right direction!");
         }
         else {
-          Serial.println("This is the wrong direction!");
+          Serial.println(":This is the wrong direction!");
         }
       }
     
       
       else{
         delta_theta = x - degRtoA;
-        Serial.print("degRtoA < x:");
+        Serial.print(":degRtoA < x:");
         Serial.print(delta_theta);
-        Serial.print(":");
        
         //閾値内にあるときは真っ直ぐ
         if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
-          Serial.println("This is the right direction!");
+          Serial.println(":This is the right direction!");
         }
     
         //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
         else {
-          Serial.println("This is the wrong direction!");
+          Serial.println(":This is the wrong direction!");
         }
       }
     }
   }
 }
+
+
+
+
+//Hubenyの式
+
+float calculateDistance(float latitude1, float longitude1, float latitude2, float longitude2) {
+    // 先に計算しておいた定数
+    float e2 = 0.00669437999019758;   // WGS84における「離心率e」の2乗
+    float Rx = 6378137.0;             // WGS84における「赤道半径Rx」
+    float m_numer = 6335439.32729246; // WGS84における「子午線曲率半径M」の分子(Rx(1-e^2))
+
+ 
+
+    float rad_lat1 = deg2rad(latitude1);
+    float rad_lon1 = deg2rad(longitude1);
+    float rad_lat2 = deg2rad(latitude2);
+    float rad_lon2 = deg2rad(longitude2);
+
+    float dp = rad_lon1 - rad_lon2;       // 2点の緯度差
+    float dr = rad_lat1 - rad_lat2;       // 2点の経度差
+    float p = (rad_lon1 + rad_lon2) / 2.0;// 2点の平均緯度
+
+    float w = sqrt(1.0 - e2 * pow(sin(p), 2));
+    float m = m_numer / pow(w, 3);   // 子午線曲率半径
+    float n = Rx / w;                     // 卯酉(ぼうゆう)線曲率半径
+
+    // 2点間の距離(単位m)
+    float d = sqrt(pow((m * dp), 2)
+                      + pow((n *cos(p) * dr), 2));
+    return d;
+}
+
+
+//Medianフィルタ関数
+int medianFilter() {
+  //ソート用のバッファ
+  static int sortBuf[BUF_LEN];
+
+  //ソート用バッファにデータをコピー
+  for(int i=0; i<BUF_LEN; i++) {
+    sortBuf[i] = buf[i];
+  }
+
+  //クイックソートで並べ替える
+  qsort(sortBuf, BUF_LEN, sizeof(int), quicksortFunc);
+
+  return sortBuf[(int)BUF_LEN/2];
+}
+
+//クイックソート関数
+int quicksortFunc(const void *a, const void *b) {
+  return *(int *)a - *(int *)b;
+}
+
+
+
 
 //=====================================================================================//
 void BMX055_Init()

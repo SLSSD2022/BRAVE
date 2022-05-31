@@ -1,5 +1,4 @@
 #include <TinyGPSPlus.h>
-#include <SoftwareSerial.h>
 #include<Wire.h>
 // BMX055 ジャイロセンサのI2Cアドレス
 #define Addr_Gyro 0x69  // (JP1,JP2,JP3 = Openの時)
@@ -7,10 +6,7 @@
 #define Addr_Mag 0x13   // (JP1,JP2,JP3 = Openの時)
 
 TinyGPSPlus gps;
-
-//GPSのシリアル通信
-SoftwareSerial mySerial(12, 13); // RX, TX
-
+boolean GPS_flag = 1;
 
 // センサーの値を保存するグローバル変数
 float xGyro = 0.00;
@@ -21,13 +17,14 @@ int   yMag  = 0;
 int   zMag  = 0;
 
 
-double Calib = -60; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calibx =10;
-double Caliby = 55;
-float LatA = 35.7121612, LongA =139.760561;  //目的地Aの緯度経度
+double Calib = 180; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calibx = 28;
+double Caliby = 143;
+float LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(今回はスカイツリー)
 float LatR, LongR;
 
 float degRtoA; //目的地とGPS現在地の角度
+float delta_theta;
 int threshold = 30; //角度の差分の閾値
 
 
@@ -38,8 +35,8 @@ int threshold = 30; //角度の差分の閾値
 int buf[BUF_LEN];
 int index = 0;
 
-int buf_degRtoA[BUF_LEN];
-int index_degRtoA = 0;
+//int buf_degRtoA[BUF_LEN];
+//int index_degRtoA = 0;
 
 //フィルター後の値
 float filterVal =0;
@@ -55,11 +52,105 @@ void setup()
   Wire.begin();
   // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);
-  mySerial.begin(9600);
+  Serial1.begin(9600);
   //BMX055 初期化
   BMX055_Init();
   delay(500);
 }
+
+
+void loop()
+{
+
+//  //BMX055 ジャイロの読み取り
+//  BMX055_Gyro();
+  //BMX055 磁気の読み取り
+  BMX055_Mag();
+  float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; //磁北を0°(or360°)として出力
+  x = (x+Calib);
+  x = x - 7;  //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
+
+  //calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
+
+  if (x>360) {
+    x = x-360;
+  }
+
+  else if (x<0){
+   x = x+360;
+  }
+
+  else {
+   x = x;
+  }
+
+  // バッファに取り込んで、インデックスを更新する。
+  buf[index] = x;
+  index = (index+1)%BUF_LEN;
+  //フィルタ後の値を計算
+  filterVal = medianFilter();
+  x = filterVal;
+
+
+  //---------------------GPS取得--------------------------------------------------
+  while (Serial1.available() > 0 && GPS_flag == 1){
+//    Serial.print("YES");
+    char c = Serial1.read();
+//    Serial.print(c);
+    gps.encode(c);
+    if (gps.location.isUpdated()){
+      Serial.println("");
+      Serial.println("I got new GPS!");
+      LatR = gps.location.lat(); //roverの緯度を計算
+      LongR = gps.location.lng(); //roverの経度を計算
+      degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+      GPS_flag = 0;
+    }
+    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
+    delay(1);
+  }
+  GPS_flag =1;
+  //---------------------GPS取得--------------------------------------------------
+  //バッファから取り出す(一番最後に取得したGPSを取り出す)
+//  degRtoA = buf_degRtoA[index_degRtoA];
+  Serial.print("degRtoA:");Serial.print(degRtoA);
+  
+  Serial.print(":x:");Serial.print(x); 
+
+  if (x < degRtoA){
+    delta_theta = degRtoA - x;
+    Serial.print("x < degRtoA:");
+    Serial.print(delta_theta);
+    Serial.print(":");
+    
+    //閾値内にあるときは真っ直ぐ
+    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
+      Serial.println("This is the right direction!");
+    }
+    else {
+      Serial.println("This is the wrong direction!");
+    }
+  }
+  
+  
+  else{
+    delta_theta = x - degRtoA;
+    Serial.print("degRtoA < x:");
+    Serial.print(delta_theta);
+    Serial.print(":");
+   
+    //閾値内にあるときは真っ直ぐ
+    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
+      Serial.println("This is the right direction!");
+    }
+  
+    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+    else {
+      Serial.println("This is the wrong direction!");
+    }
+  }
+}
+
 
 
 
@@ -116,100 +207,6 @@ int quicksortFunc(const void *a, const void *b) {
 
 
 
-
-
-void loop()
-{
-
-  //BMX055 ジャイロの読み取り
-  BMX055_Gyro();
-  //BMX055 磁気の読み取り
-  BMX055_Mag();
-  float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; //磁北を0°(or360°)として出力
-  x = (x+Calib);
-  x = x + 7;  //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
-
-  //calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
-
-  if (x>360) {
-    x = x-360;
-  }
-
-  else if (x<0){
-   x = x+360;
-  }
-
-  else {
-   x = x;
-  }
-
-  // バッファに取り込んで、インデックスを更新する。
-  buf[index] = x;
-  index = (index+1)%BUF_LEN;
-  //フィルタ後の値を計算
-  filterVal = medianFilter();
-  x = filterVal;
-
-  //---------------------GPS取得--------------------------------------------------
-  if (mySerial.available() > 0){
-    char c = mySerial.read();
-    gps.encode(c);
-    if (gps.location.isUpdated()){
-      float LatR = gps.location.lat(); //roverの緯度を計算
-      float LongR = gps.location.lng(); //roverの経度を計算
-      degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-      //float RtoA = calculateDistance(LatA, LongA, LatR, LongR);
-      // バッファに取り込んで、インデックスを更新する。
-      index_degRtoA = (index_degRtoA+1)%BUF_LEN;
-      buf_degRtoA[index_degRtoA] = degRtoA;
-    }
-  }
-  //---------------------GPS取得--------------------------------------------------
-  //バッファから取り出す(一番最後に取得したGPSを取り出す)
-  degRtoA = buf_degRtoA[index_degRtoA];
-  Serial.print("degRtoA:");
-  Serial.print(degRtoA);
-  Serial.print(":");
-  
-      
-  Serial.print("axis:");
-  Serial.print(x);
-  Serial.print(":");
-  
-
-  if (x < degRtoA){
-    delta_theta = degRtoA - x;
-    Serial.print("x < degRtoA:");
-    Serial.print(delta_theta);
-    Serial.print(":");
-    
-    //閾値内にあるときは真っ直ぐ
-    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
-      Serial.println("This is the right direction!");
-    }
-    else {
-      Serial.println("This is the wrong direction!");
-    }
-  }
-  
-  
-  else{
-    delta_theta = x - degRtoA;
-    Serial.print("degRtoA < x:");
-    Serial.print(delta_theta);
-    Serial.print(":");
-   
-    //閾値内にあるときは真っ直ぐ
-    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
-      Serial.println("This is the right direction!");
-    }
-  
-    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-    else {
-      Serial.println("This is the wrong direction!");
-    }
-  }
-}
 
 //=====================================================================================//
 void BMX055_Init()

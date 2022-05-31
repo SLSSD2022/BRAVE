@@ -15,16 +15,16 @@ int   zMag  = 0;
 
 
 //モーター
-const int ENABLE = 3;
-const int CH1 = 4;
-const int CH2 = 5;
-const int CH3 = 6;
-const int CH4 = 7;
+const int ENABLE = 8;
+const int CH1 = 11;
+const int CH2 = 9;
+const int CH3 = 12;
+const int CH4 = 10;
 
-double Calib = 81; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calibx = 45;
-double Caliby = 55;
-float LatA = 35.709771, LongA =139.808893;  //目的地Aの緯度経度(スカイツリー)
+double Calib = 180; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calibx = 28;
+double Caliby = 143;
+float LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
 float LatR = 35.715328, LongR = 139.761138;  //目的地Aの緯度経度(7号館屋上)
 
 float degRtoA;
@@ -34,7 +34,7 @@ float threshold = 30; //角度の差分の閾値
 
 int flag = 1;
 
-int Normal_speed = 100;
+int Normal_speed = 200;
 int speed_R;
 int speed_L;
 
@@ -73,8 +73,133 @@ void setup()
   Serial.println(degRtoA);
   
   delay(1000);
-}
   
+  digitalWrite(ENABLE,HIGH); // enable
+  digitalWrite( CH2, LOW);
+  digitalWrite( CH4, LOW);
+  
+}
+ 
+
+
+
+void loop()
+{
+  Serial.print("degRtoA:");
+  Serial.print(degRtoA);
+  Serial.print(":");
+
+  //BMX055 ジャイロの読み取り
+  BMX055_Gyro();
+  //BMX055 磁気の読み取り
+  BMX055_Mag();
+
+  float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; 
+  x = (x+Calib);
+
+  x = x - 7; 
+
+  if (x>360) {
+    x = x-360;
+  }
+
+  else if (x<0){
+    x = x+360;
+  }
+
+  else {
+    x = x;
+  }
+
+ // バッファに取り込んで、インデックスを更新する。
+  buf[index] = x;
+  index = (index+1)%BUF_LEN;
+
+//フィルタ後の値を計算
+
+  filterVal = medianFilter();
+  x = filterVal;
+
+  
+  Serial.print(":x:");
+  Serial.print(x);
+  Serial.print(":");
+  
+
+  if (x < degRtoA){
+      delta_theta = degRtoA - x;
+      Serial.print("x < degRtoA:");
+      Serial.print(delta_theta);
+      Serial.print(":");
+      
+      //閾値内にあるときは真っ直ぐ
+      if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
+        speed_R = Normal_speed;
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("Go straight");
+      }
+      //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+      else if (threshold/2 < delta_theta && delta_theta <= 180){ 
+        speed_R = Normal_speed - (delta_theta * Normal_speed / 180);
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L ); 
+        Serial.print("turn right");
+      }
+  
+      //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+      else { 
+        speed_R = Normal_speed;
+        speed_L = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("turn left");
+      }
+  }
+
+  
+  else {
+      delta_theta = x - degRtoA;
+      Serial.print("degRtoA < x:");
+      Serial.print(delta_theta);
+      Serial.print(":");
+     
+      //閾値内にあるときは真っ直ぐ
+      if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
+        speed_R = Normal_speed;
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("Go straight");
+      }
+      //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+      else if (threshold/2 < delta_theta && delta_theta <= 180){ 
+        speed_R = Normal_speed;
+        speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("turn left");
+      }
+  
+      //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+      else { 
+        speed_R = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("turn right");
+        
+      }
+  }
+  Serial.print(",");
+  Serial.print(speed_L);
+  Serial.print(",");
+  Serial.println(speed_R);
+
+}
+
 
 
 //Hubenyの式
@@ -129,122 +254,6 @@ int quicksortFunc(const void *a, const void *b) {
 }
 
 
-
-
-
-void loop()
-{
-  
-
-  //BMX055 ジャイロの読み取り
-  BMX055_Gyro();
-  //BMX055 磁気の読み取り
-  BMX055_Mag();
-
-  float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; 
-  x = (x+Calib);
-
-  x = x + 7; 
-
-  if (x>360) {
-    x = x-360;
-  }
-
-  else if (x<0){
-    x = x+360;
-  }
-
-  else {
-    x = x;
-  }
-
- // バッファに取り込んで、インデックスを更新する。
-  buf[index] = x;
-  index = (index+1)%BUF_LEN;
-
-//フィルタ後の値を計算
-
-  filterVal = medianFilter();
-  x = filterVal;
-
-  
-  Serial.print("axis:");
-  Serial.print(x);
-  Serial.print(":");
-  
-
-  if (x < degRtoA){
-    delta_theta = degRtoA - x;
-    Serial.print("x < degRtoA:");
-    Serial.print(delta_theta);
-    Serial.print(":");
-    
-    //閾値内にあるときは真っ直ぐ
-    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
-      speed_R = Normal_speed;
-      speed_L = Normal_speed;
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L );
-      Serial.print("Go straight");
-    }
-    //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-    else if (threshold/2 < delta_theta && delta_theta <= 180){ 
-      speed_R = Normal_speed;
-      speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L ); 
-      Serial.print("turn left");
-    }
-
-    //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-    else { 
-      speed_R = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
-      speed_L = Normal_speed;
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L );
-      Serial.print("turn right");
-    }
-  }
-
-  
-  else{
-    delta_theta = x - degRtoA;
-    Serial.print("degRtoA < x:");
-    Serial.print(delta_theta);
-    Serial.print(":");
-   
-    //閾値内にあるときは真っ直ぐ
-    if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
-      speed_R = Normal_speed;
-      speed_L = Normal_speed;
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L );
-      Serial.print("Go straight");
-    }
-    //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-    else if (threshold/2 < delta_theta && delta_theta <= 180){ 
-      speed_R = Normal_speed - (delta_theta * Normal_speed / 180);
-      speed_L = Normal_speed;
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L );
-      Serial.print("turn right");
-    }
-
-    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-    else { 
-      speed_R = Normal_speed;
-      speed_L = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
-      analogWrite( CH1, speed_R );
-      analogWrite( CH3, speed_L );
-      Serial.print("turn left");
-    }
-  }
-  Serial.print(",");
-  Serial.print(speed_L);
-  Serial.print(",");
-  Serial.println(speed_R);
-
-}
 
 //=====================================================================================//
 void BMX055_Init()

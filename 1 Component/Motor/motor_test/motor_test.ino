@@ -1,11 +1,11 @@
-const int ENABLE = 3;
-const int CH1 = 4;
-const int CH2 = 5;
-const int CH3 = 6;
-const int CH4 = 7;
+const int ENABLE = 8;
+const int CH1 = 11;
+const int CH2 = 9;
+const int CH3 = 12;
+const int CH4 = 10;
 
 void setup() {
-  // put your setup code here, to run once:
+  // put your setup fcode here, to run once:
   Serial.begin(9600);
   pinMode(ENABLE,OUTPUT);  // 7番ピンをOUTPUT指定
   pinMode(CH1,OUTPUT);    // 10番ピンをOUTPUT指定
@@ -21,11 +21,13 @@ void setup() {
 void loop() {
     Serial.println("1:Normal rotaion");
     digitalWrite(ENABLE,HIGH); // enable on
-    digitalWrite(CH1,HIGH);    
+    digitalWrite(CH1,HIGH);
+//    analogWrite(CH1,100);    
     digitalWrite(CH2,LOW); 
-    digitalWrite(CH3,HIGH);    
+    digitalWrite(CH3,HIGH);
+//    analogWrite(CH3,100);      
     digitalWrite(CH4,LOW); 
-    delay(1000);
+    delay(4000);
 
     Serial.println("0:STOP");
     digitalWrite(ENABLE,LOW); // disable
@@ -39,7 +41,7 @@ void loop() {
     digitalWrite(CH2,HIGH); 
     digitalWrite(CH3,LOW);    
     digitalWrite(CH4,HIGH);
-    delay(1000);
+    delay(4000);
     
     Serial.println("0:STOP");
     digitalWrite(ENABLE,LOW); // disable
