@@ -1,22 +1,7 @@
 #include <TinyGPSPlus.h>
 TinyGPSPlus gps;
 
-float LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(今回はスカイツリー)
-float LatR, LongR;
-
-float degRtoA; //目的地とGPS現在地の角度
-float delta_theta;
-int threshold = 30; //角度の差分の閾値
-
 boolean GPS_flag = 1;
-
-//int buf_degRtoA[BUF_LEN];
-//int index_degRtoA = 0;
-
-float deg2rad(float deg) {
-        return deg * PI / 180.0;
-    }
-
 
 void setup()
 {
@@ -55,6 +40,7 @@ void loop()
   Serial.println("");
   Serial.println("I cannot get it........");
   //---------------------GPS取得--------------------------------------------------
+  //9軸関数の処理時間を模擬
   delay(200);
   GPS_flag = 1;
 }
