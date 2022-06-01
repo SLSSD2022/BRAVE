@@ -8,15 +8,16 @@
 
 TinyGPSPlus gps;
 
-// GPSのシリアル通信
-SoftwareSerial mySerial(12, 13); // RX, TX
-
 //モーター
-const int ENABLE = 3;
-const int CH1 = 4;
-const int CH2 = 5;
-const int CH3 = 6;
-const int CH4 = 7;
+const int ENABLE = 8;
+const int CH1 = 11;
+const int CH2 = 9;
+const int CH3 = 12;
+const int CH4 = 10;
+
+double Calib = 175; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calibx = 25;
+double Caliby = 138;
 
 // センサーの値を保存するグローバル変数
 float xGyro = 0.00;
@@ -26,10 +27,8 @@ int xMag = 0;
 int yMag = 0;
 int zMag = 0;
 
-double Calib = -60; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calibx = 10;
-double Caliby = 55;
-double LatA = 35.7121612, LongA = 139.760561; //目的地Aの緯度経度
+// double LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
+double LatA = 35.7142738, LongA = 139.76185488809645; //目的地Aの緯度経度(2号館)
 double LatR, LongR;
 
 float degRtoA;      //目的地とGPS現在地の角度
@@ -40,7 +39,7 @@ float x;
 
 boolean GPS_flag = 1;
 
-int Normal_speed = 100;
+int Normal_speed = 200;
 int speed_R;
 int speed_L;
 
@@ -59,12 +58,12 @@ float filterVal = 0.0;
 
 float deg2rad(float deg)
 {
-  return (float) (deg * PI / 180.0);
+  return (float)(deg * PI / 180.0);
 }
 
 double deg2rad(double deg)
 {
-  return (double) (deg * PI / 180.0);
+  return (double)(deg * PI / 180.0);
 }
 
 void setup()
@@ -73,7 +72,7 @@ void setup()
   Wire.begin();
   // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);
-  mySerial.begin(9600);
+  Serial1.begin(9600);
   // BMX055 初期化
   BMX055_Init();
 
@@ -83,6 +82,10 @@ void setup()
   pinMode(CH4, OUTPUT);
   digitalWrite(ENABLE, LOW); // disable
   delay(500);
+  digitalWrite(ENABLE, HIGH); // enable
+  digitalWrite(CH2, LOW);
+  digitalWrite(CH4, LOW);
+  delay(1000);
 }
 
 void loop()
@@ -93,17 +96,25 @@ void loop()
   // BMX055 磁気の読み取り
   BMX055_Mag();
 
-  //磁北を0°(or360°)として出力
-  //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
+  float x = atan2(yMag - Caliby, xMag - Calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
+  x = (x + Calib);
+  x = x - 7; //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
+
   // calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
-  x = atan2(yMag - Caliby, xMag - Calibx) / 3.14 * 180 + 180 + Calib + 7;
+
   if (x > 360)
   {
     x = x - 360;
   }
+
   else if (x < 0)
   {
     x = x + 360;
+  }
+
+  else
+  {
+    x = x;
   }
 
   // バッファに取り込んで、インデックスを更新する。
@@ -114,104 +125,100 @@ void loop()
   x = filterVal;
 
   //---------------------GPS取得--------------------------------------------------
-  if (mySerial.available() > 0)
+  while (Serial1.available() > 0 && GPS_flag == 1)
   {
-    char c = mySerial.read();
+    //    Serial.print("YES");
+    char c = Serial1.read();
+    //    Serial.print(c);
     gps.encode(c);
     if (gps.location.isUpdated())
     {
+      Serial.println("");
+      Serial.println("I got new GPS!");
       float LatR = gps.location.lat();  // roverの緯度を計算
       float LongR = gps.location.lng(); // roverの経度を計算
       degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-      // float RtoA = calculateDistance(LatA, LongA, LatR, LongR);
-      //  バッファに取り込んで、インデックスを更新する。
-      index_degRtoA = (index_degRtoA + 1) % BUF_LEN;
-      buf_degRtoA[index_degRtoA] = degRtoA;
+
+      GPS_flag = 0;
     }
+    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
+    delay(1);
   }
+  GPS_flag =1;
   //---------------------GPS取得--------------------------------------------------
-  //バッファから取り出す(一番最後に取得したGPSを取り出す)
-  degRtoA = buf_degRtoA[index_degRtoA];
   Serial.print("degRtoA:");
   Serial.print(degRtoA);
   Serial.print(":");
 
-  Serial.print("axis:");
+  Serial.print(":x:");
   Serial.print(x);
   Serial.print(":");
 
-  if (x < degRtoA)
-  {
-    delta_theta = degRtoA - x;
-    Serial.print("x < degRtoA:");
-    Serial.print(delta_theta);
-    Serial.print(":");
-
-    //閾値内にあるときは真っ直ぐ
-    if ((0 <= delta_theta && delta_theta <= threshold / 2) || (360 - threshold / 2 <= delta_theta && delta_theta <= degRtoA))
-    {
-      speed_R = Normal_speed;
-      speed_L = Normal_speed;
-      analogWrite(CH1, speed_R);
-      analogWrite(CH3, speed_L);
-      Serial.print("Go straight");
-    }
-    //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-    else if (threshold / 2 < delta_theta && delta_theta <= 180)
-    {
-      speed_R = Normal_speed;
-      speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
-      analogWrite(CH1, speed_R);
-      analogWrite(CH3, speed_L);
-      Serial.print("turn left");
-    }
-
-    //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-    else
-    {
-      speed_R = Normal_speed - ((360 - delta_theta) * Normal_speed / 180);
-      speed_L = Normal_speed;
-      analogWrite(CH1, speed_R);
-      analogWrite(CH3, speed_L);
-      Serial.print("turn right");
-    }
+  if (x < degRtoA){
+      delta_theta = degRtoA - x;
+      Serial.print("x < degRtoA:");
+      Serial.print(delta_theta);
+      Serial.print(":");
+      
+      //閾値内にあるときは真っ直ぐ
+      if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
+        speed_R = Normal_speed;
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("Go straight");
+      }
+      //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+      else if (threshold/2 < delta_theta && delta_theta <= 180){ 
+        speed_R = Normal_speed - (delta_theta * Normal_speed / 180);
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L ); 
+        Serial.print("turn right");
+      }
+  
+      //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+      else { 
+        speed_R = Normal_speed;
+        speed_L = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("turn left");
+      }
   }
 
-  else
-  {
-    delta_theta = x - degRtoA;
-    Serial.print("degRtoA < x:");
-    Serial.print(delta_theta);
-    Serial.print(":");
-
-    //閾値内にあるときは真っ直ぐ
-    if ((0 <= delta_theta && delta_theta <= threshold / 2) || (360 - threshold / 2 <= delta_theta && delta_theta <= 360))
-    {
-      speed_R = Normal_speed;
-      speed_L = Normal_speed;
-      analogWrite(CH1, speed_R);
-      analogWrite(CH3, speed_L);
-      Serial.print("Go straight");
-    }
-    //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-    else if (threshold / 2 < delta_theta && delta_theta <= 180)
-    {
-      speed_R = Normal_speed - (delta_theta * Normal_speed / 180);
-      speed_L = Normal_speed;
-      analogWrite(CH1, speed_R);
-      analogWrite(CH3, speed_L);
-      Serial.print("turn right");
-    }
-
-    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-    else
-    {
-      speed_R = Normal_speed;
-      speed_L = Normal_speed - ((360 - delta_theta) * Normal_speed / 180);
-      analogWrite(CH1, speed_R);
-      analogWrite(CH3, speed_L);
-      Serial.print("turn left");
-    }
+  else {
+      delta_theta = x - degRtoA;
+      Serial.print("degRtoA < x:");
+      Serial.print(delta_theta);
+      Serial.print(":");
+     
+      //閾値内にあるときは真っ直ぐ
+      if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
+        speed_R = Normal_speed;
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("Go straight");
+      }
+      //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+      else if (threshold/2 < delta_theta && delta_theta <= 180){ 
+        speed_R = Normal_speed;
+        speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("turn left");
+      }
+  
+      //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+      else { 
+        speed_R = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
+        speed_L = Normal_speed;
+        analogWrite( CH1, speed_R );
+        analogWrite( CH3, speed_L );
+        Serial.print("turn right");
+        
+      }
   }
   Serial.print(",");
   Serial.print(speed_L);
@@ -233,16 +240,16 @@ float calculateDistance(double latitude1, double longitude1, double latitude2, d
   double rad_lat2 = deg2rad(latitude2);
   double rad_lon2 = deg2rad(longitude2);
 
-  float dp = (float) (rad_lon1 - rad_lon2);        // 2点の緯度差
-  float dr = (float) (rad_lat1 - rad_lat2);        // 2点の経度差
-  float p = (float) ((rad_lon1 + rad_lon2) * 0.5); // 2点の平均緯度
+  float dp = (float)(rad_lon1 - rad_lon2);        // 2点の緯度差
+  float dr = (float)(rad_lat1 - rad_lat2);        // 2点の経度差
+  float p = (float)((rad_lon1 + rad_lon2) * 0.5); // 2点の平均緯度
 
-  float w = (float) sqrt(1.0 - e2 * pow(sin(p), 2));
-  float m = (float) (m_numer / pow(w, 3)); // 子午線曲率半径
-  float n = (float) (Rx / w);              // 卯酉(ぼうゆう)線曲率半径
+  float w = (float)sqrt(1.0 - e2 * pow(sin(p), 2));
+  float m = (float)(m_numer / pow(w, 3)); // 子午線曲率半径
+  float n = (float)(Rx / w);              // 卯酉(ぼうゆう)線曲率半径
 
   // 2点間の距離(単位m)
-  float d = (float) sqrt(pow((m * dp), 2) + pow((n * cos(p) * dr), 2));
+  float d = (float)sqrt(pow((m * dp), 2) + pow((n * cos(p) * dr), 2));
   return d;
 }
 
