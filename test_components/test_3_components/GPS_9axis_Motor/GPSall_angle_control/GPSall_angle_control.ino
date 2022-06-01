@@ -12,11 +12,11 @@ TinyGPSPlus gps;
 SoftwareSerial mySerial(12, 13); // RX, TX
 
 //モーター
-#define ENABLE 3;
-#define CH1 4;
-#define CH2 5;
-#define CH3 6;
-#define CH4 7;
+const int ENABLE = 3;
+const int CH1 = 4;
+const int CH2 = 5;
+const int CH3 = 6;
+const int CH4 = 7;
 
 // センサーの値を保存するグローバル変数
 float xGyro = 0.00;
