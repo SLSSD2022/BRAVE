@@ -1,30 +1,24 @@
-#include <TinyGPSPlus.h>
+//================================================================//
+//目的:方位航法の確認
+//方法:7号館屋上からスカイツリーの位置を正しく指すか確認する
+//================================================================//
 #include<Wire.h>
-// BMX055 ジャイロセンサのI2Cアドレス
-#define Addr_Gyro 0x69  // (JP1,JP2,JP3 = Openの時)
+
 // BMX055 磁気センサのI2Cアドレス
 #define Addr_Mag 0x13   // (JP1,JP2,JP3 = Openの時)
 
-TinyGPSPlus gps;
-boolean GPS_flag = 1;
+// センサーの値を保存するグローバル変数
 
 // センサーの値を保存するグローバル変数
-float xGyro = 0.00;
-float yGyro = 0.00;
-float zGyro = 0.00;
 int   xMag  = 0;
 int   yMag  = 0;
 int   zMag  = 0;
+double Calib = 175; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calibx = 25;
+double Caliby = 138;
 
-
-double Calib = 180; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calibx = 28;
-double Caliby = 143;
 float LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(今回はスカイツリー)
-float LatR, LongR;
-
-float degRtoA; //目的地とGPS現在地の角度
-float delta_theta;
+float LatR = 35.7153613, LongR = 139.7610722;  //現在地Rの緯度経度(今回は7号館屋上)
 int threshold = 30; //角度の差分の閾値
 
 
@@ -35,16 +29,15 @@ int threshold = 30; //角度の差分の閾値
 int buf[BUF_LEN];
 int index = 0;
 
-//int buf_degRtoA[BUF_LEN];
-//int index_degRtoA = 0;
+int buf_degRtoA[BUF_LEN];
+int index_degRtoA = 0;
 
 //フィルター後の値
 float filterVal =0;
 
 float deg2rad(float deg) {
         return deg * PI / 180.0;
-    }
-
+}
 
 void setup()
 {
@@ -55,15 +48,18 @@ void setup()
   Serial1.begin(9600);
   //BMX055 初期化
   BMX055_Init();
-  delay(500);
+  delay(300);
 }
-
 
 void loop()
 {
+  //Serial.println("--------------------------------------");
 
-//  //BMX055 ジャイロの読み取り
-//  BMX055_Gyro();
+  
+  float degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+  Serial.print("degRtoA:");Serial.print(degRtoA);
+  //degRtoAはroverと目的地Aの真北を基準にした角度のずれ
+
   //BMX055 磁気の読み取り
   BMX055_Mag();
   float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; //磁北を0°(or360°)として出力
@@ -90,64 +86,41 @@ void loop()
   //フィルタ後の値を計算
   filterVal = medianFilter();
   x = filterVal;
+  Serial.print(":x:");Serial.print(x);
+    
+  //delay(100);
 
+  float delta_theta;
 
-  //---------------------GPS取得--------------------------------------------------
-  while (Serial1.available() > 0 && GPS_flag == 1){
-//    Serial.print("YES");
-    char c = Serial1.read();
-//    Serial.print(c);
-    gps.encode(c);
-    if (gps.location.isUpdated()){
-      Serial.println("");
-      Serial.println("I got new GPS!");
-      LatR = gps.location.lat(); //roverの緯度を計算
-      LongR = gps.location.lng(); //roverの経度を計算
-      degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-      GPS_flag = 0;
-    }
-    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
-    delay(1);
-  }
-  GPS_flag =1;
-  //---------------------GPS取得--------------------------------------------------
-  //バッファから取り出す(一番最後に取得したGPSを取り出す)
-//  degRtoA = buf_degRtoA[index_degRtoA];
-  Serial.print("degRtoA:");Serial.print(degRtoA);
   
-  Serial.print(":x:");Serial.print(x); 
-    Serial.print(":");
-
   if (x < degRtoA){
     delta_theta = degRtoA - x;
-    Serial.print("x < degRtoA:");
+    Serial.print(":x < degRtoA:");
     Serial.print(delta_theta);
-    Serial.print(":");
     
     //閾値内にあるときは真っ直ぐ
     if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
-      Serial.println("This is the right direction!");
+      Serial.println(":This is the right direction!");
     }
     else {
-      Serial.println("This is the wrong direction!");
+      Serial.println(":This is the wrong direction!");
     }
   }
-  
+
   
   else{
     delta_theta = x - degRtoA;
-    Serial.print("degRtoA < x:");
+    Serial.print(":degRtoA < x:");
     Serial.print(delta_theta);
-    Serial.print(":");
    
     //閾値内にあるときは真っ直ぐ
     if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
-      Serial.println("This is the right direction!");
+      Serial.println(":This is the right direction!");
     }
-  
+
     //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
     else {
-      Serial.println("This is the wrong direction!");
+      Serial.println(":This is the wrong direction!");
     }
   }
 }
@@ -212,33 +185,7 @@ int quicksortFunc(const void *a, const void *b) {
 //=====================================================================================//
 void BMX055_Init()
 {
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Gyro);
-  Wire.write(0x0F);  // Select Range register
 
-  //ここでWire.write()の中の値を変えることでスケール変更可能
-  //0x00, 2000deg/s
-  //0x01, 1000deg/s
-  //0x02, 500deg/s
-  //0x03, 250deg/s
-  //0x04, 125deg/s
-  
-  Wire.write(0x04);  // Full scale = +/- 500 degree/s
-
-  Wire.endTransmission();
-  delay(100);
- //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Gyro);
-  Wire.write(0x10);  // Select Bandwidth register
-  Wire.write(0x07);  // ODR = 100 Hz
-  Wire.endTransmission();
-  delay(100);
- //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Gyro);
-  Wire.write(0x11);  // Select LPM1 register
-  Wire.write(0x00);  // Normal mode, Sleep duration = 2ms
-  Wire.endTransmission();
-  delay(100);
  //------------------------------------------------------------//
   Wire.beginTransmission(Addr_Mag);
   Wire.write(0x4B);  // Select Mag register
@@ -272,33 +219,7 @@ void BMX055_Init()
   Wire.write(0x16);  // No. of Repetitions for Z-Axis = 15
   Wire.endTransmission();
 }
-//=====================================================================================//
-void BMX055_Gyro()
-{
-  unsigned int data[6];
-  for (int i = 0; i < 6; i++)
-  {
-    Wire.beginTransmission(Addr_Gyro);
-    Wire.write((2 + i));    // Select data register
-    Wire.endTransmission();
-    Wire.requestFrom(Addr_Gyro, 1);    // Request 1 byte of data
-    // Read 6 bytes of data
-    // xGyro lsb, xGyro msb, yGyro lsb, yGyro msb, zGyro lsb, zGyro msb
-    if (Wire.available() == 1)
-      data[i] = Wire.read();
-  }
-  // Convert the data
-  xGyro = (data[1] * 256) + data[0];
-  if (xGyro > 32767)  xGyro -= 65536;
-  yGyro = (data[3] * 256) + data[2];
-  if (yGyro > 32767)  yGyro -= 65536;
-  zGyro = (data[5] * 256) + data[4];
-  if (zGyro > 32767)  zGyro -= 65536;
 
-  xGyro = xGyro * 0.0038; //  Full scale = +/- 125 degree/s
-  yGyro = yGyro * 0.0038; //  Full scale = +/- 125 degree/s
-  zGyro = zGyro * 0.0038; //  Full scale = +/- 125 degree/s
-}
 //=====================================================================================//
 void BMX055_Mag()
 {
