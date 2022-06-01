@@ -8,19 +8,15 @@
 int   xMag  = 0;
 int   yMag  = 0;
 int   zMag  = 0;
-int num = 5000;
 
 //バッファの長さ
-#define BUF_LEN 10
+#define BUF_LEN 400
 
 //バッファ
 int bufx[BUF_LEN];
 int bufy[BUF_LEN];
 int index = 0;
 
-//フィルター後の値
-float filterVal_x =0;
-float filterVal_y =0;
 
 
 void setup()
@@ -42,6 +38,38 @@ void setup()
 
 
 
+
+void loop()
+{
+  //適当な大きい数値と小さい数値
+  int Min_xMag = 1000;
+  int Max_xMag = -1000;
+  int Min_yMag = 1000;
+  int Max_yMag = -1000;
+
+//  Serial.println("Please turn your sensor 360°");
+  
+  BMX055_Mag();
+  bufx[index] = xMag;
+  bufy[index] = yMag;
+  index = (index+1)%BUF_LEN;
+  
+  Serial.print("xMag:");
+  Serial.print(xMag);
+  int Calib_x = medianFilter_x();
+
+  Serial.print(":Calib_x:");
+  Serial.print(Calib_x);
+  
+  Serial.print(":yMag:");
+  Serial.print(yMag);
+  int Calib_y = medianFilter_y(); 
+
+  Serial.print(":Calib_y:");
+  Serial.println(Calib_y);
+}
+  
+
 //Medianフィルタ関数
 int medianFilter_x() {
   //ソート用のバッファ
@@ -54,8 +82,13 @@ int medianFilter_x() {
 
   //クイックソートで並べ替える
   qsort(sortBufx, BUF_LEN, sizeof(int), quicksortFunc);
+  
+  Serial.print(":Min:");
+  Serial.print(sortBufx[0]);
+  Serial.print(":Max:");
+  Serial.print(sortBufx[BUF_LEN-1]);
 
-  return sortBufx[(int)BUF_LEN/2];
+  return (sortBufx[0]+sortBufx[BUF_LEN-1])/2;
 }
 
 //Medianフィルタ関数
@@ -71,7 +104,12 @@ int medianFilter_y() {
   //クイックソートで並べ替える
   qsort(sortBufy, BUF_LEN, sizeof(int), quicksortFunc);
 
-  return sortBufy[(int)BUF_LEN/2];
+  Serial.print(":Min:");
+  Serial.print(sortBufy[0]);
+  Serial.print(":Max:");
+  Serial.print(sortBufy[BUF_LEN-1]);
+
+  return (sortBufy[0]+sortBufy[BUF_LEN-1])/2;
 }
 
 //クイックソート関数
@@ -79,63 +117,6 @@ int quicksortFunc(const void *a, const void *b) {
   return *(int *)a - *(int *)b;
 }
 
-
-
-void loop()
-{
-  //適当な大きい数値と小さい数値
-  int Min_xMag = 1000;
-  int Max_xMag = -1000;
-  int Min_yMag = 1000;
-  int Max_yMag = -1000;
-
-  Serial.println("Please turn your sensor 360°");
-  
-  for(int i=1; i < num; i++){ //numで指定した回数数値を取得し、最大値と最小値を更新
-
-     BMX055_Mag();
-
-     bufx[index] = xMag;
-     bufy[index] = yMag;
-
-     index = (index+1)%BUF_LEN;
-
-     filterVal_x = medianFilter_x();
-     filterVal_y = medianFilter_y();
-     
-     Min_xMag = min(xMag,Min_xMag);
-     Max_xMag = max(xMag,Max_xMag);
-     Min_yMag = min(yMag,Min_yMag);
-     Max_yMag = max(yMag,Max_yMag);
-    
-     //delay(100);
-
-  }
-
-
-  Serial.print("Min xMag =");
-  Serial.println(Min_xMag);
-  
-  Serial.print("Max xMag =");
-  Serial.println(Max_xMag);
-  
-  Serial.print("Min yMag =");
-  Serial.println(Min_yMag);
-  
-  Serial.print("Max yMag =");
-  Serial.println(Max_yMag);
-  
-
-  int Calib_x = (Max_xMag + Min_xMag) / 2;
-  int Calib_y = (Max_yMag + Min_yMag) / 2;
-
-  Serial.print("Calib_x =");
-  Serial.println(Calib_x);
-
-  Serial.print("Calib_y =");
-  Serial.println(Calib_y);
-  }
-  
 
 //=====================================================================================//
 void BMX055_Init()
