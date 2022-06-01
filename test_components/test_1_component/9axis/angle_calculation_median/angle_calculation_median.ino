@@ -1,3 +1,12 @@
+//================================================================//
+//目的:9軸センサーの調整
+//方法:Calibx,yを調整することで
+//きちんと原点に対して円を描くようにする
+//Calibxを調整することで
+//xが磁北に対して0を示すようにする(ここではまだ真北との調整は行わない)
+//出力:
+//xMag-Calibx:yMag-Caliby:x(生取得値):filterval(フィルター値)
+//================================================================//
 #include<Wire.h>
 
 // BMX055 磁気センサのI2Cアドレス
@@ -8,9 +17,9 @@
 int   xMag  = 0;
 int   yMag  = 0;
 int   zMag  = 0;
-double Calib = 180; //キャリブレーション用定数
-double Calibx = 28;
-double Caliby = 143;
+double Calib = 175; //キャリブレーション用定数
+double Calibx = 25;
+double Caliby = 138;
 
 //int med = 0;
 //float degree[5] = {0};
@@ -18,7 +27,6 @@ double Caliby = 143;
 //----------------------------------------------------------------------------
 //バッファの長さ
 #define BUF_LEN 10
-
 //バッファ
 int buf[BUF_LEN];
 int index = 0;
@@ -92,8 +100,6 @@ void loop()
 //  Serial.print("Raw");
 //  Serial.print(",");
 //  Serial.println("Filtered");
-  Serial.print(x);
-  Serial.print(",");
   Serial.println(filterVal);
 
 //----------------------------------------------------------------------------

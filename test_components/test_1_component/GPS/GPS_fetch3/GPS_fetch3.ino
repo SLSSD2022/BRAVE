@@ -14,23 +14,21 @@ void setup() {
   while (!Serial1) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-
-
 }
 
 void loop() { // run over and over
 
   while (Serial1.available() > 0) {
     char c = Serial1.read();
-    Serial.print(c);
+//    Serial.print(c);
     gps.encode(c);
     if (gps.location.isUpdated()) {
 //      Serial.println("YEAHHHHHHHHHHHHHHHHHHHHH!");
-       Serial.print("LAT=");
-      Serial.print(gps.location.lat(), 6);
-       Serial.print("LONG=");
+//       Serial.print("LAT=");
+      Serial.print(gps.location.lat(), 13);
+//       Serial.print("LONG=");
       Serial.print(",");
-      Serial.println(gps.location.lng(), 6);
+      Serial.println(gps.location.lng(), 13);
     }
   }
 }

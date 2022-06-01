@@ -1,8 +1,11 @@
+#include <TinyGPSPlus.h>
 #include<Wire.h>
 // BMX055 ジャイロセンサのI2Cアドレス
 #define Addr_Gyro 0x69  // (JP1,JP2,JP3 = Openの時)
 // BMX055 磁気センサのI2Cアドレス
 #define Addr_Mag 0x13   // (JP1,JP2,JP3 = Openの時)
+
+TinyGPSPlus gps;
 
 
 // センサーの値を保存するグローバル変数
@@ -24,20 +27,20 @@ const int CH4 = 10;
 double Calib = 175; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
 double Calibx = 25;
 double Caliby = 138;
-float LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
-float LatR = 35.715328, LongR = 139.761138;  //目的地Aの緯度経度(7号館屋上)
+//float LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
+float LatA = 35.7142738, LongA = 139.76185488809645;  //目的地Aの緯度経度(2号館)
+float LatR, LongR;
 
-float degRtoA;
-
+float degRtoA; //目的地とGPS現在地の角度
 float delta_theta; //GPSと9軸の差分
 float threshold = 30; //角度の差分の閾値
 
-int flag = 1;
+
+boolean GPS_flag = 1;
 
 int Normal_speed = 200;
 int speed_R;
 int speed_L;
-
 
 //バッファの長さ
 #define BUF_LEN 10
@@ -46,12 +49,15 @@ int speed_L;
 int buf[BUF_LEN];
 int index = 0;
 
+int buf_degRtoA[BUF_LEN];
+int index_degRtoA = 0;
+
 //フィルター後の値
 float filterVal =0;
 
 float deg2rad(float deg) {
-  return deg * PI / 180.0;
-}
+        return deg * PI / 180.0;
+    }
 
 
 void setup()
@@ -60,67 +66,82 @@ void setup()
   Wire.begin();
   // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);
+  Serial1.begin(9600);
   //BMX055 初期化
   BMX055_Init();
-
+  
   pinMode( CH1, OUTPUT );
   pinMode( CH2, OUTPUT );
   pinMode( CH3, OUTPUT );
   pinMode( CH4, OUTPUT );
   digitalWrite(ENABLE,LOW); // disable
-  
-  degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-  Serial.println(degRtoA);
-  
-  delay(1000);
-  
+  delay(500);
   digitalWrite(ENABLE,HIGH); // enable
   digitalWrite( CH2, LOW);
   digitalWrite( CH4, LOW);
-  
+  delay(1000);
 }
- 
+
+
 
 
 
 void loop()
 {
-  Serial.print("degRtoA:");
-  Serial.print(degRtoA);
-  Serial.print(":");
 
   //BMX055 ジャイロの読み取り
   BMX055_Gyro();
   //BMX055 磁気の読み取り
   BMX055_Mag();
-
-  float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; 
+  float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; //磁北を0°(or360°)として出力
   x = (x+Calib);
+  x = x - 7;  //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
 
-  x = x - 7; 
+  //calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
 
   if (x>360) {
     x = x-360;
   }
 
   else if (x<0){
-    x = x+360;
+   x = x+360;
   }
 
   else {
-    x = x;
+   x = x;
   }
 
- // バッファに取り込んで、インデックスを更新する。
+  // バッファに取り込んで、インデックスを更新する。
   buf[index] = x;
   index = (index+1)%BUF_LEN;
-
-//フィルタ後の値を計算
-
+  //フィルタ後の値を計算
   filterVal = medianFilter();
   x = filterVal;
 
+  //---------------------GPS取得--------------------------------------------------
+  while (Serial1.available() > 0 && GPS_flag == 1){
+//    Serial.print("YES");
+    char c = Serial1.read();
+//    Serial.print(c);
+    gps.encode(c);
+    if (gps.location.isUpdated()){
+      Serial.println("");
+      Serial.println("I got new GPS!");
+      LatR = gps.location.lat(); //roverの緯度を計算
+      LongR = gps.location.lng(); //roverの経度を計算
+      degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+      GPS_flag = 0;
+    }
+    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
+    delay(1);
+  }
+  GPS_flag =1;
+  //---------------------GPS取得--------------------------------------------------
   
+  Serial.print("degRtoA:");
+  Serial.print(degRtoA);
+  
+      
   Serial.print(":x:");
   Serial.print(x);
   Serial.print(":");
@@ -197,9 +218,7 @@ void loop()
   Serial.print(speed_L);
   Serial.print(",");
   Serial.println(speed_R);
-
 }
-
 
 
 //Hubenyの式
@@ -210,7 +229,7 @@ float calculateDistance(float latitude1, float longitude1, float latitude2, floa
     float Rx = 6378137.0;             // WGS84における「赤道半径Rx」
     float m_numer = 6335439.32729246; // WGS84における「子午線曲率半径M」の分子(Rx(1-e^2))
 
-   
+ 
 
     float rad_lat1 = deg2rad(latitude1);
     float rad_lon1 = deg2rad(longitude1);

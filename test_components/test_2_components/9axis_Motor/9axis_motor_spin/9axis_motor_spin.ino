@@ -21,23 +21,31 @@ const int CH2 = 9;
 const int CH3 = 12;
 const int CH4 = 10;
 
-double Calib = 81; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calibx = 45;
-double Caliby = 55;
+double Calib; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calibx;
+double Caliby;
 
-int speed_R = 100;
-int speed_L = 100;
+int Speed = 100;
 
 
-//バッファの長さ
+//メディアンフィルタ用バッファの長さ
 #define BUF_LEN 10
 
-//バッファ
+//メディアンフィルタ用バッファ
 int buf[BUF_LEN];
 int index = 0;
 
-//フィルター後の値
+//メディアンフィルター後の値
 float filterVal =0;
+
+//磁気キャリブ用のバッファの長さ
+#define MAG_BUF_LEN 400
+
+//磁気キャリブ用のバッファ
+int xMag_buf[MAG_BUF_LEN];
+int yMag_buf[MAG_BUF_LEN];
+int Mag_index = 0;
+
 
 float deg2rad(float deg) {
   return deg * PI / 180.0;
@@ -66,37 +74,44 @@ void setup()
   digitalWrite(ENABLE,LOW); // disable
   
   delay(1000);
+  digitalWrite(ENABLE,HIGH); // enable
+  digitalWrite( CH2, LOW);
+  digitalWrite( CH4, LOW);
 }
   
 
 void loop()
 {
+  //常にスピンさせておく。
+  digitalWrite(ENABLE,HIGH); // enable on
+  analogWrite(CH1, Speed);    
+  digitalWrite(CH2,LOW); 
+  digitalWrite(CH3,LOW);    
+  analogWrite(CH4, Speed); 
   
   //BMX055 磁気の読み取り
   BMX055_Mag();
+
+  // バッファに取り込んで、インデックスを更新する。
+  xMag_buf[Mag_index] = xMag;
+  yMag_buf[Mag_index] = yMag;
+  Mag_index = (Mag_index+1)%MAG_BUF_LEN;
+
+  //キャリブレーション値を計算する
+  Calibx = center_calculation(xMag_buf,MAG_BUF_LEN);
+  Caliby = center_calculation(yMag_buf,MAG_BUF_LEN);
+  
+  Serial.print(Calibx);
+  Serial.print(",");
+  Serial.print(Caliby);
+  Serial.print(",");
 
   Serial.print(xMag-Calibx);
   Serial.print(",");
   Serial.print(yMag-Caliby);
   Serial.print(",");
 
-  float x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; 
-  x = (x+Calib);
-
-  x = x + 7; 
-
-  if (x>360) {
-    x = x-360;
-  }
-
-  else if (x<0){
-    x = x+360;
-  }
-
-  else {
-    x = x;
-  }
-
+  double x = angle_calculation();
   
   Serial.print(x);
   Serial.print(",");
@@ -109,21 +124,36 @@ void loop()
 //フィルタ後の値を計算
 
   filterVal = medianFilter();
-  x = filterVal;
+  return filterVal;
 
   
-  Serial.print("axis:");
-  Serial.print(x);
+  Serial.print("filterVal:");
+  Serial.print(filterVal);
   Serial.print(":");
-
-  digitalWrite(ENABLE,HIGH); // enable on
-  analogWrite(CH1,speed_R);    
-  digitalWrite(CH2,LOW); 
-  digitalWrite(CH3,LOW);    
-  analogWrite(CH4,speed_L); 
-  delay(100);
-  
 }
+
+
+double angle_calculation(){
+  double x = atan2(yMag-Caliby,xMag-Calibx)/3.14*180+180; 
+  x = x + Calib;
+
+  x = x - 7; 
+
+  if (x>360) {
+    x = x-360;
+  }
+
+  else if (x<0){
+    x = x +360;
+  }
+
+  else {
+    x = x;
+  }
+
+  return x;
+}
+
 
 //Medianフィルタ関数
 int medianFilter() {
@@ -141,12 +171,26 @@ int medianFilter() {
   return sortBuf[(int)BUF_LEN/2];
 }
 
+//最大値と最小値の平均を出す関数
+int center_calculation(int* buf,int len) {
+  //ソート用のバッファ
+  int sortBuf[len];
+
+  //ソート用バッファにデータをコピー
+  for(int i=0; i<len; i++) {
+    sortBuf[i] = buf[i];
+  }
+
+  //クイックソートで並べ替える
+  qsort(sortBuf, len, sizeof(int), quicksortFunc);
+
+  return (sortBuf[0] + sortBuf[(int)BUF_LEN-1])/2;
+}
+
 //クイックソート関数
 int quicksortFunc(const void *a, const void *b) {
   return *(int *)a - *(int *)b;
 }
-
-
 
 
 
