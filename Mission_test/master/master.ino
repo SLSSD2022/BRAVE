@@ -26,6 +26,7 @@ const int CH3 = 12;
 const int CH4 = 10;
 
 int Normal_speed = 200;
+int Slow_speed = 100;
 int speed_R;
 int speed_L;
 
@@ -188,8 +189,9 @@ void loop()
   
   Serial.print(":cm:");
   Serial.print(cm);
-  if(cm<60){
-    Stop_flag = 1;
+  if(cm<30){
+    Stop_flag = 1;                                                                                                                               
+    
   }else{
     Stop_flag = 0;
   }
@@ -198,11 +200,20 @@ void loop()
   //---------------------モーター制御--------------------------------------------------
   if(Stop_flag == 1){
     //ブレーキ
+    digitalWrite(ENABLE, HIGH);
     digitalWrite(CH1,HIGH);
     digitalWrite(CH2,HIGH);
     digitalWrite(CH3,HIGH);
     digitalWrite(CH4,HIGH);
     Status_control = 0;//"stop"
+  }
+  else if(Stop_flag == 0 && Near_flag == 1){
+    digitalWrite(ENABLE, HIGH); // enable
+    digitalWrite(CH1, LOW);
+    analogWrite(CH2, Normal_speed);
+    analogWrite(CH3, LOW);
+    digitalWrite(CH4, Slow_speed);
+    Status_control = 4;//"spin to right"
   }
   else if(Stop_flag == 0 && Near_flag == 0){
     motor_angle_go();
