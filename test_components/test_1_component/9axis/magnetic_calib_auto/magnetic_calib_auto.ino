@@ -17,6 +17,9 @@ int bufx[BUF_LEN];
 int bufy[BUF_LEN];
 int index = 0;
 
+double Calib = 175; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calibx = 20;
+double Caliby = 133;
 
 
 void setup()
@@ -50,19 +53,19 @@ void loop()
 //  Serial.println("Please turn your sensor 360°");
   
   BMX055_Mag();
-  bufx[index] = xMag;
-  bufy[index] = yMag;
+  bufx[index] = xMag-Calibx;
+  bufy[index] = yMag-Caliby;
   index = (index+1)%BUF_LEN;
   
   Serial.print("xMag:");
-  Serial.print(xMag);
+  Serial.print(xMag-Calibx);
   int Calib_x = medianFilter_x();
 
   Serial.print(":Calib_x:");
   Serial.print(Calib_x);
   
   Serial.print(":yMag:");
-  Serial.print(yMag);
+  Serial.print(yMag-Caliby);
   int Calib_y = medianFilter_y(); 
 
   Serial.print(":Calib_y:");

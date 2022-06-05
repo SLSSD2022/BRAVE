@@ -1,5 +1,6 @@
-const int TrigPIN = 53; 
-const int EchoPIN = 52;
+
+const int HEAD_Trig = 22; 
+const int HEAD_Echo = 24;
 
 void setup() {
   // put your setup code here, to run once:
@@ -19,7 +20,7 @@ void loop() {
   duration = pulseIn(EchoPIN,HIGH);
   cm = microsecTocm(duration);
   Serial.print(cm);
-  Serial.print(":");
+  Serial.println("");
   delay(100);
 }
 
