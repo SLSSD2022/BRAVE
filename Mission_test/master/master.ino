@@ -7,7 +7,11 @@ long duration;
 unsigned int cm;
 const int HEAD_Trig = 22; 
 const int HEAD_Echo = 24;
-
+//ゴール付近測距用バッファの長さ
+#define SEA_BUF_LEN 20
+int bufcm[SEA_BUF_LEN];
+int sea_index = 0;
+int goal_threshould = 30;
 
 //超音波センサー(長)前面
 #define HEAD_Analog A15; 
@@ -26,7 +30,7 @@ const int CH3 = 10;
 const int CH4 = 12;
 
 int Normal_speed = 200;
-int Slow_speed = 110;
+int Slow_speed = 100;
 int speed_R;
 int speed_L;
 
@@ -57,10 +61,12 @@ int buf[BUF_LEN];
 int index = 0;
 float filterVal = 0.0; //フィルター後の値
 //キャリブレーション用バッファの長さ
-#define CAL_BUF_LEN 400
+#define CAL_BUF_LEN 100
 int bufx[CAL_BUF_LEN];
 int bufy[CAL_BUF_LEN];
 int cal_index = 0;
+//測距用バッファの長さ
+int bufdeg[SEA_BUF_LEN];
 
 
 //GPS
@@ -72,7 +78,7 @@ double LatR = 35.715328, LongR = 139.761138;  //現在地の初期想定値(7号
 float degRtoA; //GPS現在地における目的地の慣性方角
 float x; //ローバーの慣性姿勢角
 float delta_theta;//目的方向と姿勢の相対角度差
-int threshold = 30; //角度の差分の閾値
+int threshold = 20; //角度の差分の閾値
 
 //EEPROM
 //デバイスアドレス(スレーブ)
@@ -85,6 +91,7 @@ boolean Calibration_flag = 1;
 boolean Stop_flag = 0;
 boolean Near_flag = 0;
 boolean Success_flag = 0;
+boolean Search_flag = 0;
 int Memory_flag = 0;
 int Status_control;
 unsigned long time;
@@ -94,7 +101,8 @@ unsigned long time;
 void setup()
 {
   //ステータス設定(試験したい状況)
-  Near_flag = 0;//ゴール5m付近のとき
+  Near_flag = 1;//ゴール5m付近のとき
+  Search_flag = 1;//ゴール5m付近で測距するとき
   
   
   //超音波センサ
@@ -151,30 +159,8 @@ void loop()
   // BMX055 磁気の読み取り
   BMX055_Mag();
 
-  //キャリブレーション
-  if(Calibration_flag == 1){
-    Serial.print(":xMag:");
-    Serial.print(xMag);
-    Serial.print(":yMag:");
-    Serial.print(yMag);
-    Serial.print(":cal_index:");
-    Serial.print(cal_index);
-    bufx[cal_index] = xMag;
-    bufy[cal_index] = yMag;
-    if(cal_index == CAL_BUF_LEN-1){//バッファに値がたまったら
-      Calibx = xcenter_calculation();
-      Caliby = ycenter_calculation();
-      Calibration_flag = 0 ;
-      Serial.print(":Calib_x:");
-      Serial.print(Calibx);
-      Serial.print(":Calib_y:");
-      Serial.print(Caliby);
-    }
-    else{
-      cal_index = (cal_index+1)%CAL_BUF_LEN;
-    }
-  }
-  else{
+  //キャリブレーションが終了しているなら
+  if(Calibration_flag == 0){
     x = angle_calculation(); 
   }
   
@@ -225,7 +211,50 @@ void loop()
     Stop_flag = 0;
   }
 
-  
+  //---------------------ステータスごとの特別な制御------------------------------------------------------
+  //キャリブレーション
+  if(Calibration_flag == 1){
+    Serial.print(":xMag:");
+    Serial.print(xMag);
+    Serial.print(":yMag:");
+    Serial.print(yMag);
+    Serial.print(":cal_index:");
+    Serial.print(cal_index);
+    bufx[cal_index] = xMag;
+    bufy[cal_index] = yMag;
+    if(cal_index == CAL_BUF_LEN-1){//バッファに値がたまったら
+      Calibx = xcenter_calculation();
+      Caliby = ycenter_calculation();
+      Calibration_flag = 0 ;
+      Serial.print(":Calib_x:");
+      Serial.print(Calibx);
+      Serial.print(":Calib_y:");
+      Serial.print(Caliby);
+      x = angle_calculation();//このループ後半のためだけ
+    }
+    else{
+      cal_index = (cal_index+1)%CAL_BUF_LEN;
+    }
+  }
+
+  //ゴール探索時
+  if(Calibration_flag == 0 && Search_flag == 1){
+    if(0<cm && cm < goal_threshould){
+      bufcm[sea_index] = cm;
+      bufdeg[sea_index] = x;
+      if(sea_index == SEA_BUF_LEN-1){//バッファに値がたまったら
+        sea_index = goal_angle_search();
+        degRtoA = bufdeg[sea_index];
+        Search_flag = 0;
+        sea_index = 0;
+      }
+      else{
+        sea_index = (sea_index+1)%SEA_BUF_LEN;
+      }
+    }
+  }
+
+
   //---------------------モーター制御--------------------------------------------------
   if(Stop_flag == 1){
     //ブレーキ
@@ -236,15 +265,7 @@ void loop()
     digitalWrite(CH4,HIGH);
     Status_control = 0;//"stop"
   }
-  else if(Stop_flag == 0 && Near_flag == 1){
-    digitalWrite(ENABLE, HIGH); // enable
-    analogWrite(CH1, Slow_speed);
-    analogWrite(CH2, 0);
-    analogWrite(CH3, 0);
-    analogWrite(CH4, Slow_speed);
-    Status_control = 4;//"spin to right
-  }
-  else if(Stop_flag == 0 && Calibration_flag == 1){
+  else if(Stop_flag == 0 && Calibration_flag == 1){//キャリブレーション時
     digitalWrite(ENABLE, HIGH); // enable
     analogWrite(CH1, Slow_speed);
     analogWrite(CH2, 0);
@@ -252,11 +273,23 @@ void loop()
     analogWrite(CH4, Slow_speed);
     Status_control = 7;//"Calibration..."
   }
-  else if(Stop_flag == 0 && Near_flag == 0){
+  else if(Stop_flag == 0 && Calibration_flag == 0 && Near_flag == 1){//ゴール5m付近時
+    if(Search_flag == 1){//スピンしながらコーンを探索
+      digitalWrite(ENABLE, HIGH); // enable
+      analogWrite(CH1, 0);
+      analogWrite(CH2, Slow_speed);
+      analogWrite(CH3, Slow_speed);
+      analogWrite(CH4, 0);
+      Status_control = 4;//"Spin to right..."
+    }
+    else{//コーンの方を向く
+      motor_angle_spin();
+    }
+  }
+  else if(Stop_flag == 0 && Calibration_flag == 0 && Near_flag == 0 ){//通常走行時
     motor_angle_go();
   }
 
-  //---------------------ステータスごとの特別な制御------------------------------------------------------
 
   //---------------------ログ書き込み------------------------------------------------------
   if(Memory_flag > 5){
@@ -311,11 +344,25 @@ void loop()
 
 //========================================================================================================================
 
+//=========超音波センサ関連============================================================================//
 unsigned int microsecTocm(long microsec){
   return (unsigned int) microsec /29 /2;
 }
 
+int goal_angle_search(){//探索時、最も測距値が近い角度をゴールの方向と決定する。
+  int mincm = bufcm[0];
+  int minindex = 0;
+  for (int i = 0; i < SEA_BUF_LEN; i++)
+  {
+    if(bufcm[i] < mincm){
+      mincm = bufcm[i];
+      minindex = i;
+    }
+  }
+  return minindex;
+}
 
+//=========GPS関連============================================================================//
 float deg2rad(float deg)
 {
   return (float)(deg * PI / 180.0);
@@ -351,6 +398,128 @@ float calculateDistance(double latitude1, double longitude1, double latitude2, d
   // 2点間の距離(単位m)
   float d = (float)sqrt(pow((m * dp), 2) + pow((n * cos(p) * dr), 2));
   return d;
+}
+
+//===========9軸関係==========================================================================//
+void BMX055_Init()
+{
+  //------------------------------------------------------------//
+  Wire.beginTransmission(Addr_Gyro);
+  Wire.write(0x0F); // Select Range register
+
+  //ここでWire.write()の中の値を変えることでスケール変更可能
+  // 0x00, 2000deg/s
+  // 0x01, 1000deg/s
+  // 0x02, 500deg/s
+  // 0x03, 250deg/s
+  // 0x04, 125deg/s
+
+  Wire.write(0x04); // Full scale = +/- 500 degree/s
+
+  Wire.endTransmission();
+  delay(100);
+  //------------------------------------------------------------//
+  Wire.beginTransmission(Addr_Gyro);
+  Wire.write(0x10); // Select Bandwidth register
+  Wire.write(0x07); // ODR = 100 Hz
+  Wire.endTransmission();
+  delay(100);
+  //------------------------------------------------------------//
+  Wire.beginTransmission(Addr_Gyro);
+  Wire.write(0x11); // Select LPM1 register
+  Wire.write(0x00); // Normal mode, Sleep duration = 2ms
+  Wire.endTransmission();
+  delay(100);
+  //------------------------------------------------------------//
+  Wire.beginTransmission(Addr_Mag);
+  Wire.write(0x4B); // Select Mag register
+  Wire.write(0x83); // Soft reset
+  Wire.endTransmission();
+  delay(100);
+  //------------------------------------------------------------//
+  Wire.beginTransmission(Addr_Mag);
+  Wire.write(0x4B); // Select Mag register
+  Wire.write(0x01); // Soft reset
+  Wire.endTransmission();
+  delay(100);
+  //------------------------------------------------------------//
+  Wire.beginTransmission(Addr_Mag);
+  Wire.write(0x4C); // Select Mag register
+  Wire.write(0x00); // Normal Mode, ODR = 10 Hz
+  Wire.endTransmission();
+  //------------------------------------------------------------//
+  Wire.beginTransmission(Addr_Mag);
+  Wire.write(0x4E); // Select Mag register
+  Wire.write(0x84); // X, Y, Z-Axis enabled
+  Wire.endTransmission();
+  //------------------------------------------------------------//
+  Wire.beginTransmission(Addr_Mag);
+  Wire.write(0x51); // Select Mag register
+  Wire.write(0x04); // No. of Repetitions for X-Y Axis = 9
+  Wire.endTransmission();
+  //------------------------------------------------------------//
+  Wire.beginTransmission(Addr_Mag);
+  Wire.write(0x52); // Select Mag register
+  Wire.write(0x16); // No. of Repetitions for Z-Axis = 15
+  Wire.endTransmission();
+}
+
+
+void BMX055_Gyro()
+{
+  unsigned int data[6];
+  for (int i = 0; i < 6; i++)
+  {
+    Wire.beginTransmission(Addr_Gyro);
+    Wire.write((2 + i)); // Select data register
+    Wire.endTransmission();
+    Wire.requestFrom(Addr_Gyro, 1); // Request 1 byte of data
+    // Read 6 bytes of data
+    // xGyro lsb, xGyro msb, yGyro lsb, yGyro msb, zGyro lsb, zGyro msb
+    if (Wire.available() == 1)
+      data[i] = Wire.read();
+  }
+  // Convert the data
+  xGyro = (data[1] * 256) + data[0];
+  if (xGyro > 32767)
+    xGyro -= 65536;
+  yGyro = (data[3] * 256) + data[2];
+  if (yGyro > 32767)
+    yGyro -= 65536;
+  zGyro = (data[5] * 256) + data[4];
+  if (zGyro > 32767)
+    zGyro -= 65536;
+
+  xGyro = xGyro * 0.0038; //  Full scale = +/- 125 degree/s
+  yGyro = yGyro * 0.0038; //  Full scale = +/- 125 degree/s
+  zGyro = zGyro * 0.0038; //  Full scale = +/- 125 degree/s
+}
+
+
+void BMX055_Mag()
+{
+  unsigned int data[8];
+  for (int i = 0; i < 8; i++)
+  {
+    Wire.beginTransmission(Addr_Mag);
+    Wire.write((0x42 + i)); // Select data register
+    Wire.endTransmission();
+    Wire.requestFrom(Addr_Mag, 1); // Request 1 byte of data
+    // Read 6 bytes of data
+    // xMag lsb, xMag msb, yMag lsb, yMag msb, zMag lsb, zMag msb
+    if (Wire.available() == 1)
+      data[i] = Wire.read();
+  }
+  // Convert the data
+  xMag = ((data[1] << 5) | (data[0] >> 3));
+  if (xMag > 4095)
+    xMag -= 8192;
+  yMag = ((data[3] << 5) | (data[2] >> 3));
+  if (yMag > 4095)
+    yMag -= 8192;
+  zMag = ((data[5] << 7) | (data[4] >> 1));
+  if (zMag > 16383)
+    zMag -= 32768;
 }
 
 float angle_calculation(){
@@ -459,125 +628,8 @@ int quicksortFunc(const void *a, const void *b)
   return *(int *)a - *(int *)b;
 }
 
-//=====================================================================================//
-void BMX055_Init()
-{
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Gyro);
-  Wire.write(0x0F); // Select Range register
 
-  //ここでWire.write()の中の値を変えることでスケール変更可能
-  // 0x00, 2000deg/s
-  // 0x01, 1000deg/s
-  // 0x02, 500deg/s
-  // 0x03, 250deg/s
-  // 0x04, 125deg/s
-
-  Wire.write(0x04); // Full scale = +/- 500 degree/s
-
-  Wire.endTransmission();
-  delay(100);
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Gyro);
-  Wire.write(0x10); // Select Bandwidth register
-  Wire.write(0x07); // ODR = 100 Hz
-  Wire.endTransmission();
-  delay(100);
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Gyro);
-  Wire.write(0x11); // Select LPM1 register
-  Wire.write(0x00); // Normal mode, Sleep duration = 2ms
-  Wire.endTransmission();
-  delay(100);
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Mag);
-  Wire.write(0x4B); // Select Mag register
-  Wire.write(0x83); // Soft reset
-  Wire.endTransmission();
-  delay(100);
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Mag);
-  Wire.write(0x4B); // Select Mag register
-  Wire.write(0x01); // Soft reset
-  Wire.endTransmission();
-  delay(100);
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Mag);
-  Wire.write(0x4C); // Select Mag register
-  Wire.write(0x00); // Normal Mode, ODR = 10 Hz
-  Wire.endTransmission();
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Mag);
-  Wire.write(0x4E); // Select Mag register
-  Wire.write(0x84); // X, Y, Z-Axis enabled
-  Wire.endTransmission();
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Mag);
-  Wire.write(0x51); // Select Mag register
-  Wire.write(0x04); // No. of Repetitions for X-Y Axis = 9
-  Wire.endTransmission();
-  //------------------------------------------------------------//
-  Wire.beginTransmission(Addr_Mag);
-  Wire.write(0x52); // Select Mag register
-  Wire.write(0x16); // No. of Repetitions for Z-Axis = 15
-  Wire.endTransmission();
-}
-//=====================================================================================//
-void BMX055_Gyro()
-{
-  unsigned int data[6];
-  for (int i = 0; i < 6; i++)
-  {
-    Wire.beginTransmission(Addr_Gyro);
-    Wire.write((2 + i)); // Select data register
-    Wire.endTransmission();
-    Wire.requestFrom(Addr_Gyro, 1); // Request 1 byte of data
-    // Read 6 bytes of data
-    // xGyro lsb, xGyro msb, yGyro lsb, yGyro msb, zGyro lsb, zGyro msb
-    if (Wire.available() == 1)
-      data[i] = Wire.read();
-  }
-  // Convert the data
-  xGyro = (data[1] * 256) + data[0];
-  if (xGyro > 32767)
-    xGyro -= 65536;
-  yGyro = (data[3] * 256) + data[2];
-  if (yGyro > 32767)
-    yGyro -= 65536;
-  zGyro = (data[5] * 256) + data[4];
-  if (zGyro > 32767)
-    zGyro -= 65536;
-
-  xGyro = xGyro * 0.0038; //  Full scale = +/- 125 degree/s
-  yGyro = yGyro * 0.0038; //  Full scale = +/- 125 degree/s
-  zGyro = zGyro * 0.0038; //  Full scale = +/- 125 degree/s
-}
-//=====================================================================================//
-void BMX055_Mag()
-{
-  unsigned int data[8];
-  for (int i = 0; i < 8; i++)
-  {
-    Wire.beginTransmission(Addr_Mag);
-    Wire.write((0x42 + i)); // Select data register
-    Wire.endTransmission();
-    Wire.requestFrom(Addr_Mag, 1); // Request 1 byte of data
-    // Read 6 bytes of data
-    // xMag lsb, xMag msb, yMag lsb, yMag msb, zMag lsb, zMag msb
-    if (Wire.available() == 1)
-      data[i] = Wire.read();
-  }
-  // Convert the data
-  xMag = ((data[1] << 5) | (data[0] >> 3));
-  if (xMag > 4095)
-    xMag -= 8192;
-  yMag = ((data[3] << 5) | (data[2] >> 3));
-  if (yMag > 4095)
-    yMag -= 8192;
-  zMag = ((data[5] << 7) | (data[4] >> 1));
-  if (zMag > 16383)
-    zMag -= 32768;
-}
+//=========モーター関連============================================================================//
 
 void motor_angle_go()
 {
@@ -662,6 +714,110 @@ void motor_angle_go()
   Serial.print(speed_R);
 }
 
+
+void motor_angle_spin()
+{    
+  if (x < degRtoA){
+      delta_theta = degRtoA - x;
+      Serial.print("x < degRtoA:");
+      Serial.print(delta_theta);
+      Serial.print(":");
+      
+      //閾値内にあるときは真っ直ぐ
+      if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
+        speed_R = Normal_speed;
+        speed_L = Normal_speed;
+        //ブレーキ
+        digitalWrite(ENABLE, HIGH);
+        digitalWrite(CH1,HIGH);
+        digitalWrite(CH2,HIGH);
+        digitalWrite(CH3,HIGH);
+        digitalWrite(CH4,HIGH);
+        Serial.print("stop");
+        Status_control = 0;//"stop"
+      }
+      //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+      else if (threshold/2 < delta_theta && delta_theta <= 180){ 
+        speed_R = Normal_speed - (delta_theta * Normal_speed / 180);
+        speed_L = Normal_speed;
+        digitalWrite(ENABLE, HIGH); // enable
+        analogWrite(CH1, 0);
+        analogWrite(CH2, Slow_speed);
+        analogWrite(CH3, Slow_speed);
+        analogWrite(CH4, 0);
+        Serial.print("spin to right");
+        Status_control = 4;//"spin to right"
+      }
+  
+      //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+      else { 
+//        speed_R = Normal_speed;
+//        speed_L = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
+        digitalWrite(ENABLE, HIGH); // enable
+        analogWrite(CH1, Slow_speed);
+        analogWrite(CH2, 0);
+        analogWrite(CH3, 0);
+        analogWrite(CH4, Slow_speed);
+        Serial.print("spin to left");
+        Status_control = 5;//"spin to left
+      }
+  }
+
+  else {
+      delta_theta = x - degRtoA;
+      Serial.print("degRtoA < x:");
+      Serial.print(delta_theta);
+      Serial.print(":");
+     
+      //閾値内にあるときは真っ直ぐ
+      if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
+        speed_R = Normal_speed;
+        speed_L = Normal_speed;
+        //ブレーキ
+        digitalWrite(ENABLE, HIGH);
+        digitalWrite(CH1,HIGH);
+        digitalWrite(CH2,HIGH);
+        digitalWrite(CH3,HIGH);
+        digitalWrite(CH4,HIGH);
+        Serial.print("stop");
+        Status_control = 0;//"stop"
+      }
+      //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+      else if (threshold/2 < delta_theta && delta_theta <= 180){ 
+        speed_R = Normal_speed;
+        speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
+        digitalWrite(ENABLE, HIGH); // enable
+        analogWrite(CH1, Slow_speed);
+        analogWrite(CH2, 0);
+        analogWrite(CH3, 0);
+        analogWrite(CH4, Slow_speed);
+        Serial.print("spin to left");
+        Status_control = 5;//"spin to left
+      }
+  
+      //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+      else { 
+        speed_R = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
+        speed_L = Normal_speed;
+        digitalWrite(ENABLE, HIGH); // enable
+        analogWrite(CH1, 0);
+        analogWrite(CH2, Slow_speed);
+        analogWrite(CH3, Slow_speed);
+        analogWrite(CH4, 0);
+        Serial.print("spin to right");
+        Status_control = 4;//"spin to right"
+        
+      }
+  }
+  Serial.print(",");
+  Serial.print(speed_L);
+  Serial.print(",");
+  Serial.print(speed_R);
+}
+
+
+
+    
 //============EEPROM関連=========================================================================//
 void writeEEPROM(int addr_device, unsigned int addr_res, byte data ) 
 {
