@@ -18,7 +18,7 @@ int bufy[BUF_LEN];
 int index = 0;
 
 double Calib = 175; //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calibx = 20;
+double Calibx = 22;
 double Caliby = 133;
 
 

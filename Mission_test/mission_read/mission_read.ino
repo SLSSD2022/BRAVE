@@ -24,9 +24,9 @@ int yMag;
 int zMag;
 
 //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calib; 
-double Calibx;
-double Caliby;
+int Calib; 
+int Calibx;
+int Caliby;
 
 //9軸フィルター関連
 
@@ -52,7 +52,8 @@ boolean Success_flag;
 int Memory_flag;
 int Status_control;
 
-
+//ログ表示モード
+boolean displey_mode;
 
 void setup()
 {
@@ -64,15 +65,23 @@ void setup()
 
   // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);
-  
+
+  //ログ表示モード
+  displey_mode == 0;
   delay(1000);
 }
 
 void loop()
 {
-  //---------------------ログ書き込み------------------------------------------------------
-  Serial.print("[ADDRESS:");
-  Serial.print(DATA_ADDRESS);
+  //---------------------ログ読み込み------------------------------------------------------
+  xMag = EEPROM_read_int(DEVICE_ADDRESS, DATA_ADDRESS);
+  DATA_ADDRESS += 2;
+  yMag = EEPROM_read_int(DEVICE_ADDRESS, DATA_ADDRESS);
+  DATA_ADDRESS += 2;
+  Calibx = EEPROM_read_int(DEVICE_ADDRESS, DATA_ADDRESS);
+  DATA_ADDRESS += 2;
+  Caliby = EEPROM_read_int(DEVICE_ADDRESS, DATA_ADDRESS);
+  DATA_ADDRESS += 2;
   x = EEPROM_read_float(DEVICE_ADDRESS, DATA_ADDRESS);
   DATA_ADDRESS += 4;
   cm = EEPROM_read_int(DEVICE_ADDRESS, DATA_ADDRESS);
@@ -89,42 +98,108 @@ void loop()
   DATA_ADDRESS += 4;
 
   //---------------------ステータス表示--------------------------------------------------
-  Serial.print(":time:");
-  Serial.print(time);
-  Serial.print(":LatR:");
-  Serial.print(LatR);
-  Serial.print(":LongR:");
-  Serial.print(LongR);
-  Serial.print(":degRtoA:");
-  Serial.print(degRtoA);
-  Serial.print(":x:");
-  Serial.print(x);
-  Serial.print(":cm:");
-  Serial.print(cm);
-  switch(Status_control){
-    case 0:
-      Serial.print(":stop!");
-      break;
-    case 1:
-      Serial.print(":Go straight!");
-      break;
-    case 2:
-      Serial.print(":Turn left!");
-      break;
-    case 3:
-      Serial.print(":Turn right!");
-      break;
-    case 4:
-      Serial.print(":Spin to right!");
-      break;
-    case 5:
-      Serial.print(":Spin to left!");
-      break;
-    case 6:
-      Serial.print(":Back!");
-      break;
-    default:
-      Serial.print("Motor Unavialble...");
+  if(displey_mode == 1){
+    Serial.print("[ADDRESS:");
+    Serial.print(DATA_ADDRESS);
+    Serial.print(":time:");
+    Serial.print(time);
+    Serial.print(":xMag:");
+    Serial.print(xMag);
+    Serial.print(":yMag:");
+    Serial.print(yMag);
+    Serial.print(":Calibx:");
+    Serial.print(Calibx);
+    Serial.print(":Caliby:");
+    Serial.print(Caliby);
+    Serial.print(":LatR:");
+    Serial.print(LatR);
+    Serial.print(":LongR:");
+    Serial.print(LongR);
+    Serial.print(":degRtoA:");
+    Serial.print(degRtoA);
+    Serial.print(":x:");
+    Serial.print(x);
+    Serial.print(":cm:");
+    Serial.print(cm);
+    switch(Status_control){
+      case 0:
+        Serial.print(":stop!");
+        break;
+      case 1:
+        Serial.print(":Go straight!");
+        break;
+      case 2:
+        Serial.print(":Turn left!");
+        break;
+      case 3:
+        Serial.print(":Turn right!");
+        break;
+      case 4:
+        Serial.print(":Spin to right!");
+        break;
+      case 5:
+        Serial.print(":Spin to left!");
+        break;
+      case 6:
+        Serial.print(":Back!");
+        break;
+      case 7:
+        Serial.print(":Calibration...");
+        break;
+      default:
+        Serial.print(":Motor Unavialble...");
+    }
+  }
+  else{
+    Serial.print(DATA_ADDRESS);
+    Serial.print(",");
+    Serial.print(time);
+    Serial.print(",");
+    Serial.print(xMag);
+    Serial.print(",");
+    Serial.print(yMag);
+    Serial.print(",");
+    Serial.print(Calibx);
+    Serial.print(",");
+    Serial.print(Caliby);
+    Serial.print(",");
+    Serial.print(LatR);
+    Serial.print(",");
+    Serial.print(LongR);
+    Serial.print(",");
+    Serial.print(degRtoA);
+    Serial.print(",");
+    Serial.print(x);
+    Serial.print(",");
+    Serial.print(cm);
+    switch(Status_control){
+      case 0:
+        Serial.print(",0");
+        break;
+      case 1:
+        Serial.print(",1");
+        break;
+      case 2:
+        Serial.print(",2");
+        break;
+      case 3:
+        Serial.print(",3");
+        break;
+      case 4:
+        Serial.print(",4");
+        break;
+      case 5:
+        Serial.print(",5");
+        break;
+      case 6:
+        Serial.print(",6");
+        break;
+      case 7:
+        Serial.print(",7");
+        break;
+      default:
+        Serial.print(",NONE");
+    }
   }
   
   //最後にシリアル通信を改行する

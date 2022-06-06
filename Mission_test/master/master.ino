@@ -20,13 +20,13 @@ const int BOTTOM_Echo = 7;
 
 //モーター
 const int ENABLE = 8;
-const int CH1 = 11;
-const int CH2 = 9;
-const int CH3 = 12;
-const int CH4 = 10;
+const int CH1 = 9;
+const int CH2 = 11;
+const int CH3 = 10;
+const int CH4 = 12;
 
 int Normal_speed = 200;
-int Slow_speed = 100;
+int Slow_speed = 110;
 int speed_R;
 int speed_L;
 
@@ -51,15 +51,16 @@ double Calibx = 22;
 double Caliby = 133;
 
 //9軸フィルター関連
-//バッファの長さ
+//姿勢フィルターバッファの長さ
 #define BUF_LEN 10
-//バッファ
 int buf[BUF_LEN];
 int index = 0;
-int buf_degRtoA[BUF_LEN];
-int index_degRtoA = 0;
-//フィルター後の値
-float filterVal = 0.0;
+float filterVal = 0.0; //フィルター後の値
+//キャリブレーション用バッファの長さ
+#define CAL_BUF_LEN 400
+int bufx[CAL_BUF_LEN];
+int bufy[CAL_BUF_LEN];
+int cal_index = 0;
 
 
 //GPS
@@ -80,6 +81,7 @@ unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使
 
 //制御ステータス・HK関連
 boolean GPS_flag = 1;
+boolean Calibration_flag = 1;
 boolean Stop_flag = 0;
 boolean Near_flag = 0;
 boolean Success_flag = 0;
@@ -92,7 +94,7 @@ unsigned long time;
 void setup()
 {
   //ステータス設定(試験したい状況)
-  Near_flag = 1;//ゴール5m付近のとき
+  Near_flag = 0;//ゴール5m付近のとき
   
   
   //超音波センサ
@@ -122,21 +124,22 @@ void setup()
   Serial.begin(9600);
 
   
-  
-  
-  delay(1000);
-  
   //初期値
   degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
   //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
 //  unsigned long k = 0; 
-//  while(k < 256000){
+//  while(k < 6000){
 //    writeEEPROM(DEVICE_ADDRESS, DATA_ADDRESS,0);
 //    DATA_ADDRESS += 1;
 //    k +=1;
 //    Serial.println(k);
 //  }
 //  DATA_ADDRESS = 0;
+  //バッファの初期化
+  for(int i=0; i<CAL_BUF_LEN; i++) {
+    bufx[i] = 0;
+    bufy[i] = 0;
+  }
 }
 
 void loop()
@@ -147,8 +150,34 @@ void loop()
   BMX055_Gyro();
   // BMX055 磁気の読み取り
   BMX055_Mag();
-  x = angle_calculation(); 
 
+  //キャリブレーション
+  if(Calibration_flag == 1){
+    Serial.print(":xMag:");
+    Serial.print(xMag);
+    Serial.print(":yMag:");
+    Serial.print(yMag);
+    Serial.print(":cal_index:");
+    Serial.print(cal_index);
+    bufx[cal_index] = xMag;
+    bufy[cal_index] = yMag;
+    if(cal_index == CAL_BUF_LEN-1){//バッファに値がたまったら
+      Calibx = xcenter_calculation();
+      Caliby = ycenter_calculation();
+      Calibration_flag = 0 ;
+      Serial.print(":Calib_x:");
+      Serial.print(Calibx);
+      Serial.print(":Calib_y:");
+      Serial.print(Caliby);
+    }
+    else{
+      cal_index = (cal_index+1)%CAL_BUF_LEN;
+    }
+  }
+  else{
+    x = angle_calculation(); 
+  }
+  
   //---------------------超音波(短・前面)取得--------------------------------------------------
   digitalWrite(HEAD_Trig,LOW);
   delayMicroseconds(2);
@@ -189,7 +218,7 @@ void loop()
   
   Serial.print(":cm:");
   Serial.print(cm);
-  if(cm<30){
+  if(cm<10){
     Stop_flag = 1;                                                                                                                               
     
   }else{
@@ -209,18 +238,36 @@ void loop()
   }
   else if(Stop_flag == 0 && Near_flag == 1){
     digitalWrite(ENABLE, HIGH); // enable
-    digitalWrite(CH1, LOW);
-    analogWrite(CH2, Normal_speed);
-    analogWrite(CH3, LOW);
-    digitalWrite(CH4, Slow_speed);
-    Status_control = 4;//"spin to right"
+    analogWrite(CH1, Slow_speed);
+    analogWrite(CH2, 0);
+    analogWrite(CH3, 0);
+    analogWrite(CH4, Slow_speed);
+    Status_control = 4;//"spin to right
+  }
+  else if(Stop_flag == 0 && Calibration_flag == 1){
+    digitalWrite(ENABLE, HIGH); // enable
+    analogWrite(CH1, Slow_speed);
+    analogWrite(CH2, 0);
+    analogWrite(CH3, 0);
+    analogWrite(CH4, Slow_speed);
+    Status_control = 7;//"Calibration..."
   }
   else if(Stop_flag == 0 && Near_flag == 0){
     motor_angle_go();
   }
 
+  //---------------------ステータスごとの特別な制御------------------------------------------------------
+
   //---------------------ログ書き込み------------------------------------------------------
   if(Memory_flag > 5){
+    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,xMag);
+    DATA_ADDRESS += 2;
+    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,yMag);
+    DATA_ADDRESS += 2;
+    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,Calibx);
+    DATA_ADDRESS += 2;
+    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,Caliby);
+    DATA_ADDRESS += 2;
     EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,x);
     DATA_ADDRESS += 4;
     EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,cm);
@@ -352,6 +399,58 @@ int medianFilter()
   qsort(sortBuf, BUF_LEN, sizeof(int), quicksortFunc);
 
   return sortBuf[(int)BUF_LEN / 2];
+}
+
+int xcenter_calculation() {
+  //ソート用のバッファ
+  static int sortBufx[CAL_BUF_LEN];
+  //ソート用バッファにデータをコピー
+  bufx[0] == bufx[CAL_BUF_LEN-1];//先端には0が入っちゃってるのでなんかまともな値を入れる。
+  for(int i=0; i<CAL_BUF_LEN; i++) {
+    sortBufx[i] = bufx[i];
+  }
+
+  //クイックソートで並べ替える
+  qsort(sortBufx, CAL_BUF_LEN, sizeof(int), quicksortFunc);
+  
+  Serial.print(":Min:");
+  Serial.print(sortBufx[0]);
+  Serial.print(":Max:");
+  Serial.print(sortBufx[CAL_BUF_LEN-1]);
+
+  return (sortBufx[1]+sortBufx[CAL_BUF_LEN-2])/2;//取得値ではない「0」が最少と最大になってしまう場合の対処(「0」が複数取れてしまった場合に対応できていないので注意)
+}
+
+//Medianフィルタ関数
+int ycenter_calculation() {
+  //ソート用のバッファ
+  static int sortBufy[CAL_BUF_LEN];
+  Serial.println("---------------------------------");
+  bufy[0] == bufy[CAL_BUF_LEN-1];//先端には0が入っちゃってるのでなんかまともな値を入れる。←効果ないっぽい
+
+  //ソート用バッファにデータをコピー
+  for(int i=0; i<CAL_BUF_LEN; i++) {
+    sortBufy[i] = bufy[i];
+    Serial.print(i);
+    Serial.print(",");
+    Serial.println(sortBufy[i]);
+  }
+
+  int k = 0;
+  while(sortBufy[k] == 0){//最初の方に値が入らなかった場合の対応←効果ないっぽい
+    sortBufy[k] == sortBufy[CAL_BUF_LEN-1];
+    k += 1;
+  }
+
+  //クイックソートで並べ替える
+  qsort(sortBufy, CAL_BUF_LEN, sizeof(int), quicksortFunc);
+
+  Serial.print(":Min:");
+  Serial.print(sortBufy[1]);
+  Serial.print(":Max:");
+  Serial.print(sortBufy[CAL_BUF_LEN-1]);
+
+  return (sortBufy[1]+sortBufy[CAL_BUF_LEN-2])/2;//取得値ではない「0」が最少と最大になってしまう場合の対処(「0」が複数取れてしまった場合に対応できていないので注意)
 }
 
 //クイックソート関数
