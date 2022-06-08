@@ -1,4 +1,4 @@
-const int anPin = 0;
+#define anPin A15
 
 long anVolt, cm;
 

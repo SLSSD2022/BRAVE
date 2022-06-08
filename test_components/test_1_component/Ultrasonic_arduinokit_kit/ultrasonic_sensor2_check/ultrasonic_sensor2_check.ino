@@ -11,13 +11,13 @@ void setup() {
 
 void loop() {
   long duration, cm;
-  pinMode(TrigPIN,OUTPUT);
-  digitalWrite(TrigPIN,LOW);
+  pinMode(HEAD_Trig,OUTPUT);
+  digitalWrite(HEAD_Trig,LOW);
   delayMicroseconds(2);
-  digitalWrite(TrigPIN,HIGH);
+  digitalWrite(HEAD_Trig,HIGH);
   delayMicroseconds(10);
-  pinMode(EchoPIN,INPUT);
-  duration = pulseIn(EchoPIN,HIGH);
+  pinMode(HEAD_Echo,INPUT);
+  duration = pulseIn(HEAD_Echo,HIGH);
   cm = microsecTocm(duration);
   Serial.print(cm);
   Serial.println("");
