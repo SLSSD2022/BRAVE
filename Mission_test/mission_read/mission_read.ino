@@ -67,7 +67,7 @@ void setup()
   Serial.begin(9600);
 
   //ログ表示モード
-  displey_mode == 0;
+  displey_mode = 1;
   delay(1000);
 }
 
@@ -146,6 +146,9 @@ void loop()
       case 7:
         Serial.print(":Calibration...");
         break;
+      case 8:
+        Serial.print(":Searching...");
+        break;
       default:
         Serial.print(":Motor Unavialble...");
     }
@@ -196,6 +199,9 @@ void loop()
         break;
       case 7:
         Serial.print(",7");
+        break;
+      case 8:
+        Serial.print(",8");
         break;
       default:
         Serial.print(",NONE");

@@ -1,4 +1,4 @@
-#define anPin A15
+#define HEADpin A15
 
 long anVolt, cm;
 
@@ -14,7 +14,7 @@ void setup() {
 
 void read_sensor(){
 
-   anVolt = analogRead(anPin);
+   anVolt = analogRead(HEADpin);
 
    cm = anVolt/2;
 
