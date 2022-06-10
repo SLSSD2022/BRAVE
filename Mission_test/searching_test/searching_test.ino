@@ -12,12 +12,17 @@ const int HEAD_Echo = 24;
 #define HEADpin A15
 int anVolt;
 int cm_long;
+int emergency_stop_distance = 0;
 
-//ゴール付近測距用バッファの長さ
-#define SEA_BUF_LEN 20
-int bufcm[SEA_BUF_LEN];
-int sea_index = 0;
-int goal_threshould = 100;//検出
+//ゴール付近測距一回用バッファの長さ
+#define MEAS_BUF_LEN 40
+int bufcm[MEAS_BUF_LEN];
+int meas_index = 0;
+
+//ゴール付近測距リストの長さ
+#define SEAR_BUF_LEN 10
+int listcm[SEAR_BUF_LEN];
+int search_index = 0;
 
 //超音波センサー(長)前面
 #define HEAD_Analog A15; 
@@ -36,8 +41,8 @@ const int CH3 = 10;
 const int CH4 = 12;
 
 int Normal_speed = 250;
-int Slow_speed = 150;
-int Very_Slow_speed = 110;
+int Slow_speed = 200;
+int Very_Slow_speed = 150;
 int speed_R;
 int speed_L;
 int count_forward = 0;
@@ -64,6 +69,7 @@ double Caliby = 132;
 float x; //ローバーの慣性姿勢角
 float delta_theta;//目的方向と姿勢の相対角度差
 int threshold = 30; //角度の差分の閾値
+int spin_threshold = 70; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
 
 //9軸フィルター関連
 //姿勢フィルターバッファの長さ
@@ -72,12 +78,13 @@ int buf[BUF_LEN];
 int index = 0;
 float filterVal = 0.0; //フィルター後の値
 //キャリブレーション用バッファの長さ
-#define CAL_BUF_LEN 100
+#define CAL_BUF_LEN 50
 int bufx[CAL_BUF_LEN];
 int bufy[CAL_BUF_LEN];
 int cal_index = 0;
 //測距用バッファの長さ
-int bufdeg[SEA_BUF_LEN];
+int bufdeg[MEAS_BUF_LEN];
+int listdeg[SEAR_BUF_LEN];
 
 
 //GPS
@@ -98,9 +105,13 @@ unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使
 boolean GPS_flag = 1;
 boolean Calibration_flag = 1;
 boolean Stop_flag = 0;
-boolean Near_flag = 0;
-boolean Search_flag = 0;
-int count_search = 0;
+
+boolean Near_flag = 0;//ゴール5m付近
+boolean Search_flag = 0;//ゴール5m付近で探索中
+int count_search = 0;//探索中のシーケンス管理カウント
+int spin_iteration = 7;//探索中のスピン移動に使うループ回数
+int forward_iteration = 9;//探索後、方向に向かって進むループ数
+
 boolean Success_flag = 0;
 int Memory_flag = 0;
 int Status_control;
@@ -108,12 +119,12 @@ unsigned long time;
 
 
 
+
 void setup()
 {
     // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);//ステータス設定(試験したい状況)
-  Calibration_flag = 0;
-  Near_flag = 1;//ゴール5m付近のとき
+  Calibration_flag = 1;
   Search_flag = 1;//ゴール5m付近で測距するとき
 //  while(1){
 //    anVolt = analogRead(HEADpin);
@@ -150,15 +161,6 @@ void setup()
   
   //初期値
   degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-  //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
-//  unsigned long k = 0; 
-//  while(k < 6000){
-//    writeEEPROM(DEVICE_ADDRESS, DATA_ADDRESS,0);
-//    DATA_ADDRESS += 1;
-//    k +=1;
-//    Serial.println(k);
-//  }
-//  DATA_ADDRESS = 0;
   //バッファの初期化
   for(int i=0; i<CAL_BUF_LEN; i++) {
     bufx[i] = 0;
@@ -193,28 +195,6 @@ void loop()
   //---------------------超音波(短・前面)取得--------------------------------------------------
   anVolt = analogRead(HEADpin);
   cm_long = anVolt/2;
-  
-  //---------------------GPS取得--------------------------------------------------
-  while (Serial1.available() > 0 && GPS_flag == 1 && Near_flag == 0)//Near_flagは一時的なもの
-  {
-    //    Serial.print("YES");
-    char c = Serial1.read();
-    //    Serial.print(c);
-    gps.encode(c);
-    if (gps.location.isUpdated())
-    {
-      Serial.println("");
-      Serial.println("I got new GPS!");
-      LatR = gps.location.lat();  // roverの緯度を計算
-      LongR = gps.location.lng(); // roverの経度を計算
-      degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-
-      GPS_flag = 0;
-    }
-    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
-    delay(1);
-  }
-  GPS_flag =1;
 
   //---------------------ステータス確認--------------------------------------------------
   
@@ -226,7 +206,7 @@ void loop()
   
   Serial.print(":cm_long:");
   Serial.print(cm_long);
-  if(cm<20){
+  if(cm< emergency_stop_distance){
     Stop_flag = 1;                                                                                                                               
     
   }else{
@@ -260,28 +240,38 @@ void loop()
   }
 
   //ゴール探索時(ゴールの方向がまだ分かってない)
-  if(Calibration_flag == 0 && Near_flag == 1 && Search_flag == 1){
-//    if(count_search < 20){
-//      stop_flag = 0;
-//    }
-//    else{
-//      stop_flag = 1;
-      if(0<cm_long && cm_long < goal_threshould){
-        bufcm[sea_index] = cm_long;
-        bufdeg[sea_index] = x;
-        if(sea_index == SEA_BUF_LEN-1){//バッファに値がたまったら
-          sea_index = goal_angle_search();
-          degRtoA = bufdeg[sea_index];
-          Search_flag = 0;
-          sea_index = 0;
-          count_forward = 0;
-        }
-        else{
-          sea_index = (sea_index+1)%SEA_BUF_LEN;
-        }
+  if(Calibration_flag == 0 && Search_flag == 1){
+   if(count_search < spin_iteration){//スピン段階
+    Stop_flag = 0;
+    count_search += 1;
+   }
+   else{
+    Stop_flag = 1;//測距中は停止する
+    bufcm[meas_index] = cm_long;
+    bufdeg[meas_index] = x;
+    meas_index = (meas_index+1)%MEAS_BUF_LEN;
+    //バッファに値がたまったら
+    if(meas_index == 0){
+      filter_angle_search();//フィルタリングした角度と測距値をリストに一組追加する。
+      //バッファ番号初期化(中身は放置)
+      meas_index = 0;
+      count_search = 0;
+      search_index = (search_index+1)%SEAR_BUF_LEN;
+      //測距リストに値がたまったら
+      if(search_index == 0){
+        int list_index = goal_angle_search();//リストから測距値の最小値と対応するリスト番号を探す。
+        degRtoA = listdeg[list_index];//目的地の方向を決定
+        Serial.print(":searching_completed!");
+        //リスト番号初期化(中身は放置)
+        search_index = 0;
+        Search_flag = 0;//探索終了
+        Stop_flag = 0;//モーター解放
       }
-//    }
-//    count_search += 1;
+    }
+    else{
+      count_search += 1;
+    }
+   }
   }
 
 
@@ -294,6 +284,7 @@ void loop()
     digitalWrite(CH3,HIGH);
     digitalWrite(CH4,HIGH);
     Status_control = 0;//"stop"
+    Serial.print(":stop!");
   }
   else if(Stop_flag == 0 && Calibration_flag == 1){//キャリブレーション時
     digitalWrite(ENABLE, HIGH); // enable
@@ -302,8 +293,9 @@ void loop()
     analogWrite(CH3, 0);
     analogWrite(CH4, Slow_speed);
     Status_control = 7;//"Calibration..."
+    Serial.print(":calibration");
   }
-  else if(Stop_flag == 0 && Calibration_flag == 0 && Near_flag == 1){//ゴール5m付近時
+  else if(Stop_flag == 0 && Calibration_flag == 0){//ゴール5m付近時
     if(Search_flag == 1){//スピンしながらコーンを探索
       digitalWrite(ENABLE, HIGH); // enable
       analogWrite(CH1, 0);
@@ -311,11 +303,13 @@ void loop()
       analogWrite(CH3, Very_Slow_speed);
       analogWrite(CH4, 0);
       Status_control = 8;//"Searching..."
+      Serial.print(":searching");
     }
     else{//コーンの方を向く
-      if(count_forward > 10){
+      if(count_forward > forward_iteration){
         Search_flag = 1;
         count_forward = 0;
+        Serial.print(":restart searching");
       }
       else{
         motor_angle_spin();
@@ -373,11 +367,6 @@ void loop()
 
 
 
-
-
-
-
-
 //========================================================================================================================
 
 //=========超音波センサ関連============================================================================//
@@ -385,13 +374,38 @@ unsigned int microsecTocm(long microsec){
   return (unsigned int) microsec /29 /2;
 }
 
-int goal_angle_search(){//探索時、最も測距値が近い角度をゴールの方向と決定する。
-  int mincm = bufcm[0];
-  int minindex = 0;
-  for (int i = 0; i < SEA_BUF_LEN; i++)
+void filter_angle_search(){
+  //ソート用のバッファ
+  static int sortBufcm[MEAS_BUF_LEN];
+  static int sortBufdeg[MEAS_BUF_LEN];
+
+  //ソート用バッファにデータをコピー
+  for (int i = 0; i < MEAS_BUF_LEN; i++)
   {
-    if(0 < bufcm[i] && bufcm[i] < mincm){
-      mincm = bufcm[i];
+    sortBufcm[i] = bufcm[i];
+    sortBufdeg[i] = bufdeg[i];
+  }
+
+  //クイックソートで並べ替える
+  qsort(sortBufcm, MEAS_BUF_LEN, sizeof(int), quicksortFunc);
+  qsort(sortBufdeg, MEAS_BUF_LEN, sizeof(int), quicksortFunc);
+
+  //中央値をリストに格納する。
+  listcm[search_index] = sortBufcm[(int)MEAS_BUF_LEN/2];
+  listdeg[search_index] = sortBufdeg[(int)MEAS_BUF_LEN/2];
+  Serial.print(":measure cm:");
+  Serial.print(listcm[search_index]);
+  Serial.print(":measure deg:");
+  Serial.print(listdeg[search_index]);
+}
+
+int goal_angle_search(){//探索時、最も測距値が近い角度をゴールの方向と決定する。
+  int mincm = listcm[0];
+  int minindex = 0;
+  for (int i = 0; i < SEAR_BUF_LEN; i++)
+  {
+    if(0 < listcm[i] && listcm[i] < mincm){
+      mincm = listcm[i];
       minindex = i;
     }
   }
@@ -409,32 +423,6 @@ double deg2rad(double deg)
   return (double)(deg * PI / 180.0);
 }
 
-// Hubenyの式
-
-float calculateDistance(double latitude1, double longitude1, double latitude2, double longitude2)
-{
-  // 先に計算しておいた定数
-  double e2 = 0.00669437999019758;   // WGS84における「離心率e」の2乗
-  double Rx = 6378137.0;             // WGS84における「赤道半径Rx」
-  double m_numer = 6335439.32729246; // WGS84における「子午線曲率半径M」の分子(Rx(1-e^2))
-
-  double rad_lat1 = deg2rad(latitude1);
-  double rad_lon1 = deg2rad(longitude1);
-  double rad_lat2 = deg2rad(latitude2);
-  double rad_lon2 = deg2rad(longitude2);
-
-  float dp = (float)(rad_lon1 - rad_lon2);        // 2点の緯度差
-  float dr = (float)(rad_lat1 - rad_lat2);        // 2点の経度差
-  float p = (float)((rad_lon1 + rad_lon2) * 0.5); // 2点の平均緯度
-
-  float w = (float)sqrt(1.0 - e2 * pow(sin(p), 2));
-  float m = (float)(m_numer / pow(w, 3)); // 子午線曲率半径
-  float n = (float)(Rx / w);              // 卯酉(ぼうゆう)線曲率半径
-
-  // 2点間の距離(単位m)
-  float d = (float)sqrt(pow((m * dp), 2) + pow((n * cos(p) * dr), 2));
-  return d;
-}
 
 //===========9軸関係==========================================================================//
 void BMX055_Init()
@@ -674,9 +662,8 @@ void motor_angle_go()
   digitalWrite(CH4, LOW);
   if (x < degRtoA){
       delta_theta = degRtoA - x;
-      Serial.print("x < degRtoA:");
+      Serial.print(":x < degRtoA:");
       Serial.print(delta_theta);
-      Serial.print(":");
       
       //閾値内にあるときは真っ直ぐ
       if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
@@ -684,7 +671,7 @@ void motor_angle_go()
         speed_L = Normal_speed;
         analogWrite( CH1, speed_R );
         analogWrite( CH3, speed_L );
-        Serial.print("Go straight");
+        Serial.print(":Go straight");
         Status_control = 1;//"Go straight"
       }
       //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
@@ -693,7 +680,7 @@ void motor_angle_go()
         speed_L = Normal_speed;
         analogWrite( CH1, speed_R );
         analogWrite( CH3, speed_L ); 
-        Serial.print("turn right");
+        Serial.print(":turn right");
         Status_control = 3;//"turn right"
       }
   
@@ -703,16 +690,15 @@ void motor_angle_go()
         speed_L = Normal_speed - ((360-delta_theta) * Normal_speed / 180);
         analogWrite( CH1, speed_R );
         analogWrite( CH3, speed_L );
-        Serial.print("turn left");
+        Serial.print(":turn left");
         Status_control = 2;//"turn left"
       }
   }
 
   else {
       delta_theta = x - degRtoA;
-      Serial.print("degRtoA < x:");
+      Serial.print(":degRtoA < x:");
       Serial.print(delta_theta);
-      Serial.print(":");
      
       //閾値内にあるときは真っ直ぐ
       if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
@@ -720,7 +706,7 @@ void motor_angle_go()
         speed_L = Normal_speed;
         analogWrite( CH1, speed_R );
         analogWrite( CH3, speed_L );
-        Serial.print("Go straight");
+        Serial.print(":Go straight");
         Status_control = 1;//"Go straight"
       }
       //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
@@ -729,7 +715,7 @@ void motor_angle_go()
         speed_L = Normal_speed - (delta_theta * Normal_speed / 180);
         analogWrite( CH1, speed_R );
         analogWrite( CH3, speed_L );
-        Serial.print("turn left");
+        Serial.print(":turn left");
         Status_control = 2;//"turn left"
       }
   
@@ -739,14 +725,14 @@ void motor_angle_go()
         speed_L = Normal_speed;
         analogWrite( CH1, speed_R );
         analogWrite( CH3, speed_L );
-        Serial.print("turn right");
+        Serial.print(":turn right");
         Status_control = 3;//"turn right"
         
       }
   }
-  Serial.print(",");
+  Serial.print(":speed_L:");
   Serial.print(speed_L);
-  Serial.print(",");
+  Serial.print(":speed_R:");
   Serial.print(speed_R);
 }
 
@@ -755,11 +741,10 @@ void motor_angle_spin()
 {    
   if (x < degRtoA){
     delta_theta = degRtoA - x;
-    Serial.print("x < degRtoA:");
+    Serial.print(":x < degRtoA:");
     Serial.print(delta_theta);
-    Serial.print(":");
 
-    if((0 <= delta_theta && delta_theta <= 45)|| (360 - 45 <= delta_theta && delta_theta <= degRtoA)){
+    if((0 <= delta_theta && delta_theta <= spin_threshold/2)|| (360 - spin_threshold/2 <= delta_theta && delta_theta <= degRtoA)){
       //閾値内にあるときは真っ直ぐ
       if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= degRtoA)){
         speed_R = Slow_speed;
@@ -770,7 +755,7 @@ void motor_angle_spin()
         analogWrite( CH2, 0);
         analogWrite( CH3, speed_L );
         analogWrite( CH4, 0);
-        Serial.print("Go straight");
+        Serial.print(":Go straight");
         Status_control = 1;//"Go straight"
         count_forward += 1;
       }
@@ -783,7 +768,7 @@ void motor_angle_spin()
         analogWrite( CH2, 0 );
         analogWrite( CH3, speed_L ); 
         analogWrite( CH4, 0 );
-        Serial.print("turn right");
+        Serial.print(":turn right");
         Status_control = 3;//"turn right"
       }
   
@@ -795,7 +780,7 @@ void motor_angle_spin()
         analogWrite( CH2, 0 );
         analogWrite( CH3, speed_L );
         analogWrite( CH4, 0 );
-        Serial.print("turn left");
+        Serial.print(":turn left");
         Status_control = 2;//"turn left"
       }
     }
@@ -807,7 +792,7 @@ void motor_angle_spin()
         analogWrite(CH2, Very_Slow_speed);
         analogWrite(CH3, Very_Slow_speed);
         analogWrite(CH4, 0);
-        Serial.print("spin to right");
+        Serial.print(":spin to right");
         Status_control = 4;//"spin to right"
       }
   
@@ -818,7 +803,7 @@ void motor_angle_spin()
         analogWrite(CH2, 0);
         analogWrite(CH3, 0);
         analogWrite(CH4, Very_Slow_speed);
-        Serial.print("spin to left");
+        Serial.print(":spin to left");
         Status_control = 5;//"spin to left
       }
     }
@@ -826,10 +811,9 @@ void motor_angle_spin()
 
   else {
     delta_theta = x - degRtoA;
-    Serial.print("degRtoA < x:");
+    Serial.print(":degRtoA < x:");
     Serial.print(delta_theta);
-    Serial.print(":");
-    if ((0 <= delta_theta && delta_theta <= 45)|| (360 - 45 <= delta_theta && delta_theta <= 360)){ 
+    if ((0 <= delta_theta && delta_theta <= spin_threshold/2)|| (360 - spin_threshold/2 <= delta_theta && delta_theta <= 360)){ 
       //閾値内にあるときは真っ直ぐ
       if ((0 <= delta_theta && delta_theta <= threshold/2)|| (360 - threshold/2 <= delta_theta && delta_theta <= 360)){
         speed_R = Slow_speed;
@@ -839,7 +823,7 @@ void motor_angle_spin()
         analogWrite( CH2, 0);
         analogWrite( CH3, speed_L );
         analogWrite( CH4, 0);
-        Serial.print("Go straight");
+        Serial.print(":Go straight");
         Status_control = 1;//"Go straight"
         count_forward += 1;
       }
@@ -851,7 +835,7 @@ void motor_angle_spin()
         analogWrite( CH2, 0 );
         analogWrite( CH3, speed_L );
         analogWrite( CH4, 0 );
-        Serial.print("turn left");
+        Serial.print(":turn left");
         Status_control = 2;//"turn left"
       }
   
@@ -863,7 +847,7 @@ void motor_angle_spin()
         analogWrite( CH2, 0 );
         analogWrite( CH3, speed_L );
         analogWrite( CH4, 0 );
-        Serial.print("turn right");
+        Serial.print(":turn right");
         Status_control = 3;//"turn right"
       }
     }
@@ -874,7 +858,7 @@ void motor_angle_spin()
         analogWrite(CH2, 0);
         analogWrite(CH3, 0);
         analogWrite(CH4, Very_Slow_speed);
-        Serial.print("spin to left");
+        Serial.print(":spin to left");
         Status_control = 5;//"spin to left
       }
       //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
@@ -884,15 +868,17 @@ void motor_angle_spin()
         analogWrite(CH2, Very_Slow_speed);
         analogWrite(CH3, Very_Slow_speed);
         analogWrite(CH4, 0);
-        Serial.print("spin to right");
+        Serial.print(":spin to right");
         Status_control = 4;//"spin to right"
       }
     }
   }
-  Serial.print(",");
+  Serial.print(":speed_L:");
   Serial.print(speed_L);
-  Serial.print(",");
+  Serial.print(":speed_R:");
   Serial.print(speed_R);
+  Serial.print(":count_forward:");
+  Serial.print(count_forward);
 }
 
 
