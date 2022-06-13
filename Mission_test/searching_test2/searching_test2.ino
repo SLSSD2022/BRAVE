@@ -12,10 +12,10 @@ const int HEAD_Echo = 24;
 #define HEADpin A15
 int anVolt;
 int cm_long;
-int emergency_stop_distance = 0;
+int emergency_stop_distance = 10;
 
 //ゴール付近測距一回用バッファの長さ
-#define MEAS_BUF_LEN 20
+#define MEAS_BUF_LEN  40//ここは9軸基本バッファ配列数10よりは長くする
 int bufcm[MEAS_BUF_LEN];
 int meas_index = 0;
 
@@ -63,8 +63,8 @@ int zMag = 0;
 
 //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
 double Calib = 175; 
-double Calibx = 20;
-double Caliby = 132;
+double Calibx = 16;
+double Caliby = 125;
 
 float x; //ローバーの慣性姿勢角
 float delta_theta;//目的方向と姿勢の相対角度差
@@ -78,7 +78,7 @@ int buf[BUF_LEN];
 int index = 0;
 float filterVal = 0.0; //フィルター後の値
 //キャリブレーション用バッファの長さ
-#define CAL_BUF_LEN 50
+#define CAL_BUF_LEN 200
 int bufx[CAL_BUF_LEN];
 int bufy[CAL_BUF_LEN];
 int cal_index = 0;
@@ -109,11 +109,12 @@ boolean Stop_flag = 0;
 boolean Near_flag = 0;//ゴール5m付近
 boolean Search_flag = 0;//ゴール5m付近で探索中
 int count_search = 0;//探索中のシーケンス管理カウント
-const int spin_iteration = 5;//探索中および探索後のスピン移動に使うループ回数
+const int spin_iteration = 5;//探索中のスピン移動に使うループ回数
+const int spinmove_iteration = 5;//探索後のスピン移動に使うループ回数
 
 int count_spin = 0;//探索後、方向に向けてスピン回数のカウント
 int wait_spin = 0;//探索後、スピン後停止する回数のカウント
-const int wait_iteration = 40;//探索後、スピン後少し停止するループ数
+const int wait_iteration = 40;//探索後、スピン後少し停止するループ数(10よりは大きくする)
 const int forward_iteration = 9;//探索後、方向に向かって進むループ数
 
 
@@ -129,18 +130,28 @@ void setup()
 {
     // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);//ステータス設定(試験したい状況)
-  Calibration_flag = 1;
+  Calibration_flag = 0;
   Search_flag = 1;//ゴール5m付近で測距するとき
-//  while(1){
-//    anVolt = analogRead(HEADpin);
-//    cm_long = anVolt/2;
-//    Serial.println(cm_long);
-//    delay(1000);
-//  }
   
   //超音波センサ
   pinMode(HEAD_Trig,OUTPUT);
   pinMode(HEAD_Echo,INPUT);
+
+  
+//  while(1){
+//    anVolt = analogRead(HEADpin);
+//    cm_long = anVolt/2;
+//    Serial.print(cm_long);
+//    digitalWrite(HEAD_Trig,LOW);
+//    delayMicroseconds(2);
+//    digitalWrite(HEAD_Trig,HIGH);
+//    delayMicroseconds(10);
+//    duration = pulseIn(HEAD_Echo,HIGH);
+//    cm = microsecTocm(duration);
+//    Serial.print(",");
+//    Serial.println(cm);
+//    delay(100);
+//  }
   
   //モーター
   pinMode(CH1, OUTPUT);
@@ -209,8 +220,8 @@ void loop()
   Serial.print(":x:");
   Serial.print(x);
   
-  Serial.print(":cm:");
-  Serial.print(cm);
+  Serial.print(":cm_long:");
+  Serial.print(cm_long);
   if(cm< emergency_stop_distance){
     Stop_flag = 1;                                                                                                                               
     
@@ -252,12 +263,14 @@ void loop()
    }
    else{
     Stop_flag = 1;//測距中は停止する
-    bufcm[meas_index] = cm;
-    bufdeg[meas_index] = x;
+    bufcm[meas_index] = cm_long;
     meas_index = (meas_index+1)%MEAS_BUF_LEN;
     //バッファに値がたまったら
     if(meas_index == 0){
-      filter_angle_search();//フィルタリングした角度と測距値をリストに一組追加する。
+      filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
+      listdeg[search_index] = x;//一番最後の角度がもっともらしい。
+      Serial.print(":measure deg:");
+      Serial.print(listdeg[search_index]);
       //バッファ番号初期化(中身は放置)
       meas_index = 0;
       count_search = 0;
@@ -396,26 +409,20 @@ unsigned int microsecTocm(long microsec){
 void filter_angle_search(){
   //ソート用のバッファ
   static int sortBufcm[MEAS_BUF_LEN];
-  static int sortBufdeg[MEAS_BUF_LEN];
 
   //ソート用バッファにデータをコピー
   for (int i = 0; i < MEAS_BUF_LEN; i++)
   {
     sortBufcm[i] = bufcm[i];
-    sortBufdeg[i] = bufdeg[i];
   }
 
   //クイックソートで並べ替える
   qsort(sortBufcm, MEAS_BUF_LEN, sizeof(int), quicksortFunc);
-  qsort(sortBufdeg, MEAS_BUF_LEN, sizeof(int), quicksortFunc);
 
   //中央値をリストに格納する。
   listcm[search_index] = sortBufcm[(int)MEAS_BUF_LEN/2];
-  listdeg[search_index] = sortBufdeg[(int)MEAS_BUF_LEN/2];
   Serial.print(":measure cm:");
   Serial.print(listcm[search_index]);
-  Serial.print(":measure deg:");
-  Serial.print(listdeg[search_index]);
 }
 
 int goal_angle_search(){//探索時、最も測距値が近い角度をゴールの方向と決定する。
