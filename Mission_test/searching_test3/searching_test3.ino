@@ -32,6 +32,10 @@ int search_index = 0;
 const int BOTTOM_Trig = 6; 
 const int BOTTOM_Echo = 7;
 
+//LIDARセンサー
+int bytenum = 0;
+int cm_LIDAR = 0;
+int LIDAR_buf = 0;
 
 //モーター
 const int ENABLE = 8;
@@ -103,13 +107,14 @@ unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使
 
 //制御ステータス・HK関連
 boolean GPS_flag = 1;
+boolean LIDAR_flag = 1;
 boolean Calibration_flag = 1;
 boolean Stop_flag = 0;
 
 boolean Near_flag = 0;//ゴール5m付近
 boolean Search_flag = 0;//ゴール5m付近で探索中
 int count_search = 0;//探索中のシーケンス管理カウント
-const int spin_iteration = 20;//探索中のスピン移動に使うループ回数
+const int spin_iteration = 5;//探索中のスピン移動に使うループ回数
 const int spinmove_iteration = 5;//探索後のスピン移動に使うループ回数
 
 int count_spin = 0;//探索後、方向に向けてスピン回数のカウント
@@ -170,7 +175,10 @@ void setup()
   Serial1.begin(9600);
   
   //TWElite通信用ハードウェアシリアル
-  Serial2.begin(9600);
+  Serial2.begin(115200);
+  while (!Serial2) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
 
 
 
@@ -199,6 +207,74 @@ void loop()
   if(Calibration_flag == 0){
     x = angle_calculation(); 
   }
+
+  //---------------------LIDARセンサ取得--------------------------------------------------
+  while (Serial2.available() > 0 && LIDAR_flag == 1)//Near_flagは一時的なもの
+  {
+    byte c = Serial2.read();
+    switch(bytenum){
+      case 0://frame header must be 0x59
+//        Serial.print("Byte0:");
+//        Serial.println(c,HEX);
+        if(c == 0x59){
+          bytenum += 1;
+        }
+        break;
+      case 1://frame header must be 0x59
+//        Serial.print("Byte1:");
+//        Serial.println(c,HEX);
+        if(c == 0x59){
+          bytenum += 1;
+        }
+        break;
+      case 2://distance value low 8 bits
+//        Serial.print("Byte2:");
+//        Serial.println(c,HEX);
+        cm_LIDAR = (int)c;
+        bytenum += 1;
+        break;
+      case 3://distance value high 8 bits
+//        Serial.print("Byte3:");
+//        Serial.println(c,HEX);
+        cm_LIDAR = cm_LIDAR + 256*(int)c;
+//        Serial.print("distance:");
+//        Serial.println(cm_LIDAR);
+        LIDAR_flag = 0;
+        bytenum += 1;
+        break;
+      case 4://strength value low 8 bits
+//        Serial.print("Byte4:");
+//        Serial.println(c,HEX);
+        bytenum += 1;
+        break;
+      case 5://strength value high 8 bits
+//        Serial.print("Byte5:");
+//        Serial.println(c,HEX);
+        bytenum += 1;
+        break;
+      case 6://Temp_L low 8 bits
+//        Serial.print("Byte6:");
+//        Serial.println(c,HEX);
+        bytenum += 1;
+        break;
+      case 7://Temp_H high 8 bits
+//        Serial.print("Byte7:");
+//        Serial.println(c,HEX);
+        bytenum += 1;
+        break;
+      case 8://checksum
+//        Serial.print("Byte8:");
+//        Serial.println(c,HEX);
+        bytenum = 0;
+        break;
+    }
+  }
+  LIDAR_flag = 1;
+  if(0<cm_LIDAR && cm_LIDAR < 1000){
+    LIDAR_buf = cm_LIDAR;
+  }else{
+    cm_LIDAR = LIDAR_buf;
+  }
   
   //---------------------超音波(短・前面)取得--------------------------------------------------
   digitalWrite(HEAD_Trig,LOW);
@@ -220,8 +296,8 @@ void loop()
   Serial.print(":x:");
   Serial.print(x);
   
-  Serial.print(":cm_long:");
-  Serial.print(cm_long);
+  Serial.print(":cm_LIDAR:");
+  Serial.print(cm_LIDAR);
   if(cm< emergency_stop_distance){
     Stop_flag = 1;                                                                                                                               
     
