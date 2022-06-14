@@ -261,11 +261,11 @@ void loop()
 
   //ゴール探索時(ゴールの方向がまだ分かってない)
   if(Calibration_flag == 0 && Near_flag == 1 && Search_flag == 1){
-//    if(count_search < 20){
-//      stop_flag = 0;
-//    }
-//    else{
-//      stop_flag = 1;
+    if(count_search < 20){
+      Stop_flag = 0;
+    }
+    else{
+      Stop_flag = 1;
       if(0<cm_long && cm_long < goal_threshould){
         bufcm[sea_index] = cm_long;
         bufdeg[sea_index] = x;
@@ -280,8 +280,8 @@ void loop()
           sea_index = (sea_index+1)%SEA_BUF_LEN;
         }
       }
-//    }
-//    count_search += 1;
+    }
+    count_search += 1;
   }
 
 
