@@ -1,12 +1,19 @@
-#include <SoftwareSerial.h>
-SoftwareSerial MWSerial(2, 3);                   // RX, TX
+// Set pins for reset and Baud rate speed of Twelite
+int RST = 2;
+int BPS = 3; // if HIGH set Baud rate to 115200 at MWSerial, if LOW to 38400
 void setup() {
   Serial.begin(115200);
 
   Serial.print("Twelite Rover");
   Serial.println();
+  pinMode(RST, OUTPUT);
+  pinMode(BPS, OUTPUT);
+  digitalWrite(BPS, LOW);
+  digitalWrite(RST, LOW);
+  delay(10);
+  digitalWrite(RST, HIGH);
 
-  MWSerial.begin(38400);
+  Serial2.begin(38400);
 
 }
 
@@ -14,10 +21,12 @@ const int MaxBufferSize = 100;
 char Buffer[MaxBufferSize];
 void Parse();
 int Buffer_pos = 0;
+unsigned long message;
+void  writeToTwelite (unsigned long message);
 
 void loop() {
-  if (MWSerial.available() > 0){
-      char c = MWSerial.read();
+  if (Serial2.available() > 0){
+      char c = Serial2.read();
       if ( c != '\n' && (Buffer_pos < MaxBufferSize - 1) ){
         Buffer[Buffer_pos] = c;
         Buffer_pos++;
@@ -28,6 +37,7 @@ void loop() {
         Serial.println(Buffer);
         Parse();
         Buffer_pos = 0;
+        Serial2.print(":000100ABC123X/r/n");
         }
         
 }
@@ -68,4 +78,40 @@ void Parse() {
     }
   }
 }  
- 
+
+void  writeToTwelite (unsigned long message){
+  const int bufferLength = 8;
+  unsigned char Buffer2[bufferLength];
+  int i = 0;
+  int j = 0;
+  unsigned char temp = 0;
+  unsigned char temp1,temp2;
+  while(i<bufferLength){
+         temp = ((message >> 4*i) & 0xFF); 
+         //Serial.println(variable,HEX);
+         temp1 = temp & 0b11110000;
+         temp1 = temp1 >> 4;
+         //Serial.println(temp1,HEX);
+         temp2 = temp & 0b00001111;
+         if (temp1<0xA){
+             temp1 = temp1 + 0b00110000;
+         }
+         else{
+             temp1 = temp1 + 0b00110111; 
+         }
+         if (temp2<0xA){
+             temp2 = temp2 + 0b00110000;
+         }
+         else{
+             temp2 = temp2 + 0b00110111; 
+         }
+         Buffer2[bufferLength-i-1] = temp2;
+         Buffer2[bufferLength-i-2] = temp1;
+         i=i+2;
+         temp = 0;
+  }
+  while (j< bufferLength){
+      Serial.print((char) Buffer2[j]);
+      j++;
+     }
+}
