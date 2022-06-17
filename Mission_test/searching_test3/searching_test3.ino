@@ -15,12 +15,12 @@ int cm_long;
 int emergency_stop_distance = 10;
 
 //ゴール付近測距一回用バッファの長さ
-#define MEAS_BUF_LEN  40//ここは9軸基本バッファ配列数10よりは長くする
+#define MEAS_BUF_LEN  10//ここは9軸基本バッファ配列数10よりは長くする
 int bufcm[MEAS_BUF_LEN];
 int meas_index = 0;
 
 //ゴール付近測距リストの長さ
-#define SEAR_BUF_LEN 14
+#define SEAR_BUF_LEN 20
 int listcm[SEAR_BUF_LEN];
 int search_index = 0;
 
@@ -72,8 +72,8 @@ double Caliby = 125;
 
 float x; //ローバーの慣性姿勢角
 float delta_theta;//目的方向と姿勢の相対角度差
-int threshold = 20; //角度の差分の閾値
-int spin_threshold = 40; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
+int threshold = 10; //角度の差分の閾値
+int spin_threshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
 
 //9軸フィルター関連
 //姿勢フィルターバッファの長さ
@@ -114,13 +114,13 @@ boolean Stop_flag = 0;
 boolean Near_flag = 0;//ゴール5m付近
 boolean Search_flag = 0;//ゴール5m付近で探索中
 int count_search = 0;//探索中のシーケンス管理カウント
-const int spin_iteration = 5;//探索中のスピン移動に使うループ回数
-const int spinmove_iteration = 5;//探索後のスピン移動に使うループ回数
+const int spin_iteration = 1;//探索中のスピン移動に使うループ回数
+const int spinmove_iteration = 1;//探索後のスピン移動に使うループ回数
 
 int count_spin = 0;//探索後、方向に向けてスピン回数のカウント
 int wait_spin = 0;//探索後、スピン後停止する回数のカウント
-const int wait_iteration = 40;//探索後、スピン後少し停止するループ数(10よりは大きくする)
-const int forward_iteration = 9;//探索後、方向に向かって進むループ数
+const int wait_iteration = 10;//探索後、スピン後少し停止するループ数(10よりは大きくする)
+const int forward_iteration = 18;//探索後、方向に向かって進むループ数
 
 
 boolean Success_flag = 0;
@@ -157,6 +157,7 @@ void setup()
 //    Serial.println(cm);
 //    delay(100);
 //  }
+
   
   //モーター
   pinMode(CH1, OUTPUT);
@@ -230,8 +231,13 @@ void loop()
       case 2://distance value low 8 bits
 //        Serial.print("Byte2:");
 //        Serial.println(c,HEX);
-        cm_LIDAR = (int)c;
-        bytenum += 1;
+        if(c == 0x59){
+          //多分次がcase2
+        }
+        else{
+          cm_LIDAR = (int)c;
+          bytenum += 1;
+        }
         break;
       case 3://distance value high 8 bits
 //        Serial.print("Byte3:");
@@ -277,12 +283,12 @@ void loop()
   }
   
   //---------------------超音波(短・前面)取得--------------------------------------------------
-  digitalWrite(HEAD_Trig,LOW);
-  delayMicroseconds(2);
-  digitalWrite(HEAD_Trig,HIGH);
-  delayMicroseconds(10);
-  duration = pulseIn(HEAD_Echo,HIGH);
-  cm = microsecTocm(duration);
+//  digitalWrite(HEAD_Trig,LOW);
+//  delayMicroseconds(2);
+//  digitalWrite(HEAD_Trig,HIGH);
+//  delayMicroseconds(10);
+//  duration = pulseIn(HEAD_Echo,HIGH);
+//  cm = microsecTocm(duration);
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
   anVolt = analogRead(HEADpin);
@@ -298,12 +304,12 @@ void loop()
   
   Serial.print(":cm_LIDAR:");
   Serial.print(cm_LIDAR);
-  if(cm< emergency_stop_distance){
-    Stop_flag = 1;                                                                                                                               
-    
-  }else{
-    Stop_flag = 0;
-  }
+//  if(cm< emergency_stop_distance){
+//    Stop_flag = 1;                                                                                                                               
+//    
+//  }else{
+//    Stop_flag = 0;
+//  }
 
   //---------------------ステータスごとの特別な制御------------------------------------------------------
   //キャリブレーション
@@ -339,11 +345,12 @@ void loop()
    }
    else{
     Stop_flag = 1;//測距中は停止する
-    bufcm[meas_index] = cm_long;
+    bufcm[meas_index] = cm_LIDAR;
     meas_index = (meas_index+1)%MEAS_BUF_LEN;
     //バッファに値がたまったら
     if(meas_index == 0){
-      filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
+//      filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
+      listcm[search_index] = cm_LIDAR;//一番最後の角度がもっともらしい。
       listdeg[search_index] = x;//一番最後の角度がもっともらしい。
       Serial.print(":measure deg:");
       Serial.print(listdeg[search_index]);

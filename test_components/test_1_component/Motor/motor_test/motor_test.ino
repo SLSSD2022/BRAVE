@@ -19,36 +19,34 @@ void setup() {
 }
 
 void loop() {
-    Serial.println("1:Normal rotaion");
-    digitalWrite(ENABLE,HIGH); // enable on
-//    digitalWrite(CH1,HIGH);
-    analogWrite(CH1,1*255);    
-    digitalWrite(CH2,LOW); 
-    digitalWrite(CH3,1*255);    
-    digitalWrite(CH4,LOW); 
-    delay(4000);
-
-    Serial.println("0:STOP");
-    digitalWrite(ENABLE,LOW); // disable
-    delay(1000);
+//    Serial.println("1:Normal rotaion");
+//    digitalWrite(ENABLE,HIGH); // enable on
+////    digitalWrite(CH1,HIGH);
+//    analogWrite(CH1,1*255);    
+//    digitalWrite(CH2,LOW); 
+//    digitalWrite(CH3,1*255);    
+//    digitalWrite(CH4,LOW); 
+//    delay(4000);
+//
+//    Serial.println("0:STOP");
+//    digitalWrite(ENABLE,LOW); // disable
+//    delay(1000);
+//    
+//    Serial.println("2:Reverse rotation");
+//    digitalWrite(ENABLE,LOW); // enable on
+//    delay(100);                // 低速で回転させるための調整時間
+//    digitalWrite(ENABLE,HIGH); // enable on
+//    analogWrite(CH2,1*255);    
+//    digitalWrite(CH1,LOW); 
+//    digitalWrite(CH4,1*255);    
+//    digitalWrite(CH3,LOW); 
+//    delay(4000);
     
-    Serial.println("2:Reverse rotation");
-    digitalWrite(ENABLE,LOW); // enable on
-    delay(100);                // 低速で回転させるための調整時間
-    digitalWrite(ENABLE,HIGH); // enable on
-    analogWrite(CH2,1*255);    
-    digitalWrite(CH1,LOW); 
-    digitalWrite(CH4,1*255);    
-    digitalWrite(CH3,LOW); 
-    delay(4000);
-    
-    Serial.println("0:STOP");
-    digitalWrite(ENABLE,LOW); // disable
-    delay(1000);
+//    Serial.println("0:STOP");
+//    digitalWrite(ENABLE,LOW); // disable
+//    delay(1000);
 
     Serial.println("3:Twin rotation");
-    digitalWrite(ENABLE,LOW); // enable on
-    delay(100);                // 低速で回転させるための調整時間
     digitalWrite(ENABLE,HIGH); // enable on
     analogWrite(CH1,1*255);    
     digitalWrite(CH2,LOW); 
@@ -56,7 +54,7 @@ void loop() {
     digitalWrite(CH3,LOW); 
     delay(4000);
     
-    Serial.println("0:STOP");
-    digitalWrite(ENABLE,LOW); // disable
-    delay(1000);
+//    Serial.println("0:STOP");
+//    digitalWrite(ENABLE,LOW); // disable
+//    delay(1000);
 }
