@@ -84,7 +84,8 @@ int bufdeg[SEA_BUF_LEN];
 TinyGPSPlus gps;
 // double LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
 //double LatA = 35.7142738, LongA = 139.76185488809645; //目的地Aの緯度経度(2号館)
-double LatA = 35.7140655517578, LongA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
+//double LatA = 35.7140655517578, LongA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
+double LatA = 35.719970703125, LongA = 139.7361145019531; //目的地Aの緯度経度(工学部広場)
 double LatR = 35.715328, LongR = 139.761138;  //現在地の初期想定値(7号館屋上)
 
 float degRtoA; //GPS現在地における目的地の慣性方角
@@ -112,9 +113,9 @@ void setup()
 {
     // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);//ステータス設定(試験したい状況)
-  Calibration_flag = 0;
-  Near_flag = 1;//ゴール5m付近のとき
-  Search_flag = 1;//ゴール5m付近で測距するとき
+  Calibration_flag = 1;
+  Near_flag = 0;//ゴール5m付近のとき
+  Search_flag = 0;//ゴール5m付近で測距するとき
 //  while(1){
 //    anVolt = analogRead(HEADpin);
 //    cm_long = anVolt/2;
@@ -183,12 +184,12 @@ void loop()
   }
   
   //---------------------超音波(短・前面)取得--------------------------------------------------
-  digitalWrite(HEAD_Trig,LOW);
-  delayMicroseconds(2);
-  digitalWrite(HEAD_Trig,HIGH);
-  delayMicroseconds(10);
-  duration = pulseIn(HEAD_Echo,HIGH);
-  cm = microsecTocm(duration);
+//  digitalWrite(HEAD_Trig,LOW);
+//  delayMicroseconds(2);
+//  digitalWrite(HEAD_Trig,HIGH);
+//  delayMicroseconds(10);
+//  duration = pulseIn(HEAD_Echo,HIGH);
+//  cm = microsecTocm(duration);
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
   anVolt = analogRead(HEADpin);
@@ -226,7 +227,7 @@ void loop()
   
   Serial.print(":cm_long:");
   Serial.print(cm_long);
-  if(cm<20){
+  if(cm<0){
     Stop_flag = 1;                                                                                                                               
     
   }else{

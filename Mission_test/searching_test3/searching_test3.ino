@@ -120,7 +120,7 @@ const int spinmove_iteration = 1;//探索後のスピン移動に使うループ
 int count_spin = 0;//探索後、方向に向けてスピン回数のカウント
 int wait_spin = 0;//探索後、スピン後停止する回数のカウント
 const int wait_iteration = 10;//探索後、スピン後少し停止するループ数(10よりは大きくする)
-const int forward_iteration = 18;//探索後、方向に向かって進むループ数
+const int forward_iteration = 20;//探索後、方向に向かって進むループ数
 
 
 boolean Success_flag = 0;
