@@ -122,7 +122,7 @@ void setup()
 //    Serial.println(cm_long);
 //    delay(1000);
 //  }
-  
+  1w
   //超音波センサ
   pinMode(HEAD_Trig,OUTPUT);
   pinMode(HEAD_Echo,INPUT);
