@@ -4,7 +4,7 @@
 // イーサーネットシールドは 4
 // Adafruit のSDシールドは 10
 // Sparkfun のSDシールドは 8
-const int chipSelect = 4;
+const int chipSelect = 53;
 
 void setup()
 {
