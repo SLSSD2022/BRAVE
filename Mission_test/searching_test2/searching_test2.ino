@@ -109,7 +109,7 @@ boolean Stop_flag = 0;
 boolean Near_flag = 0;//ゴール5m付近
 boolean Search_flag = 0;//ゴール5m付近で探索中
 int count_search = 0;//探索中のシーケンス管理カウント
-const int spin_iteration = 5;//探索中のスピン移動に使うループ回数
+const int spin_iteration = 20;//探索中のスピン移動に使うループ回数
 const int spinmove_iteration = 5;//探索後のスピン移動に使うループ回数
 
 int count_spin = 0;//探索後、方向に向けてスピン回数のカウント
