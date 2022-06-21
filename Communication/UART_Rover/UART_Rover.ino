@@ -53,12 +53,16 @@ const uint8_t generator[4] = {0x46,0x23,0x17,0x0D};
 const uint8_t parityCheck[3] = {0x5C,0x72,0x39};
 int commsStart;
 int commsStop;
+int start;
+int stopi;
 void readRoverData();
 void  writeToTwelite();
 char encodedReceived[2*sizeof(roverMessage)];
 
 
 void loop() {
+  start = millis();
+  if (start> stopi + 5000){
   if (Serial2.available() > 0){
       char c = Serial2.read();
       if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ){
@@ -87,11 +91,13 @@ void loop() {
       } 
       int ctr=0;
       commsStart = millis();
-      if (commsStart > commsStop + 1000){      
+      if (commsStart > commsStop + 20){      
         writeToTwelite();
         commsStop = millis();
-      }     
-  }
+      }
+      stopi = millis();
+  }     
+}
 }
 
 // TWELITE write its packets in HEX then converts it to characters. The Parse function retrieves the original HEX numbers as ints.
