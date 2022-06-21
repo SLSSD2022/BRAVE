@@ -1,11 +1,10 @@
 #include <Servo.h>
 Servo servo_YAW;
 Servo servo_PITCH;
-const int SV_YAW = 7;       // サーボモーターをデジタルピン7に
-const int SV_PITCH = 24;       // サーボモーターをデジタルピン7に
-int deg_YAW = 80;     // PWMパルス幅を1450マイクロ秒(2.4ms)に設定
-int deg_PITCH = 0;     // PWMパルス幅を1450マイクロ秒(2.4ms)に設定
-boolean reverse = 0;
+const int SV_YAW = 24;       // サーボモーターをデジタルピン7に
+const int SV_PITCH = 7;       // サーボモーターをデジタルピン7に
+int deg_YAW = 73;     // PWMパルス幅を1450マイクロ秒(2.4ms)に設定
+int deg_PITCH = 8;     // PWMパルス幅を1450マイクロ秒(2.4ms)に設定
 
 //LIDARセンサー
 int bytenum = 0;
@@ -16,7 +15,7 @@ int distance = 0;
 int count = 0;
 
 void setup(){
-  Serial.begin(115200);
+  Serial.begin(9600);
  
   servo_YAW.attach(SV_YAW, 500, 2400);  // サーボの割当(パルス幅500~2400msに指定)
   servo_YAW.write(deg_YAW);    // サーボモーターを0度の位置まで動かす
@@ -33,29 +32,8 @@ void setup(){
 }
  
 void loop(){
-  count += 1;
-  delay(10);
-  if(count > 30){
-    Serial.println("-----------------------------------------------------------------------");
-    servo_YAW.write(deg_YAW);    // サーボモーターを0度の位置まで動かす
-    if(reverse == 0){
-      deg_YAW += 1;
-    }
-    else{
-      deg_YAW -= 1;
-    }
-    if(deg_YAW > 85){
-      reverse = 1;
-    }
-    if(deg_YAW < 70){
-      reverse = 0;
-    }
-    count = 0;
-  }
-  Serial.print("count:");
-  Serial.print(count);
-  Serial.print(":deg_YAW");
-  Serial.print(deg_YAW);
+//  servo_YAW.write(deg_YAW);
+//  servo_PITCH.write(deg_PITCH);
   //---------------------LIDARセンサ取得--------------------------------------------------
   while (Serial2.available() > 0) {
     byte c = Serial2.read();
@@ -84,6 +62,15 @@ void loop(){
 //        Serial.print("Byte3:");
 //        Serial.println(c,HEX);
         distance = distance + 256*(int)c;
+        if(0<distance && distance < 1000){
+          LIDAR_buf = distance;
+        }else{
+          distance = LIDAR_buf;
+        }
+        Serial.print(":deg_PITCH");
+        Serial.print(deg_PITCH);
+        Serial.print(":deg_YAW");
+        Serial.print(deg_YAW);
         Serial.print(":distance:");
         Serial.println(distance);
         distance = 0;
