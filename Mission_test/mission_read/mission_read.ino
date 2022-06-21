@@ -67,7 +67,7 @@ void setup()
   Serial.begin(9600);
 
   //ログ表示モード
-  displey_mode = 1;
+  displey_mode = 0;
   delay(1000);
 }
 
@@ -112,9 +112,9 @@ void loop()
     Serial.print(":Caliby:");
     Serial.print(Caliby);
     Serial.print(":LatR:");
-    Serial.print(LatR);
+    Serial.print(LatR,10);
     Serial.print(":LongR:");
-    Serial.print(LongR);
+    Serial.print(LongR,10);
     Serial.print(":degRtoA:");
     Serial.print(degRtoA);
     Serial.print(":x:");
@@ -166,9 +166,9 @@ void loop()
     Serial.print(",");
     Serial.print(Caliby);
     Serial.print(",");
-    Serial.print(LatR);
+    Serial.print(LatR,10);
     Serial.print(",");
-    Serial.print(LongR);
+    Serial.print(LongR,10);
     Serial.print(",");
     Serial.print(degRtoA);
     Serial.print(",");
