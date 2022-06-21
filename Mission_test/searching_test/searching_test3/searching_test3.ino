@@ -95,7 +95,8 @@ int listdeg[SEAR_BUF_LEN];
 TinyGPSPlus gps;
 // double LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
 //double LatA = 35.7142738, LongA = 139.76185488809645; //目的地Aの緯度経度(2号館)
-double LatA = 35.7140655517578, LongA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
+// double LatA = 35.7140655517578, LongA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
+double LatA = 35.719970703125, LongA = 139.7361145019531; //目的地Aの緯度経度(教育の森公園)
 double LatR = 35.715328, LongR = 139.761138;  //現在地の初期想定値(7号館屋上)
 
 float degRtoA; //GPS現在地における目的地の慣性方角
@@ -304,12 +305,12 @@ void loop()
   
   Serial.print(":cm_LIDAR:");
   Serial.print(cm_LIDAR);
-//  if(cm< emergency_stop_distance){
-//    Stop_flag = 1;                                                                                                                               
-//    
-//  }else{
-//    Stop_flag = 0;
-//  }
+ if(cm< emergency_stop_distance){
+   Stop_flag = 1;                                                                                                                               
+   
+ }else{
+   Stop_flag = 0;
+ }
 
   //---------------------ステータスごとの特別な制御------------------------------------------------------
   //キャリブレーション
