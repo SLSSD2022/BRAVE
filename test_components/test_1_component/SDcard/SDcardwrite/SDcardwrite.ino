@@ -4,7 +4,7 @@
 // イーサーネットシールドは 4
 // Adafruit のSDシールドは 10
 // Sparkfun のSDシールドは 8
-const int chipSelect = 4;
+const int chipSelect = 53;
 
 void setup()
 {
@@ -35,11 +35,11 @@ void setup()
 void loop()
 {
   // ファイルを開く
-  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+  File dataFile = SD.open("datalog2.txt", FILE_WRITE);
 
   // もしファイルが開けたら値を書き込む
   if (dataFile) {
-    int value = analogRead(0);
+    int value = 7;
     dataFile.println(value);
     dataFile.close();
     // シリアルポートにも出力
@@ -56,8 +56,8 @@ void loop()
 
 void dateTime(uint16_t* date, uint16_t* time)
 {
-  uint16_t year = 2013;
-  uint8_t month = 2, day = 3, hour = 9, minute = 0, second = 0;
+  uint16_t year = 2022;
+  uint8_t month = 6, day = 20, hour = 13, minute = 0, second = 0;
 
   // GPSやRTCから日付と時間を取得
   // FAT_DATEマクロでフィールドを埋めて日付を返す

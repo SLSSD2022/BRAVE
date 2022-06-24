@@ -67,8 +67,8 @@ int zMag = 0;
 
 //キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
 double Calib = 175; 
-double Calibx = 20;
-double Caliby = 132;
+double Calibx = 16;
+double Caliby = 125;
 
 float x; //ローバーの慣性姿勢角
 float delta_theta;//目的方向と姿勢の相対角度差
@@ -82,7 +82,7 @@ int buf[BUF_LEN];
 int index = 0;
 float filterVal = 0.0; //フィルター後の値
 //キャリブレーション用バッファの長さ
-#define CAL_BUF_LEN 100
+#define CAL_BUF_LEN 200
 int bufx[CAL_BUF_LEN];
 int bufy[CAL_BUF_LEN];
 int cal_index = 0;
@@ -95,8 +95,8 @@ int listdeg[SEAR_BUF_LEN];
 TinyGPSPlus gps;
 // double LatA = 35.7100069, LongA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
 //double LatA = 35.7142738, LongA = 139.76185488809645; //目的地Aの緯度経度(2号館)
-//double LatA = 35.7140655517578, LongA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
-double LatA = 35.719970703125, LongA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
+// double LatA = 35.7140655517578, LongA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
+double LatA = 35.719970703125, LongA = 139.7361145019531; //目的地Aの緯度経度(教育の森公園)
 double LatR = 35.715328, LongR = 139.761138;  //現在地の初期想定値(7号館屋上)
 
 float degRtoA; //GPS現在地における目的地の慣性方角
@@ -136,19 +136,29 @@ void setup()
 {
     // デバッグ用シリアル通信は9600bps
   Serial.begin(9600);//ステータス設定(試験したい状況)
-  Calibration_flag = 1;
-  Near_flag = 0;//ゴール5m付近のとき
-  Search_flag = 0;//ゴール5m付近で測距するとき
-//  while(1){
-//    anVolt = analogRead(HEADpin);
-//    cm_long = anVolt/2;
-//    Serial.println(cm_long);
-//    delay(1000);
-//  }
+  Calibration_flag = 0;
+  Search_flag = 1;//ゴール5m付近で測距するとき
   
   //超音波センサ
   pinMode(HEAD_Trig,OUTPUT);
   pinMode(HEAD_Echo,INPUT);
+
+  
+//  while(1){
+//    anVolt = analogRead(HEADpin);
+//    cm_long = anVolt/2;
+//    Serial.print(cm_long);
+//    digitalWrite(HEAD_Trig,LOW);
+//    delayMicroseconds(2);
+//    digitalWrite(HEAD_Trig,HIGH);
+//    delayMicroseconds(10);
+//    duration = pulseIn(HEAD_Echo,HIGH);
+//    cm = microsecTocm(duration);
+//    Serial.print(",");
+//    Serial.println(cm);
+//    delay(100);
+//  }
+
   
   //モーター
   pinMode(CH1, OUTPUT);
@@ -177,15 +187,6 @@ void setup()
   
   //初期値
   degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-  //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
-//  unsigned long k = 0; 
-//  while(k < 6000){
-//    writeEEPROM(DEVICE_ADDRESS, DATA_ADDRESS,0);
-//    DATA_ADDRESS += 1;
-//    k +=1;
-//    Serial.println(k);
-//  }
-//  DATA_ADDRESS = 0;
   //バッファの初期化
   for(int i=0; i<CAL_BUF_LEN; i++) {
     bufx[i] = 0;
@@ -281,7 +282,7 @@ void loop()
   }else{
     cm_LIDAR = LIDAR_buf;
   }
-
+  
   //---------------------超音波(短・前面)取得--------------------------------------------------
 //  digitalWrite(HEAD_Trig,LOW);
 //  delayMicroseconds(2);
@@ -293,28 +294,6 @@ void loop()
   //---------------------超音波(短・前面)取得--------------------------------------------------
   anVolt = analogRead(HEADpin);
   cm_long = anVolt/2;
-  
-  //---------------------GPS取得--------------------------------------------------
-  while (Serial1.available() > 0 && GPS_flag == 1 && Near_flag == 0)//Near_flagは一時的なもの
-  {
-    //    Serial.print("YES");
-    char c = Serial1.read();
-    //    Serial.print(c);
-    gps.encode(c);
-    if (gps.location.isUpdated())
-    {
-      Serial.println("");
-      Serial.println("I got new GPS!");
-      LatR = gps.location.lat();  // roverの緯度を計算
-      LongR = gps.location.lng(); // roverの経度を計算
-      degRtoA = atan2((LongR - LongA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-
-      GPS_flag = 0;
-    }
-    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
-    delay(1);
-  }
-  GPS_flag =1;
 
   //---------------------ステータス確認--------------------------------------------------
   
@@ -326,12 +305,12 @@ void loop()
   
   Serial.print(":cm_LIDAR:");
   Serial.print(cm_LIDAR);
-  if(cm< emergency_stop_distance){
-    Stop_flag = 1;                                                                                                                               
-    
-  }else{
-    Stop_flag = 0;
-  }
+ if(cm< emergency_stop_distance){
+   Stop_flag = 1;                                                                                                                               
+   
+ }else{
+   Stop_flag = 0;
+ }
 
   //---------------------ステータスごとの特別な制御------------------------------------------------------
   //キャリブレーション
@@ -409,7 +388,7 @@ void loop()
     }
    }
   }
-
+  
 
 
   //---------------------モーター制御--------------------------------------------------
@@ -432,7 +411,7 @@ void loop()
     Status_control = 7;//"Calibration..."
     Serial.print(":calibration");
   }
-  else if(Stop_flag == 0 && Calibration_flag == 0 && Near_flag == 1){//ゴール5m付近時
+  else if(Stop_flag == 0 && Calibration_flag == 0){//ゴール5m付近時
     if(Search_flag == 1){//スピンしながらコーンを探索
       digitalWrite(ENABLE, HIGH); // enable
       analogWrite(CH1, 0);
@@ -443,7 +422,7 @@ void loop()
       Serial.print(":searching");
     }
     else{//コーンの方を向く
-       if(count_forward > forward_iteration){
+      if(count_forward > forward_iteration){
         Search_flag = 1;
         count_forward = 0;
         Serial.print(":restart searching");
@@ -554,32 +533,6 @@ double deg2rad(double deg)
   return (double)(deg * PI / 180.0);
 }
 
-// Hubenyの式
-
-float calculateDistance(double latitude1, double longitude1, double latitude2, double longitude2)
-{
-  // 先に計算しておいた定数
-  double e2 = 0.00669437999019758;   // WGS84における「離心率e」の2乗
-  double Rx = 6378137.0;             // WGS84における「赤道半径Rx」
-  double m_numer = 6335439.32729246; // WGS84における「子午線曲率半径M」の分子(Rx(1-e^2))
-
-  double rad_lat1 = deg2rad(latitude1);
-  double rad_lon1 = deg2rad(longitude1);
-  double rad_lat2 = deg2rad(latitude2);
-  double rad_lon2 = deg2rad(longitude2);
-
-  float dp = (float)(rad_lon1 - rad_lon2);        // 2点の緯度差
-  float dr = (float)(rad_lat1 - rad_lat2);        // 2点の経度差
-  float p = (float)((rad_lon1 + rad_lon2) * 0.5); // 2点の平均緯度
-
-  float w = (float)sqrt(1.0 - e2 * pow(sin(p), 2));
-  float m = (float)(m_numer / pow(w, 3)); // 子午線曲率半径
-  float n = (float)(Rx / w);              // 卯酉(ぼうゆう)線曲率半径
-
-  // 2点間の距離(単位m)
-  float d = (float)sqrt(pow((m * dp), 2) + pow((n * cos(p) * dr), 2));
-  return d;
-}
 
 //===========9軸関係==========================================================================//
 void BMX055_Init()

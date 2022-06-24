@@ -73,10 +73,18 @@ void loop() { // run over and over
 //       Serial.print("LONG=");
       Serial.print(",");
       Serial.print(gps.location.lng(), 13);
-      if(phi0_deg == 0){
-        calc_const(gps.location.lat(),gps.location.lng());
-      }
-      calc_xy(gps.location.lat(),gps.location.lng(), &x, &y);
+//      Serial.print(",");
+//      Serial.print(gps.location.lat() - 35.7199478149414, 13);
+////       Serial.print("LONG=");
+//      Serial.print(",");
+//      Serial.print(gps.location.lng() - 139.735931396484, 13);
+//      float RtoA = sqrt(pow(gps.location.lng() - 139.735931396484, 2) + pow(gps.location.lat() - 35.7199478149414, 2)) * 99096.44;
+//      Serial.print(",");
+//      Serial.print(RtoA, 2);
+//      if(phi0_deg == 0){
+//        calc_const(gps.location.lat(),gps.location.lng());
+//      }
+//      calc_xy(gps.location.lat(),gps.location.lng(), &x, &y);
       
 //      Serial.print(",");
 //      Serial.print(x);
