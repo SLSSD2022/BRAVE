@@ -23,6 +23,16 @@ typedef union packetData{
   unsigned char packetData[sizeof(roverData)];
 };
 
+typedef struct gpsDataStruct{
+  float latR[3];
+  float longR[3];
+};
+
+typedef union gpsPacketUnion{
+  gpsDataStruct gpsData;
+  uint8_t gpsBytes[sizeof(gpsPacketStruct)]
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -43,12 +53,13 @@ const int MaxBufferSize = 100;
 char Buffer[MaxBufferSize];
 void Parse();
 int bufferPos = 0;
-unsigned long message;
-roverData roverMessage;                                   //Rover sensor data in the roverData structure type
-packetData packet;                                        //Packet to be coded and then written to twelite 
+packetData packetTx;                                        //Packet to be coded and then written to twelite 
+gpsPacketUnion dataRx;                                      //Received packet with GPS data
+
 void  writeToTwelite();
 void encodeCyclic();
-uint8_t encodedResult[2*sizeof(roverMessage)];            //Encoded message to be sent 
+uint8_t encodedTx[2*sizeof(roverData)];            //Encoded message to be sent 
+uint8_t encodedRX[2*sizeof(gpsDataStruct)];
 const uint8_t generator[4] = {0x46,0x23,0x17,0x0D};
 const uint8_t parityCheck[3] = {0x5C,0x72,0x39};
 int commsStart;
@@ -57,24 +68,17 @@ int start;
 int stopi;
 void readRoverData();
 void  writeToTwelite();
-char encodedReceived[2*sizeof(roverMessage)];
+char encodedReceived[2*sizeof(roverData)];
 
 
 void loop() {
-  start = millis();
-  if (start> stopi + 5000){
+  //---------------Initial Mode------------------
+bool Initial = true
+while (Initial){
   if (Serial2.available() > 0){
       char c = Serial2.read();
       if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ){
-    //---------------------------Checks-------------------------------------- 
-        /*if (bufferPos==3 && c!='0'){    //Check if it is a Twelite arbitrary packet 
-          Buffer[bufferPos] = '\0';
-          bufferPos==0;
-        }
-        if (bufferPos == 5 && c!='0'){            //Check if it is a Rover related Packet
-          Buffer[bufferPos] = '\0';
-          bufferPos = 0;
-        }*/  
+    
         Buffer[bufferPos] = c;
         /*if(bufferPos > 6 && (c!='\r'||c!='\n')){
           encodedReceived[bufferPos - 6] = c;
@@ -84,9 +88,56 @@ void loop() {
       else
       {
         Buffer[bufferPos] = '\0';
+        //---------------------------Checks-------------------------------------- 
+        if (Buffer[3]=='0' && Buffer[4]=='1' && Buffer[5]=='0'){    //Arbitrary packet for Rover 
+          //Serial.println(Buffer);
+          if (Buffer[6]=='2'){                                      //NACK
+            Serial.print("NACK: Resending packet...")
+            writeToTwelite();
+            break;
+          } else if (Buffer[6]=='1'){
+            break;
+          } else if (Buffer[6]=='0'){
+            //proccess the data
+            Initial = false;
+          }
+         }
+        bufferPos = 0;
+      }
+  }
+
+
+
+
+  
+  start = millis();
+  if (start> stopi + 5000){
+  if (Serial2.available() > 0){
+      char c = Serial2.read();
+      if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ){
+    
+        Buffer[bufferPos] = c;
+        /*if(bufferPos > 6 && (c!='\r'||c!='\n')){
+          encodedReceived[bufferPos - 6] = c;
+        }*/
+        bufferPos++;
+      }
+      else
+      {
+        Buffer[bufferPos] = '\0';
+        //---------------------------Checks-------------------------------------- 
+        if (Buffer[3]=='0' && Buffer[4]=='1' && Buffer[5]=='0'){    //Arbitrary packet for Rover 
+          //Serial.println(Buffer);
+          if (Buffer[6]=='2'){                                      //NACK
+            Serial.print("NACK: Resending packet...")
+            writeToTwelite();
+            break;
+          } else if (Buffer[6]=='1'){
+            break;
+          }
+         }
+        
         Serial.println(Buffer);
-        //Serial.println(encodedReceived);
-        //Parse();
         bufferPos = 0;
       } 
       int ctr=0;
@@ -143,12 +194,12 @@ void  writeToTwelite (){
   Serial2.print(":000100");
   //Serial.print(":000100");
   while (ctr1<2*sizeof(roverData)){
-    if((uint8_t)encodedResult[ctr1]<16){
+    if((uint8_t)encodedTx[ctr1]<16){
       Serial2.print("0");
       //Serial.print("0");
     }
-    Serial2.print(encodedResult[ctr1],HEX);
-    //Serial.print(encodedResult[ctr1],HEX);
+    Serial2.print(encodedTx[ctr1],HEX);
+    //Serial.print(encodedTx[ctr1],HEX);
     ctr1++;
   }
     Serial2.print("X\r\n");
@@ -156,38 +207,37 @@ void  writeToTwelite (){
 }
 
 void readRoverData(){
-  roverMessage.roverComsStat = "00000100";
-  roverMessage.xMag = 20;
-  roverMessage.yMag= 180;
-  roverMessage.calibX= 15;
-  roverMessage.calibY= 3;
-  roverMessage.x= 290.7;
-  roverMessage.cmLong = 168;
-  roverMessage.latR= 32.8;
-  roverMessage.longR= 136.75;
-  roverMessage.degRtoA= 120;
-  roverMessage.statusControl= 0b00110110;
-  roverMessage.time= 13332321;
-  packet.message = roverMessage;
+  packetTx.message.roverComsStat = "00000100";
+  packetTx.message.xMag = 20;
+  packetTx.message.yMag= 180;
+  packetTx.message.calibX= 15;
+  packetTx.message.calibY= 3;
+  packetTx.message.x= 290.7;
+  packetTx.message.cmLong = 168;
+  packetTx.message.latR= 32.8;
+  packetTx.message.longR= 136.75;
+  packetTx.message.degRtoA= 120;
+  packetTx.message.statusControl= 0b00110110;
+  packetTx.message.time= 13332321;
 }
 
 void encodeCyclic() {
     uint8_t ctr = 0;
     uint8_t m;
     while(ctr<sizeof(roverMessage)) {
-        m = packet.packetData[ctr]>>4;
-        encodedResult[2*ctr] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
+        m = packetTx.packetData[ctr]>>4;
+        encodedTx[2*ctr] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
                             (((m>>2)&1)*generator[1])^(((m>>3)&1)*generator[0]);
-        //Serial.print(encodedResult[2*ctr],HEX);
-        m = packet.packetData[ctr];
-        encodedResult[2*ctr+1] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
+        //Serial.print(encodedTx[2*ctr],HEX);
+        m = packetTx.packetData[ctr];
+        encodedTx[2*ctr+1] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
                             (((m>>2)&1)*generator[1])^(((m>>3)&1)*generator[0]);
-        //Serial.println(encodedResult[2*ctr+1],HEX);
+        //Serial.println(encodedTx[2*ctr+1],HEX);
         ctr++;
     }
 }
 
-/*bool checkError(uint8_t dataByte) {
+bool checkError(uint8_t dataByte) {
     uint8_t p[3];
     uint8_t ctr = 0;
     p[0] = dataByte&parityCheck[0];
@@ -204,19 +254,21 @@ void encodeCyclic() {
 void decodeCyclic() {
     uint8_t ctr = 0;
     bool error[2];
-    while (ctr<sizeof(gsMessage)) {
-        encodedReceived[2*ctr] = encodedReceived[2*ctr]&0x7F;
-        encodedReceived[2*ctr+1] = encodedReceived[2*ctr+1]&0x7F;
-        error[0] = checkError(encodedReceived[2*ctr]);
-        error[1] = checkError(encodedReceived[2*ctr+1]);
-        receivedPacket.gsPacket[ctr] = ((encodedReceived[2*ctr]<<1)&0xF0)+
-                                ((encodedReceived[2*ctr+1]>>3)&0x0F);
-        Serial.print(receivedPacket.gsPacket[ctr],HEX);
-        if(error[0]||error[1]) {
-            Serial.print("     Error in this byte!\n");
-        } else {
-            Serial.println("\n");
+    while (ctr<sizeof(gpsDataStruct)) {
+        encodedRx[2*ctr] = encodedReceived[2*ctr]&0x7F;
+        encodedRx[2*ctr+1] = encodedReceived[2*ctr+1]&0x7F;
+        error[0] = checkError(encodedRx[2*ctr]);
+        error[1] = checkError(encodedRx[2*ctr+1]);
+        receivedPacket.gsPacket[ctr] = ((encodedRx[2*ctr]<<1)&0xF0)+
+                                ((encodedRx[2*ctr+1]>>3)&0x0F);
+                                
+        if(error[0]||error[1]) { //NACK
+            Serial2.print(":000102X\r\n");
+            return true;
         }
         ctr++;
     }
-}*/
+    //If no errors send ACK
+    Serial2.print(":000101X\r\n");
+    return false;
+}
