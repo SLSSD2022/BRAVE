@@ -70,16 +70,37 @@ void setup() {
   // store GPS coordinates
   gpsTx.gpsData.latR[0] = 14.0;
   gpsTx.gpsData.longR[0] = 121.0;
-  gpsTx.gpsData.latR[1] = 14.0;
+  gpsTx.gpsData.latR[1] = 15.0;
   gpsTx.gpsData.longR[1] = 121.0;
-  gpsTx.gpsData.latR[2] = 14.0;
+  gpsTx.gpsData.latR[2] = 16.0;
   gpsTx.gpsData.longR[2] = 121.0;
   encodeCyclic();
 }
 
 void loop() {
   // GS waits for valid packet before taking action
-  if (MWSerial.available()) {
+  Serial.println("Hello");
+  //if (MWSerial.available()) {
+    Serial.println("Goodbye");
+    boolean gps_flag = 1;
+    int ctr1=0;
+    while (gps_flag==1){
+      MWSerial.print(":000110");
+      Serial.print(":000110");
+    while (ctr1<2*sizeof(gpsPacketStruct)){
+      if((uint8_t)encodedTx[ctr1]<16){
+        MWSerial.print("0");
+        Serial.print("0");
+      }
+      MWSerial.print(encodedTx[ctr1],HEX);
+      Serial.print(encodedTx[ctr1],HEX);
+      ctr1++;
+    }
+    MWSerial.print("X\r\n");
+    Serial.print("X\r\n");
+    //Serial.print("X\r\n");
+    gps_flag =0;
+    }
     lenCtr = 0;
     while (1) {
       char c = MWSerial.read();
@@ -92,10 +113,20 @@ void loop() {
         break;
       }
     }
-  }
+  //}
   if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '1') {
     if (buffRx[6] == '2') {
       // NACK received, resend GPS
+      MWSerial.print(":000110");
+      int ctr1=0;
+      while (ctr1<2*sizeof(gpsPacketStruct)){
+        if((uint8_t)encodedTx[ctr1]<16){
+        MWSerial.print("0");
+      }
+      MWSerial.print(encodedTx[ctr1],HEX);
+      ctr1++;
+      }
+      MWSerial.print("X\r\n");
     } else if (buffRx[6] == '0') {
       // incoming data received, process it
       processData();
@@ -163,7 +194,7 @@ bool decodeCyclic() {
   }
 
   // no error means this point is reached, send ACK
-  MWSerial.print(":000110X\r\n");
+  MWSerial.print(":000111X\r\n");
   return false;
 }
 
