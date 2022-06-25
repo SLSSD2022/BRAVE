@@ -38,7 +38,7 @@ typedef union gpsPacketUnion{
   uint8_t gpsBytes[sizeof(gpsDataStruct)];
 };
 
-const int MaxBufferSize = 100;
+const int MaxBufferSize = 160;
 char buffRx[MaxBufferSize];
 void Parse();
 int bufferPos = 0;
@@ -733,18 +733,42 @@ void  writeToTwelite (){
 }
 
 void readRoverData(){
-  packetTx.message.roverComsStat = "00000100";
+  packetTx.message.roverComsStat = 4;
+  Serial.print("roverComsStat:");
+  Serial.println(packetTx.message.roverComsStat);
   packetTx.message.xMag = xMag;
+  Serial.print("xMag:");
+  Serial.println(packetTx.message.xMag);
   packetTx.message.yMag= yMag;
-  packetTx.message.calibX= 10;
+  Serial.print("yMag:");
+  Serial.println(packetTx.message.yMag);
+  packetTx.message.calibX= Calibx;
+  Serial.print("Calibx:");
+  Serial.println(packetTx.message.calibX);
   packetTx.message.calibY= Caliby;
+  Serial.print("Caliby:");
+  Serial.println(packetTx.message.calibY);
   packetTx.message.x= x;
+  Serial.print("x:");
+  Serial.println(packetTx.message.x);
   packetTx.message.cmLong = cm_LIDAR;
+  Serial.print("cm_long:");
+  Serial.println(packetTx.message.cmLong);
   packetTx.message.latR= LatR;
+  Serial.print("LatR:");
+  Serial.println(packetTx.message.latR);
   packetTx.message.lngR= LngR;
+  Serial.print("LngR:");
+  Serial.println(packetTx.message.lngR);
   packetTx.message.degRtoA= degRtoA;
+  Serial.print("degRtoA:");
+  Serial.println(packetTx.message.degRtoA);
   packetTx.message.statusControl= Status_control;
+  Serial.print("Status_control:");
+  Serial.println(packetTx.message.statusControl);
   packetTx.message.time= time;
+  Serial.print("time:");
+  Serial.println(packetTx.message.time);
 }
 
 void encodeCyclic() {
@@ -781,8 +805,6 @@ bool checkError(uint8_t dataByte) {
 void decodeCyclic() {
   uint8_t ctr = 0;
   bool error[2];
-  float latR[3];
-  float lngR[3];
   while (ctr<sizeof(gpsDataStruct)) {
     encodedRx[2*ctr] = encodedRx[2*ctr]&0x7F;
     encodedRx[2*ctr+1] = encodedRx[2*ctr+1]&0x7F;
