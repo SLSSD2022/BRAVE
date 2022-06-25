@@ -259,7 +259,7 @@ void decodeCyclic() {
         encodedRx[2*ctr+1] = encodedReceived[2*ctr+1]&0x7F;
         error[0] = checkError(encodedRx[2*ctr]);
         error[1] = checkError(encodedRx[2*ctr+1]);
-        receivedPacket.gsPacket[ctr] = ((encodedRx[2*ctr]<<1)&0xF0)+
+        dataRX.gsPacket[ctr] = ((encodedRx[2*ctr]<<1)&0xF0)+
                                 ((encodedRx[2*ctr+1]>>3)&0x0F);
                                 
         if(error[0]||error[1]) { //NACK
