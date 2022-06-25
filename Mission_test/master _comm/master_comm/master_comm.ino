@@ -54,8 +54,8 @@ const uint8_t generator[4] = {0x46,0x23,0x17,0x0D};
 const uint8_t parityCheck[3] = {0x5C,0x72,0x39};
 int commsStart;
 int commsStop;
-int start;
-int stopi;
+unsigned long start;
+unsigned long stopi;
 void readRoverData();
 void  writeToTwelite();
 char encodedReceived[2*sizeof(roverData)];
@@ -260,6 +260,7 @@ void setup()
     bufx[i] = 0;
     bufy[i] = 0;
   }
+  stopi = millis();
 }
 
 
@@ -268,7 +269,11 @@ void loop()
 {
   //-----------------Initial Mode----------------------
   while (Initial_flag){
-//   Serial.println("Initial Mode");
+    start = millis();
+    if (start> stopi + 1000){
+     Serial.println("Initial Mode");
+      stopi = millis();
+    }
    if (Serial2.available() > 0){
     char c = Serial2.read();
     //Serial2.print(c);
@@ -605,16 +610,28 @@ void loop()
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
   start = millis();
-  if (start> stopi + 10000){
+  
+  Serial.print(":start:");
+  Serial.print(start);
+  Serial.print(":stopi:");
+  Serial.print(stopi);
+  int timer = start - stopi;
+  Serial.print(":time:");
+  Serial.println(timer);
+  if ( timer > 10000){
+    Serial.println("HELLO!!!!!!!!!!!");
+    Serial.println(":10s Communication");
     writeToTwelite();//send HK firstly
+    Serial.println("writeToTwelite 1st");
     commsStop = millis();
     while(Communication_flag == 1){//then go into waiting loop for ACK or NACK
       commsStart = millis();
       if (commsStart > commsStop + 20){//if 20ms passes, then send HK again
         writeToTwelite();
+        Serial.println("writeToTwelite 20ms");
         commsStop = millis();
         Communication_flag = 0;
-        break;
+        //break;
       }
       if (Serial2.available() > 0){
         char c = Serial2.read();
@@ -631,9 +648,11 @@ void loop()
             if (buffRx[6]=='2'){//NACK
               Serial.print("NACK: Resending packet...");
               writeToTwelite();
+              Serial.println("writeToTwelite:NACK");
             } else if (buffRx[6]=='1'){//ACK
+              Serial.print("ACKNOWLEDGEMENT!");
               Communication_flag = 0;
-              break;
+              //break;
             }
           } 
           Serial.println(buffRx);
@@ -644,6 +663,7 @@ void loop()
     bufferPos = 0;
     Communication_flag = 1;
     stopi = millis();
+    Serial.println(":Communication end!!:");
   } 
   //---------------------ステータス更新--------------------------------------------------
   
@@ -716,7 +736,7 @@ void readRoverData(){
   packetTx.message.roverComsStat = "00000100";
   packetTx.message.xMag = xMag;
   packetTx.message.yMag= yMag;
-  packetTx.message.calibX= Calibx;
+  packetTx.message.calibX= 10;
   packetTx.message.calibY= Caliby;
   packetTx.message.x= x;
   packetTx.message.cmLong = cm_LIDAR;
