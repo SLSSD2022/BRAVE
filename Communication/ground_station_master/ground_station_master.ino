@@ -1,8 +1,11 @@
 #include <SoftwareSerial.h>
 //#include <sercmd.h>
 
+const int RST = 4;
+
+
 typedef struct dataPacketStruct {       // incoming data packet structure
-  uint8_t multiCommsStat;
+//  uint8_t multiCommsStat;
   uint8_t roverCommsStat;
   uint16_t xMag;
   uint16_t yMag;
@@ -36,7 +39,7 @@ SoftwareSerial MWSerial(2, 3);
 
 // GLOBAL VARIABLE DECLARATIONS
 char buffRx[200];
-uint8_t encodedRx[100];
+uint8_t encodedRx[2*sizeof(dataPacketStruct)];
 uint8_t encodedTx[2 * sizeof(gpsPacketStruct)];
 uint8_t lenCtr = 0;
 const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};
@@ -57,14 +60,12 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Ground Station Starting\n");
 
-  pinMode(2, OUTPUT);
-  pinMode(3, OUTPUT);
+  pinMode(RST,OUTPUT);
 
-  digitalWrite(2, LOW);
+  digitalWrite(RST, LOW);
   delay(100);
-  digitalWrite(2, HIGH);
-
-  digitalWrite(3, LOW);
+  digitalWrite(RST, HIGH);
+  
   MWSerial.begin(38400);
 
   // store GPS coordinates
@@ -76,35 +77,38 @@ void setup() {
   gpsTx.gpsData.longR[2] = 121.0;
   encodeCyclic();
 }
-
+boolean gps_flag = 1;
+int initialTime = 0;
 void loop() {
   // GS waits for valid packet before taking action
-  Serial.println("Hello");
-  //if (MWSerial.available()) {
-    Serial.println("Goodbye");
-    boolean gps_flag = 1;
-    int ctr1=0;
-    while (gps_flag==1){
-      MWSerial.print(":000110");
-      Serial.print(":000110");
-    while (ctr1<2*sizeof(gpsPacketStruct)){
-      if((uint8_t)encodedTx[ctr1]<16){
-        MWSerial.print("0");
-        Serial.print("0");
-      }
-      MWSerial.print(encodedTx[ctr1],HEX);
-      Serial.print(encodedTx[ctr1],HEX);
-      ctr1++;
+  
+  int ctr1=0;
+  if (gps_flag==1){
+    MWSerial.print(":000110");
+    //Serial.print(":000110");
+  while (ctr1<2*sizeof(gpsPacketStruct)){
+    if((uint8_t)encodedTx[ctr1]<16){
+      MWSerial.print("0");
+      //Serial.print("0");
     }
-    MWSerial.print("X\r\n");
-    Serial.print("X\r\n");
-    //Serial.print("X\r\n");
-    gps_flag =0;
-    }
-    lenCtr = 0;
+    MWSerial.print(encodedTx[ctr1],HEX);
+    //Serial.print(encodedTx[ctr1],HEX);
+    ctr1++;
+  }
+  MWSerial.print("X\r\n");
+  //Serial.print("X\r\n");
+
+  initialTime ++;
+  }
+  if (initialTime > 50){
+    gps_flag = 0;
+  }
+   
+  if (MWSerial.available() > 0) {
+    /*lenCtr = 0;
     while (1) {
       char c = MWSerial.read();
-
+//      Serial.print(c);
       buffRx[lenCtr] = c;
       lenCtr++;
       buffRx[lenCtr] = '\0';
@@ -112,14 +116,58 @@ void loop() {
       if (c == '\n' || lenCtr >= 200) {
         break;
       }
+    }*/
+    char c = MWSerial.read();
+    if ( c != '\n' && (lenCtr < 200 - 1) ){
+    
+        buffRx[lenCtr] = c;
+        /*if(bufferPos > 6 && (c!='\r'||c!='\n')){
+          encodedReceived[bufferPos - 6] = c;
+        }*/
+        lenCtr++;
     }
-  //}
-  if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '1') {
-    if (buffRx[6] == '2') {
-      // NACK received, resend GPS
-      MWSerial.print(":000110");
-      int ctr1=0;
-      while (ctr1<2*sizeof(gpsPacketStruct)){
+    else
+    {
+      buffRx[lenCtr] = '\0';
+      //Serial.println(buffRx);
+      if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '1') {
+        Serial.println("------GS Packet ------");
+        Serial.println(buffRx);
+        if (buffRx[6] == '2') {
+         // NACK received, resend GPS
+          Serial.println("------NACK ------");
+         /* MWSerial.print(":000110");
+          int ctr1=0;
+          while (ctr1<2*sizeof(gpsPacketStruct)){
+            if((uint8_t)encodedTx[ctr1]<16){
+              MWSerial.print("0");
+            }
+            MWSerial.print(encodedTx[ctr1],HEX);
+            ctr1++;
+          }
+          MWSerial.print("X\r\n");*/
+        }
+        else if (buffRx[6] == '0') {
+          Serial.println("------Rover Data ------");
+          // incoming data received, process it
+          processData();
+          if(!decodeCyclic()) {
+            checkRoverStatus();
+            printData();
+          }
+        }
+        lenCtr = 0;
+      }
+     lenCtr = 0;
+    }
+  }
+      
+    /*if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '1') {
+      if (buffRx[6] == '2') {
+       // NACK received, resend GPS
+        MWSerial.print(":000110");
+        int ctr1=0;
+       while (ctr1<2*sizeof(gpsPacketStruct)){
         if((uint8_t)encodedTx[ctr1]<16){
         MWSerial.print("0");
       }
@@ -135,7 +183,7 @@ void loop() {
         printData();
       }
     }
-  }
+  }*/
 }
 
 void processData() {
@@ -144,6 +192,8 @@ void processData() {
   int i = 7;
   int d, e;
   int checker;
+  Serial.print("lenCtr;" );
+  Serial.println(lenCtr);
 
   while (i < lenCtr - 4) {
     checker = buffRx[i] & 0b01000000;
@@ -176,7 +226,7 @@ bool decodeCyclic() {
   uint8_t ctr = 0;
   bool error[2];
 
-  while (ctr < (lenCtr - 11) / 2) {
+  while (ctr < sizeof(dataPacketStruct)) {
     encodedRx[2 * ctr] = encodedRx[2 * ctr] & 0x7F;
     encodedRx[2 * ctr + 1] = encodedRx[2 * ctr + 1] & 0x7F;
     error[0] = checkError(encodedRx[2 * ctr]);
@@ -195,6 +245,11 @@ bool decodeCyclic() {
 
   // no error means this point is reached, send ACK
   MWSerial.print(":000111X\r\n");
+  /*int ctr2 =0;
+  while (ctr2< sizeof(dataPacketStruct)){
+    Serial.println(dataRx.packetData[ctr2],HEX);
+    ctr2++;
+  }*/
   return false;
 }
 
@@ -250,29 +305,30 @@ void checkRoverStatus() {
 }
 
 void printData() {
-  Serial.print(dataRx.message.multiCommsStat);
-  Serial.print(",");
-  Serial.print(dataRx.message.roverCommsStat);
-  Serial.print(",");
-  Serial.print(dataRx.message.xMag);
-  Serial.print(",");
-  Serial.print(dataRx.message.yMag);
-  Serial.print(",");
-  Serial.print(dataRx.message.calibX);
-  Serial.print(",");
-  Serial.print(dataRx.message.calibY);
-  Serial.print(",");
-  Serial.print(dataRx.message.x);
-  Serial.print(",");
-  Serial.print(dataRx.message.cmLong);
-  Serial.print(",");
-  Serial.print(dataRx.message.latR);
-  Serial.print(",");
-  Serial.print(dataRx.message.longR);
-  Serial.print(",");
-  Serial.print(dataRx.message.degRtoA);
-  Serial.print(",");
-  Serial.print(dataRx.message.statusControl);
-  Serial.print(",");
-  Serial.print(dataRx.message.time);
+//  Serial.print(dataRx.message.multiCommsStat);
+//  Serial.print(",");
+  Serial.print("rover Comms Status: ");
+  Serial.println(dataRx.message.roverCommsStat);
+  Serial.print("x Mag: ");
+  Serial.println(dataRx.message.xMag);
+  Serial.print("y Mag: ");
+  Serial.println(dataRx.message.yMag);
+  Serial.print("Calibration x: ");
+  Serial.println(dataRx.message.calibX);
+  Serial.print("Calibration y: ");
+  Serial.println(dataRx.message.calibY);
+  Serial.print("Body-axis Attitude: ");
+  Serial.println(dataRx.message.x);
+  Serial.print("Range Sensor reading: ");
+  Serial.println(dataRx.message.cmLong);
+  Serial.print("Current Lattitude: ");
+  Serial.println(dataRx.message.latR);
+  Serial.print("Current Longitude: ");
+  Serial.println(dataRx.message.longR);
+  Serial.print("Absolute angle to Destination: ");
+  Serial.println(dataRx.message.degRtoA);
+  Serial.print("Motor Status Control: ");
+  Serial.println(dataRx.message.statusControl);
+  Serial.print("Time: ");
+  Serial.println(dataRx.message.time);
 }
