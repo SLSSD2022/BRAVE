@@ -33,21 +33,7 @@ typedef union gpsPacketUnion{
   uint8_t gpsBytes[sizeof(gpsPacketStruct)]
 }
 
-void setup() {
-  Serial.begin(115200);
 
-  Serial.print("Twelite Rover");
-  Serial.println();
-  pinMode(RST, OUTPUT);
-  pinMode(BPS, OUTPUT);
-  digitalWrite(BPS, LOW);
-  digitalWrite(RST, LOW);
-  delay(10);
-  digitalWrite(RST, HIGH);
-
-  Serial2.begin(115200);
-
-}
 
 const int MaxBufferSize = 100;
 char Buffer[MaxBufferSize];
@@ -69,6 +55,23 @@ int stopi;
 void readRoverData();
 void  writeToTwelite();
 char encodedReceived[2*sizeof(roverData)];
+
+
+void setup() {
+  Serial.begin(115200);
+
+  Serial.print("Twelite Rover");
+  Serial.println();
+  pinMode(RST, OUTPUT);
+  pinMode(BPS, OUTPUT);
+  digitalWrite(BPS, LOW);
+  digitalWrite(RST, LOW);
+  delay(10);
+  digitalWrite(RST, HIGH);
+
+  Serial2.begin(115200);
+
+}
 
 
 void loop() {
@@ -99,13 +102,14 @@ while (Initial){
             break;
           } else if (Buffer[6]=='0'){
             //proccess the data
+            
             Initial = false;
           }
          }
         bufferPos = 0;
       }
+    }
   }
-
 
 
 
@@ -186,6 +190,39 @@ void Parse() {
     }
   }
 }  
+
+
+
+void processData() {
+  // character data is converted to uint8_t data here
+  // and is stored in the encodedRx[] buffer
+  int i = 7;
+  int d, e;
+  int checker;
+  while (i < lenCtr - 4) {
+    checker = buffRx[i] & 0b01000000;
+    //Check if the 2nd MSB is 1 or 0. If 1: it's A-F letter in ASCII
+    if (checker == 0b01000000) {
+      d = buffRx[i] + 9; //makes the corresponding letter to appear in its HEX representation at the last 4 bits ex:if A is your character in ASCII is 01000001, add 9 -> 01001010 is 0X4A.
+    }
+    else {
+      d = buffRx[i];
+    }
+    d = d << 4; // Shift the letter to the first 4 MSB ex: 0X4A -> 0XA4
+    d = d & 0b11110000; // Remove remaining bits obtaining for ex: 0XA0 if A was your character.
+    //Same for the following character
+    checker = buffRx[i + 1] & 0b01000000;
+    if (checker == 0b01000000) {
+      e = buffRx[i + 1] + 9;
+    }
+    else {
+      e = buffRx[i + 1];
+    }
+    e = e & 0b00001111;
+    encodedRx[(i - 7) / 2] = d + e;
+    i = i + 2;
+  }
+}
 
 void  writeToTwelite (){      
   int ctr1 = 0;

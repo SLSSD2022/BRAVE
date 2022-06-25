@@ -35,20 +35,21 @@ typedef struct gpsDataStruct{
 
 typedef union gpsPacketUnion{
   gpsDataStruct gpsData;
-  uint8_t gpsBytes[sizeof(gpsPacketStruct)]
-}
+  uint8_t gpsBytes[sizeof(gpsDataStruct)];
+};
 
 const int MaxBufferSize = 100;
-char buffRX[MaxBufferSize];
+char buffRx[MaxBufferSize];
 void Parse();
 int bufferPos = 0;
 packetData packetTx;                                        //Packet to be coded and then written to twelite 
-gpsPacketUnion dataRx;                                      //Received packet with GPS data
+gpsPacketUnion dataRx;    
+                               //Received packet with GPS data
 
 void  writeToTwelite();
 void encodeCyclic();
 uint8_t encodedTx[2*sizeof(roverData)];            //Encoded message to be sent 
-uint8_t encodedRX[2*sizeof(gpsDataStruct)];
+uint8_t encodedRx[2*sizeof(gpsDataStruct)];
 const uint8_t generator[4] = {0x46,0x23,0x17,0x0D};
 const uint8_t parityCheck[3] = {0x5C,0x72,0x39};
 int commsStart;
@@ -163,6 +164,7 @@ unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使
 
 //制御ステータス・HK関連
 boolean Initial_flag = 1;
+boolean Communication_flag = 1;
 boolean GPS_flag = 1;
 boolean LIDAR_flag = 1;
 boolean Calibration_flag = 1;
@@ -191,7 +193,8 @@ unsigned long time;
 void setup()
 {
     // デバッグ用シリアル通信は9600bps
-  Serial.begin(9600);//ステータス設定(試験したい状況)
+  Serial.begin(115200);//ステータス設定(試験したい状況)
+  Communication_flag = 1;
   Calibration_flag = 1;
   Near_flag = 0;//ゴール5m付近のとき
   Search_flag = 0;//ゴール5m付近で測距するとき
@@ -265,38 +268,43 @@ void loop()
 {
   //-----------------Initial Mode----------------------
   while (Initial_flag){
-  if (Serial2.available() > 0){
+//   Serial.println("Initial Mode");
+   if (Serial2.available() > 0){
     char c = Serial2.read();
     //Serial2.print(c);
     if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ){//read as data in one packet before it receives "\n"
-      buffRX[bufferPos] = c;
+      buffRx[bufferPos] = c;
       bufferPos++;
-      buffRX[bufferPos] = '\0';
+      buffRx[bufferPos] = '\0';
     }
     else //if it reads the last character in one packet
     {
       //Checks
-      if (buffRX[3]=='0' && buffRX[4]=='1' && buffRX[5]=='0'){    //Arbitrary packet for Rover 
+      if (buffRx[3]=='0' && buffRx[4]=='1' && buffRx[5]=='0'){    //Arbitrary packet for Rover 
         //Serial.println(Buffer);
-        if (buffRX[6]=='2'){//NACK
-          Serial.print("NACK: Resending packet...")
-          writeToTwelite();
+        if (buffRx[6]=='2'){//NACK
+          Serial.print("NACK: Resending packet...");
+          //writeToTwelite();
           break;
-        } else if (buffRX[6]=='1'){//ACK
+        } else if (buffRx[6]=='1'){//ACK
           //do nothing
           //break;
-        } else if (buffRX[6]=='0'){//DATARECEIVE
+        } else if (buffRx[6]=='0'){//DATARECEIVE
           processData();//character data is converted to uint8_t data here and is stored in the encodedRx[] buffer
           decodeCyclic();//decode GPS data of three goals
-          calculation_nearest_goal(dataRX.gpsData);//decide which goal to go first
+          Serial.println("------------------------INITIAL MODE SUCCESS!!!------------------------");
+          Serial.println(dataRx.gpsData.latR[0]);//decide which goal to go first
+          Serial.println(dataRx.gpsData.latR[1]);//decide which goal to go first
+          Serial.println(dataRx.gpsData.latR[2]);//decide which goal to go first
+          Serial.println("---------------------------------------------------------------------");
           Initial_flag = false;
         }
       }
-      Serial.println(buffRX);
+      Serial.println(buffRx);
       bufferPos = 0;
     }
   }
-  
+  }
   
   //-----------------Nominal Mode----------------------
   
@@ -597,7 +605,7 @@ void loop()
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
   start = millis();
-  if (start> stopi + 5000){
+  if (start> stopi + 10000){
     writeToTwelite();//send HK firstly
     commsStop = millis();
     while(Communication_flag == 1){//then go into waiting loop for ACK or NACK
@@ -605,33 +613,35 @@ void loop()
       if (commsStart > commsStop + 20){//if 20ms passes, then send HK again
         writeToTwelite();
         commsStop = millis();
+        Communication_flag = 0;
+        break;
       }
       if (Serial2.available() > 0){
         char c = Serial2.read();
         if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ){
-          buffRX[bufferPos] = c;
+          buffRx[bufferPos] = c;
           bufferPos++;
         }
         else
         {
-          buffRX[bufferPos] = '\0';
+          buffRx[bufferPos] = '\0';
           //Checks
-          if (buffRX[3]=='0' && buffRX[4]=='1' && buffRX[5]=='0'){    //Arbitrary packet for Rover 
+          if (buffRx[3]=='0' && buffRx[4]=='1' && buffRx[5]=='0'){    //Arbitrary packet for Rover 
             //Serial.println(Buffer);
-            if (buffRX[6]=='2'){//NACK
-              Serial.print("NACK: Resending packet...")
+            if (buffRx[6]=='2'){//NACK
+              Serial.print("NACK: Resending packet...");
               writeToTwelite();
-              break;
-            } else if (buffRX[6]=='1'){//ACK
+            } else if (buffRx[6]=='1'){//ACK
               Communication_flag = 0;
               break;
             }
           } 
-          Serial.println(buffRX);
+          Serial.println(buffRx);
           bufferPos = 0;
         } 
       }
     }
+    bufferPos = 0;
     Communication_flag = 1;
     stopi = millis();
   } 
@@ -658,7 +668,7 @@ void processData() {
   int i = 7;
   int d, e;
   int checker;
-  while (i < lenCtr - 4) {//What is lentCtr???
+  while (i < bufferPos - 4) {//What is lentCtr???
     checker = buffRx[i] & 0b01000000;
     //Check if the 2nd MSB is 1 or 0. If 1: it's A-F letter in ASCII
     if (checker == 0b01000000) {
@@ -704,23 +714,23 @@ void  writeToTwelite (){
 
 void readRoverData(){
   packetTx.message.roverComsStat = "00000100";
-  packetTx.message.xMag = 20;
-  packetTx.message.yMag= 180;
-  packetTx.message.calibX= 15;
-  packetTx.message.calibY= 3;
-  packetTx.message.x= 290.7;
-  packetTx.message.cmLong = 168;
-  packetTx.message.latR= 32.8;
-  packetTx.message.lngR= 136.75;
-  packetTx.message.degRtoA= 120;
-  packetTx.message.statusControl= 0b00110110;
-  packetTx.message.time= 13332321;
+  packetTx.message.xMag = xMag;
+  packetTx.message.yMag= yMag;
+  packetTx.message.calibX= Calibx;
+  packetTx.message.calibY= Caliby;
+  packetTx.message.x= x;
+  packetTx.message.cmLong = cm_LIDAR;
+  packetTx.message.latR= LatR;
+  packetTx.message.lngR= LngR;
+  packetTx.message.degRtoA= degRtoA;
+  packetTx.message.statusControl= Status_control;
+  packetTx.message.time= time;
 }
 
 void encodeCyclic() {
   uint8_t ctr = 0;
   uint8_t m;
-  while(ctr<sizeof(roverMessage)) {
+  while(ctr<sizeof(roverData)) {
     m = packetTx.packetData[ctr]>>4;
     encodedTx[2*ctr] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
                         (((m>>2)&1)*generator[1])^(((m>>3)&1)*generator[0]);
@@ -739,7 +749,7 @@ bool checkError(uint8_t dataByte) {
   p[0] = dataByte&parityCheck[0];
   p[1] = dataByte&parityCheck[1];
   p[2] = dataByte&parityCheck[2];
-  while(ctr<sizeof(gsMessage)/2) {
+  while(ctr<sizeof(gpsDataStruct)/2) {
     p[0] = (p[0]&1)^(p[0]>>1);
     p[1] = (p[1]&1)^(p[1]>>1);
     p[2] = (p[2]&1)^(p[2]>>1);
@@ -758,12 +768,8 @@ void decodeCyclic() {
     encodedRx[2*ctr+1] = encodedRx[2*ctr+1]&0x7F;
     error[0] = checkError(encodedRx[2*ctr]);
     error[1] = checkError(encodedRx[2*ctr+1]);
-    dataRX.gpsBytes[ctr] = ((encodedRx[2*ctr]<<1)&0xF0)+
-                            ((encodedRx[2*ctr+1]>>3)&0x0F);
-    //Here to write codes to get lattitude and longtitude data 
-    
-    dataRX.gpsData.latR = latR[3];
-    dataRX.gpsData.lngR = lngR[3];           
+    dataRx.gpsBytes[ctr] = ((encodedRx[2*ctr]<<1)&0xF0)+
+                            ((encodedRx[2*ctr+1]>>3)&0x0F);//populate GPS data of goals in dataRx     
     if(error[0]||error[1]) { //NACK
         Serial2.print(":000102X\r\n");
         return true;
