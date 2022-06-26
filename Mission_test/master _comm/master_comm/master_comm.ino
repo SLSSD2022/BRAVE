@@ -1,13 +1,125 @@
 //Header file
 #include <TinyGPSPlus.h>
 #include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
 
-//Communication
+//------------------------------Ultrasonic sensor------------------------------
+//Ultrasonic sensor(short)Front
+unsigned int cm;
+const int HEAD_Trig = 22; 
+const int HEAD_Echo = 24;
+
+//Ultrasonic sensor(long)Front
+#define HEADpin A15
+unsigned int anVolt;
+unsigned int cm_long;
+int emergency_stop_distance = 10;
+
+//Buffer for one range measurement near goal
+#define MEAS_BUF_LEN  10//it should be more than 10, length of 9axis basic buffer
+int bufcm[MEAS_BUF_LEN];
+int meas_index = 0;
+
+//Buffer for all range measurement near goal
+#define SEAR_BUF_LEN 20
+int listcm[SEAR_BUF_LEN];
+int search_index = 0;
+
+
+//Ultrasonic sensor(short)Bottom
+const int BOTTOM_Trig = 6; 
+const int BOTTOM_Echo = 7;
+
+//------------------------------LIDAR sensor------------------------------
+//LIDAR
+unsigned int cm_LIDAR = 0;
+unsigned int LIDAR_buf = 0;
+
+//------------------------------Motor------------------------------ 
+const int ENABLE = 8;
+const int CH1 = 9;
+const int CH2 = 11;
+const int CH3 = 10;
+const int CH4 = 12;
+
+int Normal_speed = 250;
+int Slow_speed = 200;
+int Very_Slow_speed = 150;
+int speed_R;
+int speed_L;
+int count_forward = 0;
+
+//------------------------------9axis sensor------------------------------
+// I2C address for BMX055 Gyro
+#define Addr_Gyro 0x69 // (JP1,JP2,JP3 = Openの時)
+// I2C address for BMX055 Magnetic
+#define Addr_Mag 0x13 // (JP1,JP2,JP3 = Openの時)
+
+// センサーの値を保存するグローバル変数
+float xGyro = 0.00;
+float yGyro = 0.00;
+float zGyro = 0.00;
+int xMag = 0;
+int yMag = 0;
+int zMag = 0;
+
+//Constant for Calibration(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+double Calib = 175; 
+double Calibx = 20;
+double Caliby = 132;
+
+float x; //ローバーの慣性姿勢角
+float delta_theta;//目的方向と姿勢の相対角度差
+int threshold = 10; //角度の差分の閾値
+int spin_threshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
+
+//9axis filter
+//姿勢フィルターバッファの長さ
+#define BUF_LEN 10
+int buf[BUF_LEN];
+int index = 0;
+float filterVal = 0.0; //フィルター後の値
+//キャリブレーション用バッファの長さ
+#define CAL_BUF_LEN 100
+int bufx[CAL_BUF_LEN];
+int bufy[CAL_BUF_LEN];
+int cal_index = 0;
+//測距用バッファの長さ
+int bufdeg[MEAS_BUF_LEN];
+int listdeg[SEAR_BUF_LEN];
+
+
+//------------------------------9axis sensor------------------------------
+TinyGPSPlus gps;
+// double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
+//double LatA = 35.7142738, LngA = 139.76185488809645; //目的地Aの緯度経度(2号館)
+//double LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
+double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
+double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
+
+float degRtoA; //GPS現在地における目的地の慣性方角
+
+//------------------------------EEPROM------------------------------
+//デバイスアドレス(スレーブ)
+uint8_t DEVICE_ADDRESS = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
+unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使える) 
+
+//------------------------------SD card------------------------------
+const int chipSelect = 53;
+const int SDSW = 49;
+
+
+//------------------------------Onboard Camera------------------------------
+
+
+
+//------------------------------Communication--------------------------------------------
 // Set pins for reset and Baud rate speed of Twelite
 int RST = 2;
 int BPS = 3; // if HIGH set Baud rate to 115200 at MWSerial, if LOW to 38400
 
-//----------------- Define Structures for receiving and Handling Rover data--------------------------
+//Define Structures for receiving and Handling Rover data
 typedef struct roverData{
   uint8_t roverComsStat;
   uint16_t xMag;
@@ -42,13 +154,12 @@ const int MaxBufferSize = 160;
 char buffRx[MaxBufferSize];
 void Parse();
 int bufferPos = 0;
-packetData packetTx;                                        //Packet to be coded and then written to twelite 
-gpsPacketUnion dataRx;    
-                               //Received packet with GPS data
+packetData packetTx;//Packet to be coded and then written to twelite 
+gpsPacketUnion dataRx;//Received packet with GPS data
 
 void  writeToTwelite();
 void encodeCyclic();
-uint8_t encodedTx[2*sizeof(roverData)];            //Encoded message to be sent 
+uint8_t encodedTx[2*sizeof(roverData)];//Encoded message to be sent 
 uint8_t encodedRx[2*sizeof(gpsDataStruct)];
 const uint8_t generator[4] = {0x46,0x23,0x17,0x0D};
 const uint8_t parityCheck[3] = {0x5C,0x72,0x39};
@@ -60,109 +171,7 @@ void readRoverData();
 void  writeToTwelite();
 char encodedReceived[2*sizeof(roverData)];
 
-
-//Ultrasonic sensor(short)Front
-long duration;
-unsigned int cm;
-const int HEAD_Trig = 22; 
-const int HEAD_Echo = 24;
-
-//Ultrasonic sensor(long)Front
-#define HEADpin A15
-int anVolt;
-int cm_long;
-int emergency_stop_distance = 10;
-
-//Buffer for one range measurement near goal
-#define MEAS_BUF_LEN  10//it should be more than 10, length of 9axis basic buffer
-int bufcm[MEAS_BUF_LEN];
-int meas_index = 0;
-
-//Buffer for all range measurement near goal
-#define SEAR_BUF_LEN 20
-int listcm[SEAR_BUF_LEN];
-int search_index = 0;
-
-
-//Ultrasonic sensor(short)Bottom
-const int BOTTOM_Trig = 6; 
-const int BOTTOM_Echo = 7;
-
-//LIDAR
-int bytenum = 0;
-int cm_LIDAR = 0;
-int LIDAR_buf = 0;
-
-//Motor 
-const int ENABLE = 8;
-const int CH1 = 9;
-const int CH2 = 11;
-const int CH3 = 10;
-const int CH4 = 12;
-
-int Normal_speed = 250;
-int Slow_speed = 200;
-int Very_Slow_speed = 150;
-int speed_R;
-int speed_L;
-int count_forward = 0;
-
-//9axis sensor
-// BMX055 ジャイロセンサのI2Cアドレス
-#define Addr_Gyro 0x69 // (JP1,JP2,JP3 = Openの時)
-// BMX055 磁気センサのI2Cアドレス
-#define Addr_Mag 0x13 // (JP1,JP2,JP3 = Openの時)
-
-// センサーの値を保存するグローバル変数
-float xGyro = 0.00;
-float yGyro = 0.00;
-float zGyro = 0.00;
-int xMag = 0;
-int yMag = 0;
-int zMag = 0;
-
-//キャリブレーション用定数(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calib = 175; 
-double Calibx = 20;
-double Caliby = 132;
-
-float x; //ローバーの慣性姿勢角
-float delta_theta;//目的方向と姿勢の相対角度差
-int threshold = 10; //角度の差分の閾値
-int spin_threshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
-
-//9軸フィルター関連
-//姿勢フィルターバッファの長さ
-#define BUF_LEN 10
-int buf[BUF_LEN];
-int index = 0;
-float filterVal = 0.0; //フィルター後の値
-//キャリブレーション用バッファの長さ
-#define CAL_BUF_LEN 100
-int bufx[CAL_BUF_LEN];
-int bufy[CAL_BUF_LEN];
-int cal_index = 0;
-//測距用バッファの長さ
-int bufdeg[MEAS_BUF_LEN];
-int listdeg[SEAR_BUF_LEN];
-
-
-//GPS
-TinyGPSPlus gps;
-// double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
-//double LatA = 35.7142738, LngA = 139.76185488809645; //目的地Aの緯度経度(2号館)
-//double LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
-double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
-double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
-
-float degRtoA; //GPS現在地における目的地の慣性方角
-
-//EEPROM
-//デバイスアドレス(スレーブ)
-uint8_t DEVICE_ADDRESS = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
-unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使える) 
-
-//制御ステータス・HK関連
+///-----------------------------Control Status, HK-----------------------------
 boolean Initial_flag = 1;
 boolean Communication_flag = 1;
 boolean GPS_flag = 1;
@@ -188,7 +197,10 @@ int Status_control;
 unsigned long time;
 
 
-
+/*
+############################################################################################################
+############################################################################################################
+*/
 
 void setup()
 {
@@ -242,6 +254,25 @@ void setup()
   while (!Serial3) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
+  
+  //SDcard initialization
+  pinMode(SDSW,INPUT_PULLUP);
+  while(1){
+    if(digitalRead(SDSW) == 0){
+      Serial.println("Card inserted!");
+      break;
+    }
+    else{
+      Serial.println("Card not inserted!");
+    }
+    delay(1000);
+  }
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
+    // don't do anything more:
+    while (1);
+  }
+  Serial.println("card initialized.");
 
   
   //初期値
@@ -264,54 +295,63 @@ void setup()
 }
 
 
+/*
+############################################################################################################
+############################################################################################################
+*/
+
 
 void loop()
 {
-  //-----------------Initial Mode----------------------
+  //=================================Initial Mode=================================
   while (Initial_flag){
     start = millis();
     if (start> stopi + 1000){
      Serial.println("Initial Mode");
       stopi = millis();
     }
-   if (Serial2.available() > 0){
-    char c = Serial2.read();
-    //Serial2.print(c);
-    if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ){//read as data in one packet before it receives "\n"
-      buffRx[bufferPos] = c;
-      bufferPos++;
-      buffRx[bufferPos] = '\0';
-    }
-    else //if it reads the last character in one packet
-    {
-      //Checks
-      if (buffRx[3]=='0' && buffRx[4]=='1' && buffRx[5]=='0'){    //Arbitrary packet for Rover 
-        //Serial.println(Buffer);
-        if (buffRx[6]=='2'){//NACK
-          Serial.print("NACK: Resending packet...");
-          //writeToTwelite();
-          break;
-        } else if (buffRx[6]=='1'){//ACK
-          //do nothing
-          //break;
-        } else if (buffRx[6]=='0'){//DATARECEIVE
-          processData();//character data is converted to uint8_t data here and is stored in the encodedRx[] buffer
-          decodeCyclic();//decode GPS data of three goals
-          Serial.println("------------------------INITIAL MODE SUCCESS!!!------------------------");
-          Serial.println(dataRx.gpsData.latR[0]);//decide which goal to go first
-          Serial.println(dataRx.gpsData.latR[1]);//decide which goal to go first
-          Serial.println(dataRx.gpsData.latR[2]);//decide which goal to go first
-          Serial.println("---------------------------------------------------------------------");
-          Initial_flag = false;
-        }
+    if (Serial2.available() > 0){
+      char c = Serial2.read();
+      //Serial2.print(c);
+      if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ){//read as data in one packet before it receives "\n"
+        buffRx[bufferPos] = c;
+        bufferPos++;
+        buffRx[bufferPos] = '\0';
       }
-      Serial.println(buffRx);
-      bufferPos = 0;
+      else //if it reads the last character in one packet
+      {
+        //Checks
+        if (buffRx[3]=='0' && buffRx[4]=='1' && buffRx[5]=='0'){    //Arbitrary packet for Rover 
+          //Serial.println(Buffer);
+          if (buffRx[6]=='2'){//NACK
+            Serial.print("NACK: Resending packet...");
+            //writeToTwelite();
+            break;
+          } else if (buffRx[6]=='1'){//ACK
+            //do nothing
+            //break;
+          } else if (buffRx[6]=='0'){//DATARECEIVE
+            processData();//character data is converted to uint8_t data here and is stored in the encodedRx[] buffer
+            decodeCyclic();//decode GPS data of three goals
+            Serial.println("------------------------INITIAL MODE SUCCESS!!!------------------------");
+            Serial.println(dataRx.gpsData.latR[0]);//decide which goal to go first
+            Serial.println(dataRx.gpsData.latR[1]);//decide which goal to go first
+            Serial.println(dataRx.gpsData.latR[2]);//decide which goal to go first
+            Serial.println("---------------------------------------------------------------------");
+            Initial_flag = false;
+          }
+        }
+        Serial.println(buffRx);
+        bufferPos = 0;
+      }
     }
   }
-  }
-  
-  //-----------------Nominal Mode----------------------
+  /*log the gps data of destination to EEPROM 
+  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LatR);
+  DATA_ADDRESS += 4;
+  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LngR);
+  */
+  //=================================Nominal Mode=================================
   
   
   //---------------------9軸取得--------------------------------------------------
@@ -326,91 +366,16 @@ void loop()
   }
 
   //---------------------LIDARセンサ取得--------------------------------------------------
-  while (Serial2.available() > 0 && LIDAR_flag == 1)//Near_flagは一時的なもの
-  {
-    byte c = Serial2.read();
-    switch(bytenum){
-      case 0://frame header must be 0x59
-//        Serial.print("Byte0:");
-//        Serial.println(c,HEX);
-        if(c == 0x59){
-          bytenum += 1;
-        }
-        break;
-      case 1://frame header must be 0x59
-//        Serial.print("Byte1:");
-//        Serial.println(c,HEX);
-        if(c == 0x59){
-          bytenum += 1;
-        }
-        break;
-      case 2://distance value low 8 bits
-//        Serial.print("Byte2:");
-//        Serial.println(c,HEX);
-        if(c == 0x59){
-          //多分次がcase2
-        }
-        else{
-          cm_LIDAR = (int)c;
-          bytenum += 1;
-        }
-        break;
-      case 3://distance value high 8 bits
-//        Serial.print("Byte3:");
-//        Serial.println(c,HEX);
-        cm_LIDAR = cm_LIDAR + 256*(int)c;
-//        Serial.print("distance:");
-//        Serial.println(cm_LIDAR);
-        LIDAR_flag = 0;
-        bytenum += 1;
-        break;
-      case 4://strength value low 8 bits
-//        Serial.print("Byte4:");
-//        Serial.println(c,HEX);
-        bytenum += 1;
-        break;
-      case 5://strength value high 8 bits
-//        Serial.print("Byte5:");
-//        Serial.println(c,HEX);
-        bytenum += 1;
-        break;
-      case 6://Temp_L low 8 bits
-//        Serial.print("Byte6:");
-//        Serial.println(c,HEX);
-        bytenum += 1;
-        break;
-      case 7://Temp_H high 8 bits
-//        Serial.print("Byte7:");
-//        Serial.println(c,HEX);
-        bytenum += 1;
-        break;
-      case 8://checksum
-//        Serial.print("Byte8:");
-//        Serial.println(c,HEX);
-        bytenum = 0;
-        break;
-    }
-  }
-  LIDAR_flag = 1;
-  if(0<cm_LIDAR && cm_LIDAR < 1000){
-    LIDAR_buf = cm_LIDAR;
-  }else{
-    cm_LIDAR = LIDAR_buf;
-  }
+  cm_LIDAR = getLIDAR();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
-//  digitalWrite(HEAD_Trig,LOW);
-//  delayMicroseconds(2);
-//  digitalWrite(HEAD_Trig,HIGH);
-//  delayMicroseconds(10);
-//  duration = pulseIn(HEAD_Echo,HIGH);
-//  cm = microsecTocm(duration);
+  cm = getUltrasonic_HEAD();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
   anVolt = analogRead(HEADpin);
   cm_long = anVolt/2;
   
-  //---------------------GPS取得--------------------------------------------------
+  //---------------------GPS acquisition--------------------------------------------------
   while (Serial1.available() > 0 && GPS_flag == 1 && Near_flag == 0)//Near_flagは一時的なもの
   {
     //    Serial.print("YES");
@@ -432,7 +397,7 @@ void loop()
   }
   GPS_flag =1;
 
-  //---------------------ステータス確認--------------------------------------------------
+  //---------------------Check Status--------------------------------------------------
   
   Serial.print(":degRtoA:");
   Serial.print(degRtoA);
@@ -452,7 +417,7 @@ void loop()
   //---------------------Special control for each status------------------------------------------------------
   
   
-  //キャリブレーション
+  //Calibration
   if(Calibration_flag == 1){
     Serial.print(":xMag:");
     Serial.print(xMag);
@@ -577,36 +542,16 @@ void loop()
 
 
   //---------------------Logger------------------------------------------------------
+  LogToSDCard();
+  /*it needs to be changed
   if(Memory_flag > 5){
-    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,xMag);
-    DATA_ADDRESS += 2;
-    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,yMag);
-    DATA_ADDRESS += 2;
-    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,Calibx);
-    DATA_ADDRESS += 2;
-    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,Caliby);
-    DATA_ADDRESS += 2;
-    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,x);
-    DATA_ADDRESS += 4;
-    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,cm_long);
-    DATA_ADDRESS += 2;
-    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LatR);
-    DATA_ADDRESS += 4;
-    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LngR);
-    DATA_ADDRESS += 4;
-    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,degRtoA);
-    DATA_ADDRESS += 4;
-    writeEEPROM(DEVICE_ADDRESS, DATA_ADDRESS,(byte)Status_control);
-    DATA_ADDRESS += 2;
-    time = millis();
-    EEPROM_write_long(DEVICE_ADDRESS, DATA_ADDRESS,time);
-    DATA_ADDRESS += 4;
-
+    LogToEEPROM();
     Memory_flag = 0;
   }
   else{
     Memory_flag += 1;
   }
+  */
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
   start = millis();
@@ -671,160 +616,24 @@ void loop()
   Serial.println("");
 }
 
+/*
+############################################################################################################
+############################################################################################################
+*/
 
 
 
-
-
-
-
-
-//========================================================================================================================
-
-//=========Communication function============================================================================//
-void processData() {
-  // character data is converted to uint8_t data here
-  // and is stored in the encodedRx[] buffer
-  int i = 7;
-  int d, e;
-  int checker;
-  while (i < bufferPos - 4) {//What is lentCtr???
-    checker = buffRx[i] & 0b01000000;
-    //Check if the 2nd MSB is 1 or 0. If 1: it's A-F letter in ASCII
-    if (checker == 0b01000000) {
-      d = buffRx[i] + 9; //makes the corresponding letter to appear in its HEX representation at the last 4 bits ex:if A is your character in ASCII is 01000001, add 9 -> 01001010 is 0X4A.
-    }
-    else {
-      d = buffRx[i];
-    }
-    d = d << 4; // Shift the letter to the first 4 MSB ex: 0X4A -> 0XA4
-    d = d & 0b11110000; // Remove remaining bits obtaining for ex: 0XA0 if A was your character.
-    //Same for the following character
-    checker = buffRx[i + 1] & 0b01000000;
-    if (checker == 0b01000000) {
-      e = buffRx[i + 1] + 9;
-    }
-    else {
-      e = buffRx[i + 1];
-    }
-    e = e & 0b00001111;
-    encodedRx[(i - 7) / 2] = d + e;
-    i = i + 2;
-  }
+//=========Ultrasonic sensor function============================================================================//
+unsigned int getUltrasonic_HEAD(){
+  long duration;
+  digitalWrite(HEAD_Trig,LOW);
+  delayMicroseconds(2);
+  digitalWrite(HEAD_Trig,HIGH);
+  delayMicroseconds(10);
+  duration = pulseIn(HEAD_Echo,HIGH);
+  return microsecTocm(duration);
 }
 
-void  writeToTwelite (){      
-  int ctr1 = 0;
-  readRoverData();
-  encodeCyclic();
-  Serial2.print(":000100");
-  //Serial.print(":000100");
-  while (ctr1<2*sizeof(roverData)){
-    if((uint8_t)encodedTx[ctr1]<16){
-      Serial2.print("0");
-      //Serial.print("0");
-    }
-    Serial2.print(encodedTx[ctr1],HEX);
-    //Serial.print(encodedTx[ctr1],HEX);
-    ctr1++;
-  }
-  Serial2.print("X\r\n");
-  //Serial.print("X\r\n");
-}
-
-void readRoverData(){
-  packetTx.message.roverComsStat = 4;
-  Serial.print("roverComsStat:");
-  Serial.println(packetTx.message.roverComsStat);
-  packetTx.message.xMag = xMag;
-  Serial.print("xMag:");
-  Serial.println(packetTx.message.xMag);
-  packetTx.message.yMag= yMag;
-  Serial.print("yMag:");
-  Serial.println(packetTx.message.yMag);
-  packetTx.message.calibX= Calibx;
-  Serial.print("Calibx:");
-  Serial.println(packetTx.message.calibX);
-  packetTx.message.calibY= Caliby;
-  Serial.print("Caliby:");
-  Serial.println(packetTx.message.calibY);
-  packetTx.message.x= x;
-  Serial.print("x:");
-  Serial.println(packetTx.message.x);
-  packetTx.message.cmLong = cm_LIDAR;
-  Serial.print("cm_long:");
-  Serial.println(packetTx.message.cmLong);
-  packetTx.message.latR= LatR;
-  Serial.print("LatR:");
-  Serial.println(packetTx.message.latR);
-  packetTx.message.lngR= LngR;
-  Serial.print("LngR:");
-  Serial.println(packetTx.message.lngR);
-  packetTx.message.degRtoA= degRtoA;
-  Serial.print("degRtoA:");
-  Serial.println(packetTx.message.degRtoA);
-  packetTx.message.statusControl= Status_control;
-  Serial.print("Status_control:");
-  Serial.println(packetTx.message.statusControl);
-  packetTx.message.time= time;
-  Serial.print("time:");
-  Serial.println(packetTx.message.time);
-}
-
-void encodeCyclic() {
-  uint8_t ctr = 0;
-  uint8_t m;
-  while(ctr<sizeof(roverData)) {
-    m = packetTx.packetData[ctr]>>4;
-    encodedTx[2*ctr] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
-                        (((m>>2)&1)*generator[1])^(((m>>3)&1)*generator[0]);
-    //Serial.print(encodedTx[2*ctr],HEX);
-    m = packetTx.packetData[ctr];
-    encodedTx[2*ctr+1] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
-                        (((m>>2)&1)*generator[1])^(((m>>3)&1)*generator[0]);
-    //Serial.println(encodedTx[2*ctr+1],HEX);
-    ctr++;
-  }
-}
-
-bool checkError(uint8_t dataByte) {
-  uint8_t p[3];
-  uint8_t ctr = 0;
-  p[0] = dataByte&parityCheck[0];
-  p[1] = dataByte&parityCheck[1];
-  p[2] = dataByte&parityCheck[2];
-  while(ctr<sizeof(gpsDataStruct)/2) {
-    p[0] = (p[0]&1)^(p[0]>>1);
-    p[1] = (p[1]&1)^(p[1]>>1);
-    p[2] = (p[2]&1)^(p[2]>>1);
-    ctr++;
-  }
-  return (p[0]>0)||(p[1]>0)||(p[2]>0);
-}
-
-void decodeCyclic() {
-  uint8_t ctr = 0;
-  bool error[2];
-  while (ctr<sizeof(gpsDataStruct)) {
-    encodedRx[2*ctr] = encodedRx[2*ctr]&0x7F;
-    encodedRx[2*ctr+1] = encodedRx[2*ctr+1]&0x7F;
-    error[0] = checkError(encodedRx[2*ctr]);
-    error[1] = checkError(encodedRx[2*ctr+1]);
-    dataRx.gpsBytes[ctr] = ((encodedRx[2*ctr]<<1)&0xF0)+
-                            ((encodedRx[2*ctr+1]>>3)&0x0F);//populate GPS data of goals in dataRx     
-    if(error[0]||error[1]) { //NACK
-        Serial2.print(":000102X\r\n");
-        return true;
-    }
-    ctr++;
-  }
-  //If no errors send ACK
-  Serial2.print(":000101X\r\n");
-  return false;
-}
-
-
-//=========超音波センサ関連============================================================================//
 unsigned int microsecTocm(long microsec){
   return (unsigned int) microsec /29 /2;
 }
@@ -860,8 +669,84 @@ int goal_angle_search(){//探索時、最も測距値が近い角度をゴール
   }
   return minindex;
 }
-
-//=========GPS関連============================================================================//
+//
+unsigned int getLIDAR(){
+  int distance;
+  int bytenum = 0;
+  while (Serial2.available() > 0 && LIDAR_flag = 1)//Near_flagは一時的なもの
+  {
+    byte c = Serial2.read();
+    switch(bytenum){
+      case 0://frame header must be 0x59
+//        Serial.print("Byte0:");
+//        Serial.println(c,HEX);
+        if(c == 0x59){
+          bytenum += 1;
+        }
+        break;
+      case 1://frame header must be 0x59
+//        Serial.print("Byte1:");
+//        Serial.println(c,HEX);
+        if(c == 0x59){
+          bytenum += 1;
+        }
+        break;
+      case 2://distance value low 8 bits
+//        Serial.print("Byte2:");
+//        Serial.println(c,HEX);
+        if(c == 0x59){
+          //多分次がcase2
+        }
+        else{
+          distance = (int)c;
+          bytenum += 1;
+        }
+        break;
+      case 3://distance value high 8 bits
+//        Serial.print("Byte3:");
+//        Serial.println(c,HEX);
+        distance = distance + 256*(int)c;
+//        Serial.print("distance:");
+//        Serial.println(cm_LIDAR);
+        LIDAR_flag = 0;
+        bytenum += 1;
+        break;
+      case 4://strength value low 8 bits
+//        Serial.print("Byte4:");
+//        Serial.println(c,HEX);
+        bytenum += 1;
+        break;
+      case 5://strength value high 8 bits
+//        Serial.print("Byte5:");
+//        Serial.println(c,HEX);
+        bytenum += 1;
+        break;
+      case 6://Temp_L low 8 bits
+//        Serial.print("Byte6:");
+//        Serial.println(c,HEX);
+        bytenum += 1;
+        break;
+      case 7://Temp_H high 8 bits
+//        Serial.print("Byte7:");
+//        Serial.println(c,HEX);
+        bytenum += 1;
+        break;
+      case 8://checksum
+//        Serial.print("Byte8:");
+//        Serial.println(c,HEX);
+        bytenum = 0;
+        break;
+    }
+  }
+  LIDAR_flag = 1;
+  if(0<distance && distance < 1000){
+    LIDAR_buf = distance;
+    return distance;
+  }else{
+    return LIDAR_buf;
+  }
+}
+//=========GPS function============================================================================//
 float deg2rad(float deg)
 {
   return (float)(deg * PI / 180.0);
@@ -899,7 +784,7 @@ float calculateDistance(double latitude1, double longitude1, double latitude2, d
   return d;
 }
 
-//===========9軸関係==========================================================================//
+//===========9axis sensor function==========================================================================//
 void BMX055_Init()
 {
   //------------------------------------------------------------//
@@ -1128,7 +1013,7 @@ int quicksortFunc(const void *a, const void *b)
 }
 
 
-//=========モーター関連============================================================================//
+//=========Motor Control function============================================================================//
 
 void motor_angle_go()
 {
@@ -1364,7 +1249,7 @@ void motor_angle_spin()
 
 
     
-//============EEPROM関連=========================================================================//
+//============EEPROM function=========================================================================//
 void writeEEPROM(int addr_device, unsigned int addr_res, byte data ) 
 {
   Wire.beginTransmission(addr_device);
@@ -1440,4 +1325,205 @@ double EEPROM_read_float(int addr_device, unsigned int addr_res){
   double *d = (double *)p_read;
   double data = *d;
   return data;
+}
+
+void EPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,xMag);
+    DATA_ADDRESS += 2;
+    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,yMag);
+    DATA_ADDRESS += 2;
+    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,Calibx);
+    DATA_ADDRESS += 2;
+    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,Caliby);
+    DATA_ADDRESS += 2;
+    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,x);
+    DATA_ADDRESS += 4;
+    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,cm_long);
+    DATA_ADDRESS += 2;
+    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LatR);
+    DATA_ADDRESS += 4;
+    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LngR);
+    DATA_ADDRESS += 4;
+    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,degRtoA);
+    DATA_ADDRESS += 4;
+    writeEEPROM(DEVICE_ADDRESS, DATA_ADDRESS,(byte)Status_control);
+    DATA_ADDRESS += 2;
+    time = millis();
+    EEPROM_write_long(DEVICE_ADDRESS, DATA_ADDRESS,time);
+    DATA_ADDRESS += 4;
+}
+   
+//============SDCard function=========================================================================//
+void logToSDCard(){
+  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(time);
+    dataFile.print(",");
+    dataFile.print(xMag);
+    dataFile.print(",");
+    dataFile.print(yMag);
+    dataFile.print(",");
+    dataFile.print(Calibx);
+    dataFile.print(",");
+    dataFile.print(Caliby);
+    dataFile.print(",");
+    dataFile.print(x);
+    dataFile.print(",");
+    dataFile.print(cm_long);
+    dataFile.print(",");
+    dataFile.print(LatR);
+    dataFile.print(",");
+    dataFile.print(LngR);
+    dataFile.print(",");
+    dataFile.print(degRtoA);
+    dataFile.print(",");
+    dataFile.print(Status_control);
+    dataFile.println("");
+    dataFile.close();
+  }
+  // if the file isn't open, pop up an error:
+  else {
+    Serial.println("error opening datalog.txt");
+  }
+
+}
+//=========Communication function============================================================================//
+void processData() {
+  // character data is converted to uint8_t data here
+  // and is stored in the encodedRx[] buffer
+  int i = 7;
+  int d, e;
+  int checker;
+  while (i < bufferPos - 4) {//What is lentCtr???
+    checker = buffRx[i] & 0b01000000;
+    //Check if the 2nd MSB is 1 or 0. If 1: it's A-F letter in ASCII
+    if (checker == 0b01000000) {
+      d = buffRx[i] + 9; //makes the corresponding letter to appear in its HEX representation at the last 4 bits ex:if A is your character in ASCII is 01000001, add 9 -> 01001010 is 0X4A.
+    }
+    else {
+      d = buffRx[i];
+    }
+    d = d << 4; // Shift the letter to the first 4 MSB ex: 0X4A -> 0XA4
+    d = d & 0b11110000; // Remove remaining bits obtaining for ex: 0XA0 if A was your character.
+    //Same for the following character
+    checker = buffRx[i + 1] & 0b01000000;
+    if (checker == 0b01000000) {
+      e = buffRx[i + 1] + 9;
+    }
+    else {
+      e = buffRx[i + 1];
+    }
+    e = e & 0b00001111;
+    encodedRx[(i - 7) / 2] = d + e;
+    i = i + 2;
+  }
+}
+
+void  writeToTwelite (){      
+  int ctr1 = 0;
+  readRoverData();
+  encodeCyclic();
+  Serial2.print(":000100");
+  //Serial.print(":000100");
+  while (ctr1<2*sizeof(roverData)){
+    if((uint8_t)encodedTx[ctr1]<16){
+      Serial2.print("0");
+      //Serial.print("0");
+    }
+    Serial2.print(encodedTx[ctr1],HEX);
+    //Serial.print(encodedTx[ctr1],HEX);
+    ctr1++;
+  }
+  Serial2.print("X\r\n");
+  //Serial.print("X\r\n");
+}
+
+void readRoverData(){
+  packetTx.message.roverComsStat = 4;
+  Serial.print("roverComsStat:");
+  Serial.println(packetTx.message.roverComsStat);
+  packetTx.message.xMag = xMag;
+  Serial.print("xMag:");
+  Serial.println(packetTx.message.xMag);
+  packetTx.message.yMag= yMag;
+  Serial.print("yMag:");
+  Serial.println(packetTx.message.yMag);
+  packetTx.message.calibX= Calibx;
+  Serial.print("Calibx:");
+  Serial.println(packetTx.message.calibX);
+  packetTx.message.calibY= Caliby;
+  Serial.print("Caliby:");
+  Serial.println(packetTx.message.calibY);
+  packetTx.message.x= x;
+  Serial.print("x:");
+  Serial.println(packetTx.message.x);
+  packetTx.message.cmLong = cm_LIDAR;
+  Serial.print("cm_long:");
+  Serial.println(packetTx.message.cmLong);
+  packetTx.message.latR= LatR;
+  Serial.print("LatR:");
+  Serial.println(packetTx.message.latR);
+  packetTx.message.lngR= LngR;
+  Serial.print("LngR:");
+  Serial.println(packetTx.message.lngR);
+  packetTx.message.degRtoA= degRtoA;
+  Serial.print("degRtoA:");
+  Serial.println(packetTx.message.degRtoA);
+  packetTx.message.statusControl= Status_control;
+  Serial.print("Status_control:");
+  Serial.println(packetTx.message.statusControl);
+  packetTx.message.time= time;
+  Serial.print("time:");
+  Serial.println(packetTx.message.time);
+}
+
+void encodeCyclic() {
+  uint8_t ctr = 0;
+  uint8_t m;
+  while(ctr<sizeof(roverData)) {
+    m = packetTx.packetData[ctr]>>4;
+    encodedTx[2*ctr] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
+                        (((m>>2)&1)*generator[1])^(((m>>3)&1)*generator[0]);
+    //Serial.print(encodedTx[2*ctr],HEX);
+    m = packetTx.packetData[ctr];
+    encodedTx[2*ctr+1] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
+                        (((m>>2)&1)*generator[1])^(((m>>3)&1)*generator[0]);
+    //Serial.println(encodedTx[2*ctr+1],HEX);
+    ctr++;
+  }
+}
+
+bool checkError(uint8_t dataByte) {
+  uint8_t p[3];
+  uint8_t ctr = 0;
+  p[0] = dataByte&parityCheck[0];
+  p[1] = dataByte&parityCheck[1];
+  p[2] = dataByte&parityCheck[2];
+  while(ctr<sizeof(gpsDataStruct)/2) {
+    p[0] = (p[0]&1)^(p[0]>>1);
+    p[1] = (p[1]&1)^(p[1]>>1);
+    p[2] = (p[2]&1)^(p[2]>>1);
+    ctr++;
+  }
+  return (p[0]>0)||(p[1]>0)||(p[2]>0);
+}
+
+void decodeCyclic() {
+  uint8_t ctr = 0;
+  bool error[2];
+  while (ctr<sizeof(gpsDataStruct)) {
+    encodedRx[2*ctr] = encodedRx[2*ctr]&0x7F;
+    encodedRx[2*ctr+1] = encodedRx[2*ctr+1]&0x7F;
+    error[0] = checkError(encodedRx[2*ctr]);
+    error[1] = checkError(encodedRx[2*ctr+1]);
+    dataRx.gpsBytes[ctr] = ((encodedRx[2*ctr]<<1)&0xF0)+
+                            ((encodedRx[2*ctr+1]>>3)&0x0F);//populate GPS data of goals in dataRx     
+    if(error[0]||error[1]) { //NACK
+        Serial2.print(":000102X\r\n");
+        return true;
+    }
+    ctr++;
+  }
+  //If no errors send ACK
+  Serial2.print(":000101X\r\n");
+  return false;
 }
