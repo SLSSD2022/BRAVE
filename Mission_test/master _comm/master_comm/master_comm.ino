@@ -172,6 +172,18 @@ void  writeToTwelite();
 char encodedReceived[2*sizeof(roverData)];
 
 ///-----------------------------Control Status, HK-----------------------------
+//Status using bit field
+typedef struct {
+    unsigned char Initial : 1;
+    unsigned char Calibration : 1;
+    unsigned char toG1 : 1;
+    unsigned char toG2: 1;
+    unsigned char toG3 : 1;
+    unsigned char Near : 1;
+    unsigned char Search : 1;
+    unsigned char Success : 1;
+} roverStatus;
+
 boolean Initial_flag = 1;
 boolean Communication_flag = 1;
 boolean GPS_flag = 1;
