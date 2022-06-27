@@ -90,19 +90,20 @@ int bufdeg[MEAS_BUF_LEN];
 int listdeg[SEAR_BUF_LEN];
 
 
-//------------------------------9axis sensor------------------------------
+//------------------------------GPS sensor------------------------------
 TinyGPSPlus gps;
 // double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
 //double LatA = 35.7142738, LngA = 139.76185488809645; //目的地Aの緯度経度(2号館)
 //double LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
 double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
 double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
-
 float degRtoA; //GPS現在地における目的地の慣性方角
+float rangeRtoA; 
+
 
 //------------------------------EEPROM------------------------------
 //デバイスアドレス(スレーブ)
-uint8_t DEVICE_ADDRESS = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
+uint8_t Addr_eeprom = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
 unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使える) 
 
 //------------------------------SD card------------------------------
@@ -141,8 +142,8 @@ typedef union packetData{
 };
 
 typedef struct gpsDataStruct{
-  float latR[3];
-  float lngR[3];
+  float latA[3];
+  float lngA[3];
 };
 
 typedef union gpsPacketUnion{
@@ -202,8 +203,17 @@ int wait_spin = 0;//探索後、スピン後停止する回数のカウント
 const int wait_iteration = 10;//探索後、スピン後少し停止するループ数(10よりは大きくする)
 const int forward_iteration = 20;//探索後、方向に向かって進むループ数
 
+typedef struct {
+    unsigned char GPSreceive : 1;
+    unsigned char Calibration : 1;
+    unsigned char G1 : 1;
+    unsigned char G2: 1;
+    unsigned char G3 : 1;
+    unsigned char full : 1;
+} roverSuccess;
 
-boolean Success_flag = 0;
+int goalcounter = 0;
+
 int Memory_flag = 0;
 int Status_control;
 unsigned long time;
@@ -292,7 +302,7 @@ void setup()
   //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
 //  unsigned long k = 0; 
 //  while(k < 6000){
-//    writeEEPROM(DEVICE_ADDRESS, DATA_ADDRESS,0);
+//    writeEEPROM(Addr_eeprom, DATA_ADDRESS,0);
 //    DATA_ADDRESS += 1;
 //    k +=1;
 //    Serial.println(k);
@@ -346,10 +356,12 @@ void loop()
             processData();//character data is converted to uint8_t data here and is stored in the encodedRx[] buffer
             decodeCyclic();//decode GPS data of three goals
             Serial.println("------------------------INITIAL MODE SUCCESS!!!------------------------");
-            Serial.println(dataRx.gpsData.latR[0]);//decide which goal to go first
-            Serial.println(dataRx.gpsData.latR[1]);//decide which goal to go first
-            Serial.println(dataRx.gpsData.latR[2]);//decide which goal to go first
+            Serial.println(dataRx.gpsData.latA[0]);//decide which goal to go first
+            Serial.println(dataRx.gpsData.latA[1]);//decide which goal to go first
+            Serial.println(dataRx.gpsData.latA[2]);//decide which goal to go first
             Serial.println("---------------------------------------------------------------------");
+            LogGPSdata();//log the gps data of destination to EEPROM
+             = goal_calculation();
             Initial_flag = false;
           }
         }
@@ -358,11 +370,7 @@ void loop()
       }
     }
   }
-  /*log the gps data of destination to EEPROM 
-  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LatR);
-  DATA_ADDRESS += 4;
-  EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LngR);
-  */
+  
   //=================================Nominal Mode=================================
   
   
@@ -388,27 +396,8 @@ void loop()
   cm_long = anVolt/2;
   
   //---------------------GPS acquisition--------------------------------------------------
-  while (Serial1.available() > 0 && GPS_flag == 1 && Near_flag == 0)//Near_flagは一時的なもの
-  {
-    //    Serial.print("YES");
-    char c = Serial1.read();
-    //    Serial.print(c);
-    gps.encode(c);
-    if (gps.location.isUpdated())
-    {
-      Serial.println("");
-      Serial.println("I got new GPS!");
-      LatR = gps.location.lat();  // roverの緯度を計算
-      LngR = gps.location.lng(); // roverの経度を計算
-      degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-
-      GPS_flag = 0;
-    }
-    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
-    delay(1);
-  }
-  GPS_flag =1;
-
+  updateGPSlocation();
+  updateRange_deg();
   //---------------------Check Status--------------------------------------------------
   
   Serial.print(":degRtoA:");
@@ -681,7 +670,10 @@ int goal_angle_search(){//探索時、最も測距値が近い角度をゴール
   }
   return minindex;
 }
-//
+
+
+
+//=========LIDAR sensor function============================================================================//
 unsigned int getLIDAR(){
   int distance;
   int bytenum = 0;
@@ -758,7 +750,8 @@ unsigned int getLIDAR(){
     return LIDAR_buf;
   }
 }
-//=========GPS function============================================================================//
+
+//=========GPS and position function============================================================================//
 float deg2rad(float deg)
 {
   return (float)(deg * PI / 180.0);
@@ -769,6 +762,30 @@ double deg2rad(double deg)
   return (double)(deg * PI / 180.0);
 }
 
+void updateGPSlocation(){
+  while (Serial1.available() > 0)
+  {
+    //    Serial.print("YES");
+    char c = Serial1.read();
+    //    Serial.print(c);
+    gps.encode(c);
+    if (gps.location.isUpdated())
+    {
+      Serial.println("");
+      Serial.println("I got new GPS!");
+      LatR = gps.location.lat();  // roverの緯度を計算
+      LngR = gps.location.lng(); // roverの経度を計算
+      break;
+    }
+    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
+    delay(1);
+  }
+}
+
+void updateRange_deg(){
+  degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+  rangeRtoA = gps.distanceBetween(LatR,LngR,LatA,LngA);
+}
 // Hubenyの式
 
 float calculateDistance(double latitude1, double longitude1, double latitude2, double longitude2)
@@ -794,6 +811,35 @@ float calculateDistance(double latitude1, double longitude1, double latitude2, d
   // 2点間の距離(単位m)
   float d = (float)sqrt(pow((m * dp), 2) + pow((n * cos(p) * dr), 2));
   return d;
+}
+
+int goal_calculation(){
+  //基本方針:最初の時点でどう巡るかを決定する。
+  unsigned int range[3];
+  unsigned int root[3];
+  updateGPSlocation();
+  for(int i =0; i<num ;i++){
+    range[i] = gps.distanceBetween(LatR,LngR,dataRx.gpsData.latA[i],dataRx.gpsData.lngA[i]);
+    root[i] = i + 1;
+  }
+  sortrange(range,root);//root = [1,2,3]
+  writeEEPROM()
+  return root;
+}
+
+void swap(int* a, int* b) {
+	int temp;
+	temp = *a;
+	*a = *b;
+	*b = temp;
+	return;
+}
+
+void sortrange(int* data, int* array) {
+	if (data[0] < data[1]) swap(&array[0], &array[1]);
+	if (data[0] < data[2]) swap(&array[0], &array[2]);
+	if (data[1] < data[2]) swap(&array[1], &array[2]);
+	return;
 }
 
 //===========9axis sensor function==========================================================================//
@@ -1339,29 +1385,40 @@ double EEPROM_read_float(int addr_device, unsigned int addr_res){
   return data;
 }
 
-void EPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,xMag);
+/*
+void LogToEEPROM(Addr_eeprom, DATA_ADDRESS,xMag);
     DATA_ADDRESS += 2;
-    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,yMag);
+    EEPROM_write_int(Addr_eeprom, DATA_ADDRESS,yMag);
     DATA_ADDRESS += 2;
-    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,Calibx);
+    EEPROM_write_int(Addr_eeprom, DATA_ADDRESS,Calibx);
     DATA_ADDRESS += 2;
-    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,Caliby);
+    EEPROM_write_int(Addr_eeprom, DATA_ADDRESS,Caliby);
     DATA_ADDRESS += 2;
-    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,x);
+    EEPROM_write_float(Addr_eeprom, DATA_ADDRESS,x);
     DATA_ADDRESS += 4;
-    EEPROM_write_int(DEVICE_ADDRESS, DATA_ADDRESS,cm_long);
+    EEPROM_write_int(Addr_eeprom, DATA_ADDRESS,cm_long);
     DATA_ADDRESS += 2;
-    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LatR);
+    EEPROM_write_float(Addr_eeprom, DATA_ADDRESS,LatR);
     DATA_ADDRESS += 4;
-    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,LngR);
+    EEPROM_write_float(Addr_eeprom, DATA_ADDRESS,LngR);
     DATA_ADDRESS += 4;
-    EEPROM_write_float(DEVICE_ADDRESS, DATA_ADDRESS,degRtoA);
+    EEPROM_write_float(Addr_eeprom, DATA_ADDRESS,degRtoA);
     DATA_ADDRESS += 4;
-    writeEEPROM(DEVICE_ADDRESS, DATA_ADDRESS,(byte)Status_control);
+    writeEEPROM(Addr_eeprom, DATA_ADDRESS,(byte)Status_control);
     DATA_ADDRESS += 2;
     time = millis();
-    EEPROM_write_long(DEVICE_ADDRESS, DATA_ADDRESS,time);
+    EEPROM_write_long(Addr_eeprom, DATA_ADDRESS,time);
     DATA_ADDRESS += 4;
+}
+*/
+
+void LogGPSdata(){
+  EEPROM_write_float(Addr_eeprom, 0, dataRx.gpsData.latR[0]);
+  EEPROM_write_float(Addr_eeprom, 4, dataRx.gpsData.lngR[0]);
+  EEPROM_write_float(Addr_eeprom, 8, dataRx.gpsData.latR[1]);
+  EEPROM_write_float(Addr_eeprom, 12, dataRx.gpsData.lngR[1]);
+  EEPROM_write_float(Addr_eeprom, 16, dataRx.gpsData.latR[2]);
+  EEPROM_write_float(Addr_eeprom, 20, dataRx.gpsData.lngR[2]);
 }
    
 //============SDCard function=========================================================================//
