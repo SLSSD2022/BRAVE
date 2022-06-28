@@ -7,7 +7,7 @@
 //------------------------------Ultrasonic sensor------------------------------
 //Ultrasonic sensor(short)Front
 unsigned int cm;
-const int HEAD_Trig = 22; 
+const int HEAD_Trig = 22;
 const int HEAD_Echo = 24;
 
 //Ultrasonic sensor(long)Front
@@ -28,7 +28,7 @@ int searchIndex = 0;
 
 
 //Ultrasonic sensor(short)Bottom
-const int BOTTOM_Trig = 6; 
+const int BOTTOM_Trig = 6;
 const int BOTTOM_Echo = 7;
 
 //------------------------------LIDAR sensor------------------------------
@@ -36,7 +36,7 @@ const int BOTTOM_Echo = 7;
 unsigned int cm_LIDAR = 0;
 unsigned int LIDAR_buf = 0;
 
-//------------------------------Motor------------------------------ 
+//------------------------------Motor------------------------------
 const int ENABLE = 8;
 const int CH1 = 9;
 const int CH2 = 11;
@@ -65,7 +65,7 @@ int yMag = 0;
 int zMag = 0;
 
 //Constant for calibration(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calib = 175; 
+double Calib = 175;
 double Calibx = 20;
 double Caliby = 132;
 
@@ -98,7 +98,7 @@ TinyGPSPlus gps;
 double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
 double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
 float degRtoA; //GPS現在地における目的地の慣性方角
-float rangeRtoA; 
+float rangeRtoA;
 
 
 //------------------------------EEPROM------------------------------
@@ -121,7 +121,7 @@ int RST = 2;
 int BPS = 3; // if HIGH set Baud rate to 115200 at MWSerial, if LOW to 38400
 
 //Define Structures for receiving and Handling Rover data
-typedef struct roverData{
+typedef struct _roverData{
   uint8_t roverComsStat;
   uint16_t xMag;
   uint16_t yMag;
@@ -134,73 +134,73 @@ typedef struct roverData{
   float degRtoA;
   byte statusControl;
   unsigned long int time;
-};
-  
-typedef union packetData{
+} roverData;
+
+typedef union _packetData{
   roverData message;
   unsigned char packetData[sizeof(roverData)];
-};
+} packetData;
 
-typedef struct gpsDataStruct{
+typedef struct _gpsDataStruct {
   float latA[3];
   float lngA[3];
-};
+} gpsDataStruct;
 
-typedef union gpsPacketUnion{
+typedef union _gpsPacketUnion {
   gpsDataStruct gpsData;
   uint8_t gpsBytes[sizeof(gpsDataStruct)];
-};
+} gpsPacketUnion;
 
 const int MaxBufferSize = 160;
 char buffRx[MaxBufferSize];
 void Parse();
 int bufferPos = 0;
-packetData packetTx;//Packet to be coded and then written to twelite 
+packetData packetTx;//Packet to be coded and then written to twelite
 gpsPacketUnion dataRx;//Received packet with GPS data
 
 void  writeToTwelite();
 void encodeCyclic();
-uint8_t encodedTx[2*sizeof(roverData)];//Encoded message to be sent 
-uint8_t encodedRx[2*sizeof(gpsDataStruct)];
-const uint8_t generator[4] = {0x46,0x23,0x17,0x0D};
-const uint8_t parityCheck[3] = {0x5C,0x72,0x39};
+uint8_t encodedTx[2 * sizeof(roverData)]; //Encoded message to be sent
+uint8_t encodedRx[2 * sizeof(gpsDataStruct)];
+const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};
+const uint8_t parityCheck[3] = {0x5C, 0x72, 0x39};
 int commsStart;
 int commsStop;
 unsigned long start;
 unsigned long stopi;
 void readRoverData();
-char encodedReceived[2*sizeof(roverData)];
+char encodedReceived[2 * sizeof(roverData)];
 
 ///-----------------------------Control Status, HK-----------------------------
-typedef struct modeStruct{
+typedef struct _modeStruct {
   unsigned char manual : 1;
   unsigned char autoGpsOnly : 1;
   unsigned char autoAggressive : 1;
   unsigned char sleep : 1;
-};
+} modeStruct;
 
 
 //Status using bit field
-typedef struct statusStruct{
-    unsigned char initial : 1;
-    unsigned char calibration : 1;
-    unsigned int toGoal;
-    unsigned char near : 1;
-    unsigned char search : 1;
-    unsigned char sleep : 1;
-};
+typedef struct _statusStruct {
+  unsigned char initial : 1;
+  unsigned char calibration : 1;
+  unsigned int toGoal;
+  unsigned char near : 1;
+  unsigned char search : 1;
+  unsigned char sleep : 1;
+} statusStruct;
 
 
-typedef struct successStruct{
-    unsigned char GPSreceive : 1;
-    unsigned int goalGPS;
-    unsigned int goalArrived;
-    unsigned char full : 1;
-} ;
+typedef struct _successStruct {
+  unsigned char GPSreceive : 1;
+  unsigned int goalGPS;
+  unsigned int goalArrived;
+  unsigned char full : 1;
+} successStruct;
 
-modeStruct roverMode = {0,1,0,0};
-statusStruct roverStatus = {1,1,0,0,0,0};
-successStruct roverSuccess = {0,0,0,0};
+modeStruct roverMode = {0, 1, 0, 0};
+statusStruct roverStatus = {1, 1, 0, 0, 0, 0};
+successStruct roverSuccess = {0, 0, 0, 0};
 
 boolean commFlag = 1;
 boolean stopFlag = 0;
@@ -214,7 +214,7 @@ int waitSpin = 0;//探索後、スピン後停止する回数のカウント
 const int waitIteration = 10;//探索後、スピン後少し停止するループ数(10よりは大きくする)
 const int forward_iteration = 20;//探索後、方向に向かって進むループ数
 
-int goalRoute[3];
+unsigned int goalRoute[3];
 
 int memoryFlag = 0;
 int controlStatus;
@@ -222,29 +222,29 @@ unsigned long overallTime;
 
 
 /*
-############################################################################################################
-############################################################################################################
+  ############################################################################################################
+  ############################################################################################################
 */
 
 void setup()
 {
-    // デバッグ用シリアル通信は9600bps
+  // デバッグ用シリアル通信は9600bps
   Serial.begin(115200);//ステータス設定(試験したい状況)
   commFlag = 1;
   roverStatus.calibration = 1;
   roverStatus.near = 0;//ゴール5m付近のとき
   roverStatus.search = 0;//ゴール5m付近で測距するとき
-//  while(1){
-//    anVolt = analogRead(HEADpin);
-//    cm_long = anVolt/2;
-//    Serial.println(cm_long);
-//    delay(1000);
-//  }
-  
+  //  while(1){
+  //    anVolt = analogRead(HEADpin);
+  //    cm_long = anVolt/2;
+  //    Serial.println(cm_long);
+  //    delay(1000);
+  //  }
+
   //超音波センサ
-  pinMode(HEAD_Trig,OUTPUT);
-  pinMode(HEAD_Echo,INPUT);
-  
+  pinMode(HEAD_Trig, OUTPUT);
+  pinMode(HEAD_Echo, INPUT);
+
   //モーター
   pinMode(CH1, OUTPUT);
   pinMode(CH2, OUTPUT);
@@ -254,13 +254,13 @@ void setup()
 
   // Wire(Arduino-I2C)の初期化
   Wire.begin();
-  
+
   // BMX055 初期化
   BMX055_Init();
 
-  //GPS uses Hardware Serial1 
+  //GPS uses Hardware Serial1
   Serial1.begin(9600);
-  
+
   //TWElite uses Hardware Serial 2
   Serial2.begin(115200);
   while (!Serial2) {
@@ -278,15 +278,15 @@ void setup()
   while (!Serial3) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-  
+
   //SDcard Initialization
-  pinMode(SDSW,INPUT_PULLUP);
-  while(1){
-    if(digitalRead(SDSW) == 0){
+  pinMode(SDSW, INPUT_PULLUP);
+  while (1) {
+    if (digitalRead(SDSW) == 0) {
       Serial.println("Card inserted!");
       break;
     }
-    else{
+    else {
       Serial.println("Card not inserted!");
     }
     delay(1000);
@@ -298,20 +298,20 @@ void setup()
   }
   Serial.println("card initialized.");
 
-  
+
   //初期値
   degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
   //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
-//  unsigned long k = 0; 
-//  while(k < 6000){
-//    writeEEPROM(addrEEPROM, addrData,0);
-//    addrData += 1;
-//    k +=1;
-//    Serial.println(k);
-//  }
-//  addrData = 0;
+  //  unsigned long k = 0;
+  //  while(k < 6000){
+  //    writeEEPROM(addrEEPROM, addrData,0);
+  //    addrData += 1;
+  //    k +=1;
+  //    Serial.println(k);
+  //  }
+  //  addrData = 0;
   //バッファの初期化
-  for(int i=0; i<CAL_BUF_LEN; i++) {
+  for (int i = 0; i < CAL_BUF_LEN; i++) {
     bufx[i] = 0;
     bufy[i] = 0;
   }
@@ -320,38 +320,38 @@ void setup()
 
 
 /*
-############################################################################################################
-############################################################################################################
+  ############################################################################################################
+  ############################################################################################################
 */
 
 
 void loop()
 {
   //=================================initial Mode=================================
-  while (roverStatus.initial){
+  while (roverStatus.initial) {
     start = millis();
-    if (start> stopi + 1000){
+    if (start > stopi + 1000) {
       Serial.println("initial Mode");
       stopi = millis();
     }
-    if (Serial2.available() > 0){
+    if (Serial2.available() > 0) {
       char c = Serial2.read();
       //Serial2.print(c);
-      if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ){//read as data in one packet before it receives "\n"
+      if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) { //read as data in one packet before it receives "\n"
         buffRx[bufferPos] = c;
         bufferPos++;
         buffRx[bufferPos] = '\0';
       }
       else //Check the buffa if it reads the last character in one packet
       {
-        if (buffRx[3]=='0' && buffRx[4]=='1' && buffRx[5]=='0'){    //Arbitrary packet for Rover 
-          if (buffRx[6]=='2'){//NACK
+        if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '0') { //Arbitrary packet for Rover
+          if (buffRx[6] == '2') { //NACK
             //do nothing
           }
-          else if (buffRx[6]=='1'){//ACK
+          else if (buffRx[6] == '1') { //ACK
             //do nothing
           }
-          else if (buffRx[6]=='0'){//DATARECEIVE
+          else if (buffRx[6] == '0') { //DATARECEIVE
             processData();//character data is converted to uint8_t data here and is stored in the encodedRx[] buffer
             decodeCyclic();//decode GPS data of three goals
 
@@ -364,7 +364,7 @@ void loop()
 
 
             LogGPSdata();//log the gps data of destination to EEPROM
-            
+
             goalCalculation();//calculate distance to goals and decide root
 
             int first = goalRoute[0];//set first goal to the destination
@@ -380,10 +380,10 @@ void loop()
       }
     }
   }
-  
+
   //=================================Nominal Mode=================================
-  
-  
+
+
   //---------------------9軸取得--------------------------------------------------
   // BMX055 ジャイロの読み取り
   BMX055_Gyro();
@@ -391,8 +391,8 @@ void loop()
   BMX055_Mag();
 
   //キャリブレーションが終了しているなら
-  if(roverStatus.calibration == 0){
-    x = angle_calculation(); 
+  if (roverStatus.calibration == 0) {
+    x = angle_calculation();
   }
 
   //---------------------LIDARセンサ取得--------------------------------------------------
@@ -403,15 +403,15 @@ void loop()
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
   anVolt = analogRead(HEADpin);
-  cm_long = anVolt/2;
-  
+  cm_long = anVolt / 2;
+
   //---------------------GPS acquisition--------------------------------------------------
   updateGPSlocation();
   degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-  rangeRtoA = gps.distanceBetween(LatR,LngR,LatA,LngA);
+  rangeRtoA = gps.distanceBetween(LatR, LngR, LatA, LngA);
 
   //---------------------Check parameter & update Status--------------------------------------------------
-  
+
   Serial.print(":LatR:");
   Serial.print(LatR);
   Serial.print(":LngR:");
@@ -426,31 +426,31 @@ void loop()
   Serial.print(x);
   Serial.print(":rangeRtoA:");
   Serial.print(rangeRtoA);
-  if(rangeRtoA < 1.0){
-    if(roverMode.autoGpsOnly){
+  if (rangeRtoA < 1.0) {
+    if (roverMode.autoGpsOnly) {
       successManagement();
     }
-    else if(roverMode.autoAggressive){
+    else if (roverMode.autoAggressive) {
       roverStatus.near = 1;
       roverStatus.search = 1;
-    }                                                                                                                               
+    }
   }
   Serial.print(":cm_LIDAR:");
   Serial.print(cm_LIDAR);
-  if(cm< emergencyStopDist){
-    stopFlag = 1;                                                                                                                               
-  }else{
+  if (cm < emergencyStopDist) {
+    stopFlag = 1;
+  } else {
     stopFlag = 0;
   }
-  if(roverMode.sleep == 1){
+  if (roverMode.sleep == 1) {
     stopFlag = 1;
   }
 
   //---------------------Special control for each status------------------------------------------------------
-  
-  
+
+
   //calibration
-  if(roverStatus.calibration == 1){
+  if (roverStatus.calibration == 1) {
     Serial.print(":xMag:");
     Serial.print(xMag);
     Serial.print(":yMag:");
@@ -459,7 +459,7 @@ void loop()
     Serial.print(calIndex);
     bufx[calIndex] = xMag;
     bufy[calIndex] = yMag;
-    if(calIndex == CAL_BUF_LEN-1){//バッファに値がたまったら
+    if (calIndex == CAL_BUF_LEN - 1) { //バッファに値がたまったら
       Calibx = xcenter_calculation();
       Caliby = ycenter_calculation();
       roverStatus.calibration = 0 ;
@@ -469,24 +469,24 @@ void loop()
       Serial.print(Caliby);
       x = angle_calculation();//このループ後半のためだけ
     }
-    else{
-      calIndex = (calIndex+1)%CAL_BUF_LEN;
+    else {
+      calIndex = (calIndex + 1) % CAL_BUF_LEN;
     }
   }
 
   //ゴール探索時
-  if(roverStatus.calibration == 0 && roverStatus.near == 1){
-    if(roverStatus.search == 1){//ゴールの方向がまだ分かってない
-      if(searchCount < spinIteration){//スピン段階
+  if (roverStatus.calibration == 0 && roverStatus.near == 1) {
+    if (roverStatus.search == 1) { //ゴールの方向がまだ分かってない
+      if (searchCount < spinIteration) { //スピン段階
         stopFlag = 0;
         searchCount += 1;
       }
-      else{
+      else {
         stopFlag = 1;//測距中は停止する
         bufcm[measureIndex] = cm_LIDAR;
-        measureIndex = (measureIndex+1)%MEAS_BUF_LEN;
+        measureIndex = (measureIndex + 1) % MEAS_BUF_LEN;
         //バッファに値がたまったら
-        if(measureIndex == 0){
+        if (measureIndex == 0) {
           //filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
           listcm[searchIndex] = cm_LIDAR;//一番最後の角度がもっともらしい。
           listdeg[searchIndex] = x;//一番最後の角度がもっともらしい。
@@ -495,9 +495,9 @@ void loop()
           //バッファ番号初期化(中身は放置)
           measureIndex = 0;
           searchCount = 0;
-          searchIndex = (searchIndex+1)%SEAR_BUF_LEN;
+          searchIndex = (searchIndex + 1) % SEAR_BUF_LEN;
           //測距リストに値がたまったら
-          if(searchIndex == 0){
+          if (searchIndex == 0) {
             int listIndex = goal_angle_search();//リストから測距値の最小値と対応するリスト番号を探す。
             degRtoA = listdeg[listIndex];//目的地の方向を決定
             Serial.print(":searching_completed!");
@@ -509,18 +509,18 @@ void loop()
         }
       }
     }
-    else if(roverStatus.search == 0){//ゴール探索時(ゴールの方向が分かって動いている時)
-      if(spinCount < spinIteration){//設定回数まで連続スピンできる
+    else if (roverStatus.search == 0) { //ゴール探索時(ゴールの方向が分かって動いている時)
+      if (spinCount < spinIteration) { //設定回数まで連続スピンできる
         stopFlag = 0;
       }
-      else{//設定回数までスピンしたら少し停止する
+      else { //設定回数までスピンしたら少し停止する
         stopFlag = 1;
         waitSpin += 1;
-        if(waitSpin > waitIteration){
+        if (waitSpin > waitIteration) {
           waitSpin = 0;
           spinCount = 0;
           stopFlag = 0;
-        }   
+        }
       }
     }
   }
@@ -528,17 +528,17 @@ void loop()
 
 
   //---------------------Motor Control--------------------------------------------------
-  if(stopFlag == 1){
+  if (stopFlag == 1) {
     //ブレーキ
     digitalWrite(ENABLE, HIGH);
-    digitalWrite(CH1,HIGH);
-    digitalWrite(CH2,HIGH);
-    digitalWrite(CH3,HIGH);
-    digitalWrite(CH4,HIGH);
+    digitalWrite(CH1, HIGH);
+    digitalWrite(CH2, HIGH);
+    digitalWrite(CH3, HIGH);
+    digitalWrite(CH4, HIGH);
     controlStatus = 0;//"stop"
     Serial.print(":stop!");
   }
-  else if(stopFlag == 0 && roverStatus.calibration == 1){//キャリブレーション時
+  else if (stopFlag == 0 && roverStatus.calibration == 1) { //キャリブレーション時
     digitalWrite(ENABLE, HIGH); // enable
     analogWrite(CH1, slowSpeed);
     analogWrite(CH2, 0);
@@ -547,8 +547,8 @@ void loop()
     controlStatus = 7;//"calibration..."
     Serial.print(":calibration");
   }
-  else if(stopFlag == 0 && roverStatus.calibration == 0 && roverStatus.near == 1){//ゴール5m付近時
-    if(roverStatus.search == 1){//スピンしながらコーンを探索
+  else if (stopFlag == 0 && roverStatus.calibration == 0 && roverStatus.near == 1) { //ゴール5m付近時
+    if (roverStatus.search == 1) { //スピンしながらコーンを探索
       digitalWrite(ENABLE, HIGH); // enable
       analogWrite(CH1, 0);
       analogWrite(CH2, verySlowSpeed);
@@ -557,35 +557,35 @@ void loop()
       controlStatus = 8;//"searching..."
       Serial.print(":searching");
     }
-    else{//コーンの方を向く
-       if(forwardCount > forward_iteration){
+    else { //コーンの方を向く
+      if (forwardCount > forward_iteration) {
         roverStatus.search = 1;
         forwardCount = 0;
         Serial.print(":restart searching");
       }
-      else{
+      else {
         motor_angle_spin();
       }
     }
   }
-  else if(stopFlag == 0 && roverStatus.calibration == 0 && roverStatus.near == 0 ){//通常走行時
+  else if (stopFlag == 0 && roverStatus.calibration == 0 && roverStatus.near == 0 ) { //通常走行時
     motor_angle_go();
   }
 
 
   //---------------------Logger------------------------------------------------------
   LogToSDCard();
-  if(memoryFlag > 5){
+  if (memoryFlag > 5) {
     LogToEEPROM();
     memoryFlag = 0;
   }
-  else{
+  else {
     memoryFlag += 1;
   }
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
   start = millis();
-  
+
   Serial.print(":start:");
   Serial.print(start);
   Serial.print(":stopi:");
@@ -593,24 +593,24 @@ void loop()
   int timer = start - stopi;
   Serial.print(":time:");
   Serial.println(timer);
-  if ( timer > 10000){
+  if ( timer > 10000) {
     Serial.println("HELLO!!!!!!!!!!!");
     Serial.println(":10s Communication");
     writeToTwelite();//send HK firstly
     Serial.println("writeToTwelite 1st");
     commsStop = millis();
-    while(commFlag == 1){//then go into waiting loop for ACK or NACK
+    while (commFlag == 1) { //then go into waiting loop for ACK or NACK
       commsStart = millis();
-      if (commsStart > commsStop + 20){//if 20ms passes, then send HK again
+      if (commsStart > commsStop + 20) { //if 20ms passes, then send HK again
         writeToTwelite();
         Serial.println("writeToTwelite 20ms");
         commsStop = millis();
         commFlag = 0;
         //break;
       }
-      if (Serial2.available() > 0){
+      if (Serial2.available() > 0) {
         char c = Serial2.read();
-        if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ){
+        if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) {
           buffRx[bufferPos] = c;
           bufferPos++;
         }
@@ -618,77 +618,77 @@ void loop()
         {
           buffRx[bufferPos] = '\0';
           //Checks
-          if (buffRx[3]=='0' && buffRx[4]=='1' && buffRx[5]=='0'){    //Arbitrary packet for Rover 
+          if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '0') { //Arbitrary packet for Rover
             //Serial.println(Buffer);
-            if (buffRx[6]=='2'){//NACK
+            if (buffRx[6] == '2') { //NACK
               Serial.print("NACK: Resending packet...");
               writeToTwelite();
               Serial.println("writeToTwelite:NACK");
-            } else if (buffRx[6]=='1'){//ACK
+            } else if (buffRx[6] == '1') { //ACK
               Serial.print("ACKNOWLEDGEMENT!");
               commFlag = 0;
               //break;
             }
-          } 
+          }
           Serial.println(buffRx);
           bufferPos = 0;
-        } 
+        }
       }
     }
     bufferPos = 0;
     commFlag = 1;
     stopi = millis();
     Serial.println(":Communication end!!:");
-  } 
+  }
   //---------------------ステータス更新--------------------------------------------------
-  
+
   //最後にシリアル通信を改行する
   Serial.println("");
 }
 
 /*
-############################################################################################################
-############################################################################################################
+  ############################################################################################################
+  ############################################################################################################
 */
 
 
 
 //=========Status control function============================================================================//
 
-void goalCalculation(){
+void goalCalculation() {
   //基本方針:最初の時点でどう巡るかを決定する。
   unsigned int range[3];
   updateGPSlocation();
-  for(int i =0; i<3 ;i++){
-    range[i] = gps.distanceBetween(LatR,LngR,dataRx.gpsData.latA[i],dataRx.gpsData.lngA[i]);
+  for (int i = 0; i < 3 ; i++) {
+    range[i] = gps.distanceBetween(LatR, LngR, dataRx.gpsData.latA[i], dataRx.gpsData.lngA[i]);
     goalRoute[i] = i + 1;
   }
-  sortRange(range,goalRoute);//root = [1,2,3]
-  writeEEPROM(addrEEPROM,24,(byte)goalRoute[0]);
-  writeEEPROM(addrEEPROM,25,(byte)goalRoute[1]);
-  writeEEPROM(addrEEPROM,26,(byte)goalRoute[2]);
-  return;
+  sortRange(range, goalRoute); //root = [1,2,3]
+  writeEEPROM(addrEEPROM, 24, (byte)goalRoute[0]);
+  writeEEPROM(addrEEPROM, 25, (byte)goalRoute[1]);
+  writeEEPROM(addrEEPROM, 26, (byte)goalRoute[2]);
+  // return;
 }
 
-void swap(int* a, int* b) {
-	int temp;
-	temp = *a;
-	*a = *b;
-	*b = temp;
-	return;
+void swap(unsigned int* a, unsigned int* b) {
+  unsigned int temp;
+  temp = *a;
+  *a = *b;
+  *b = temp;
+  // return;
 }
 
-void sortRange(int* data, int* array) {
-	if (data[0] < data[1]) swap(&array[0], &array[1]);
-	if (data[0] < data[2]) swap(&array[0], &array[2]);
-	if (data[1] < data[2]) swap(&array[1], &array[2]);
-	return;
+void sortRange(unsigned int* data, unsigned int* array) {
+  if (data[0] < data[1]) swap(&array[0], &array[1]);
+  if (data[0] < data[2]) swap(&array[0], &array[2]);
+  if (data[1] < data[2]) swap(&array[1], &array[2]);
+  // return;
 }
 
-void successManagement(){
-  if(roverStatus.toGoal < 3){
+void successManagement() {
+  if (roverStatus.toGoal < 3) {
     roverSuccess.goalGPS = roverStatus.toGoal;
-    writeEEPROM(addrEEPROM,27,(byte)roverSuccess.goalGPS);//logger
+    writeEEPROM(addrEEPROM, 27, (byte)roverSuccess.goalGPS); //logger
 
     int next = goalRoute[roverStatus.toGoal];//set next goal to the destination
     roverStatus.toGoal += 1;
@@ -698,10 +698,10 @@ void successManagement(){
     roverStatus.near = 0;
     roverStatus.search = 0;
   }
-  else if(roverStatus.toGoal == 3){
+  else if (roverStatus.toGoal == 3) {
     roverSuccess.goalGPS = roverStatus.toGoal;
     roverSuccess.full = 1;
-    writeEEPROM(addrEEPROM,27,(byte)roverSuccess.goalGPS);//logger//logger
+    writeEEPROM(addrEEPROM, 27, (byte)roverSuccess.goalGPS); //logger//logger
 
     roverStatus.near = 0;
     roverStatus.search = 0;
@@ -711,21 +711,21 @@ void successManagement(){
 }
 
 //=========Ultrasonic sensor function============================================================================//
-unsigned int getUltrasonic_HEAD(){
+unsigned int getUltrasonic_HEAD() {
   long duration;
-  digitalWrite(HEAD_Trig,LOW);
+  digitalWrite(HEAD_Trig, LOW);
   delayMicroseconds(2);
-  digitalWrite(HEAD_Trig,HIGH);
+  digitalWrite(HEAD_Trig, HIGH);
   delayMicroseconds(10);
-  duration = pulseIn(HEAD_Echo,HIGH);
+  duration = pulseIn(HEAD_Echo, HIGH);
   return microsecTocm(duration);
 }
 
-unsigned int microsecTocm(long microsec){
-  return (unsigned int) microsec /29 /2;
+unsigned int microsecTocm(long microsec) {
+  return (unsigned int) microsec / 29 / 2;
 }
 
-void filter_angle_search(){
+void filter_angle_search() {
   //ソート用のバッファ
   static int sortBufcm[MEAS_BUF_LEN];
 
@@ -739,17 +739,17 @@ void filter_angle_search(){
   qsort(sortBufcm, MEAS_BUF_LEN, sizeof(int), quicksortFunc);
 
   //中央値をリストに格納する。
-  listcm[searchIndex] = sortBufcm[(int)MEAS_BUF_LEN/2];
+  listcm[searchIndex] = sortBufcm[(int)MEAS_BUF_LEN / 2];
   Serial.print(":measure cm:");
   Serial.print(listcm[searchIndex]);
 }
 
-int goal_angle_search(){//探索時、最も測距値が近い角度をゴールの方向と決定する。
+int goal_angle_search() { //探索時、最も測距値が近い角度をゴールの方向と決定する。
   int mincm = listcm[0];
   int minindex = 0;
   for (int i = 0; i < SEAR_BUF_LEN; i++)
   {
-    if(0 < listcm[i] && listcm[i] < mincm){
+    if (0 < listcm[i] && listcm[i] < mincm) {
       mincm = listcm[i];
       minindex = i;
     }
@@ -760,80 +760,80 @@ int goal_angle_search(){//探索時、最も測距値が近い角度をゴール
 
 
 //=========LIDAR sensor function============================================================================//
-unsigned int getLIDAR(){
+unsigned int getLIDAR() {
   boolean LIDAR_flag = 1;
   int distance;
   int bytenum = 0;
   while (Serial2.available() > 0 && LIDAR_flag == 1)//near_flagは一時的なもの
   {
     byte c = Serial2.read();
-    switch(bytenum){
+    switch (bytenum) {
       case 0://frame header must be 0x59
-//        Serial.print("Byte0:");
-//        Serial.println(c,HEX);
-        if(c == 0x59){
+        //        Serial.print("Byte0:");
+        //        Serial.println(c,HEX);
+        if (c == 0x59) {
           bytenum += 1;
         }
         break;
       case 1://frame header must be 0x59
-//        Serial.print("Byte1:");
-//        Serial.println(c,HEX);
-        if(c == 0x59){
+        //        Serial.print("Byte1:");
+        //        Serial.println(c,HEX);
+        if (c == 0x59) {
           bytenum += 1;
         }
         break;
       case 2://distance value low 8 bits
-//        Serial.print("Byte2:");
-//        Serial.println(c,HEX);
-        if(c == 0x59){
+        //        Serial.print("Byte2:");
+        //        Serial.println(c,HEX);
+        if (c == 0x59) {
           //多分次がcase2
         }
-        else{
+        else {
           distance = (int)c;
           bytenum += 1;
         }
         break;
       case 3://distance value high 8 bits
-//        Serial.print("Byte3:");
-//        Serial.println(c,HEX);
-        distance = distance + 256*(int)c;
-//        Serial.print("distance:");
-//        Serial.println(cm_LIDAR);
+        //        Serial.print("Byte3:");
+        //        Serial.println(c,HEX);
+        distance = distance + 256 * (int)c;
+        //        Serial.print("distance:");
+        //        Serial.println(cm_LIDAR);
         LIDAR_flag = 0;
         bytenum += 1;
         break;
       case 4://strength value low 8 bits
-//        Serial.print("Byte4:");
-//        Serial.println(c,HEX);
+        //        Serial.print("Byte4:");
+        //        Serial.println(c,HEX);
         bytenum += 1;
         break;
       case 5://strength value high 8 bits
-//        Serial.print("Byte5:");
-//        Serial.println(c,HEX);
+        //        Serial.print("Byte5:");
+        //        Serial.println(c,HEX);
         bytenum += 1;
         break;
       case 6://Temp_L low 8 bits
-//        Serial.print("Byte6:");
-//        Serial.println(c,HEX);
+        //        Serial.print("Byte6:");
+        //        Serial.println(c,HEX);
         bytenum += 1;
         break;
       case 7://Temp_H high 8 bits
-//        Serial.print("Byte7:");
-//        Serial.println(c,HEX);
+        //        Serial.print("Byte7:");
+        //        Serial.println(c,HEX);
         bytenum += 1;
         break;
       case 8://checksum
-//        Serial.print("Byte8:");
-//        Serial.println(c,HEX);
+        //        Serial.print("Byte8:");
+        //        Serial.println(c,HEX);
         bytenum = 0;
         break;
     }
   }
   LIDAR_flag = 1;
-  if(0<distance && distance < 1000){
+  if (0 < distance && distance < 1000) {
     LIDAR_buf = distance;
     return distance;
-  }else{
+  } else {
     return LIDAR_buf;
   }
 }
@@ -849,7 +849,7 @@ double deg2rad(double deg)
   return (double)(deg * PI / 180.0);
 }
 
-void updateGPSlocation(){
+void updateGPSlocation() {
   while (Serial1.available() > 0)
   {
     //    Serial.print("YES");
@@ -1023,7 +1023,7 @@ void BMX055_Mag()
     zMag -= 32768;
 }
 
-float angle_calculation(){
+float angle_calculation() {
   x = atan2(yMag - Caliby, xMag - Calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
   x += Calib;
   x -= 7; //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
@@ -1032,7 +1032,7 @@ float angle_calculation(){
 
   if (x > 360)
   {
-    x -=360;
+    x -= 360;
   }
 
   else if (x < 0)
@@ -1075,20 +1075,20 @@ int xcenter_calculation() {
   //ソート用のバッファ
   static int sortBufx[CAL_BUF_LEN];
   //ソート用バッファにデータをコピー
-  bufx[0] == bufx[CAL_BUF_LEN-1];//先端には0が入っちゃってるのでなんかまともな値を入れる。
-  for(int i=0; i<CAL_BUF_LEN; i++) {
+  bufx[0] == bufx[CAL_BUF_LEN - 1]; //先端には0が入っちゃってるのでなんかまともな値を入れる。
+  for (int i = 0; i < CAL_BUF_LEN; i++) {
     sortBufx[i] = bufx[i];
   }
 
   //クイックソートで並べ替える
   qsort(sortBufx, CAL_BUF_LEN, sizeof(int), quicksortFunc);
-  
+
   Serial.print(":Min:");
   Serial.print(sortBufx[0]);
   Serial.print(":Max:");
-  Serial.print(sortBufx[CAL_BUF_LEN-1]);
+  Serial.print(sortBufx[CAL_BUF_LEN - 1]);
 
-  return (sortBufx[1]+sortBufx[CAL_BUF_LEN-2])/2;//取得値ではない「0」が最少と最大になってしまう場合の対処(「0」が複数取れてしまった場合に対応できていないので注意)
+  return (sortBufx[1] + sortBufx[CAL_BUF_LEN - 2]) / 2; //取得値ではない「0」が最少と最大になってしまう場合の対処(「0」が複数取れてしまった場合に対応できていないので注意)
 }
 
 //Medianフィルタ関数
@@ -1096,10 +1096,10 @@ int ycenter_calculation() {
   //ソート用のバッファ
   static int sortBufy[CAL_BUF_LEN];
   Serial.println("---------------------------------");
-  bufy[0] == bufy[CAL_BUF_LEN-1];//先端には0が入っちゃってるのでなんかまともな値を入れる。←効果ないっぽい
+  bufy[0] == bufy[CAL_BUF_LEN - 1]; //先端には0が入っちゃってるのでなんかまともな値を入れる。←効果ないっぽい
 
   //ソート用バッファにデータをコピー
-  for(int i=0; i<CAL_BUF_LEN; i++) {
+  for (int i = 0; i < CAL_BUF_LEN; i++) {
     sortBufy[i] = bufy[i];
     Serial.print(i);
     Serial.print(",");
@@ -1107,8 +1107,8 @@ int ycenter_calculation() {
   }
 
   int k = 0;
-  while(sortBufy[k] == 0){//最初の方に値が入らなかった場合の対応←効果ないっぽい
-    sortBufy[k] == sortBufy[CAL_BUF_LEN-1];
+  while (sortBufy[k] == 0) { //最初の方に値が入らなかった場合の対応←効果ないっぽい
+    sortBufy[k] == sortBufy[CAL_BUF_LEN - 1];
     k += 1;
   }
 
@@ -1118,9 +1118,9 @@ int ycenter_calculation() {
   Serial.print(":Min:");
   Serial.print(sortBufy[1]);
   Serial.print(":Max:");
-  Serial.print(sortBufy[CAL_BUF_LEN-1]);
+  Serial.print(sortBufy[CAL_BUF_LEN - 1]);
 
-  return (sortBufy[1]+sortBufy[CAL_BUF_LEN-2])/2;//取得値ではない「0」が最少と最大になってしまう場合の対処(「0」が複数取れてしまった場合に対応できていないので注意)
+  return (sortBufy[1] + sortBufy[CAL_BUF_LEN - 2]) / 2; //取得値ではない「0」が最少と最大になってしまう場合の対処(「0」が複数取れてしまった場合に対応できていないので注意)
 }
 
 //クイックソート関数
@@ -1137,75 +1137,75 @@ void motor_angle_go()
   digitalWrite(ENABLE, HIGH); // enable
   digitalWrite(CH2, LOW);
   digitalWrite(CH4, LOW);
-  if (x < degRtoA){
-      deltaTheta = degRtoA - x;
-      Serial.print(":x < degRtoA:");
-      Serial.print(deltaTheta);
-      
-      //閾値内にあるときは真っ直ぐ
-      if ((0 <= deltaTheta && deltaTheta <= threshold/2)|| (360 - threshold/2 <= deltaTheta && deltaTheta <= degRtoA)){
-        speedR = nominalSpeed;
-        speedL = nominalSpeed;
-        analogWrite( CH1, speedR );
-        analogWrite( CH3, speedL );
-        Serial.print(":Go straight");
-        controlStatus = 1;//"Go straight"
-      }
-      //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      else if (threshold/2 < deltaTheta && deltaTheta <= 180){ 
-        speedR = nominalSpeed - (deltaTheta * nominalSpeed / 180);
-        speedL = nominalSpeed;
-        analogWrite( CH1, speedR );
-        analogWrite( CH3, speedL ); 
-        Serial.print(":turn right");
-        controlStatus = 3;//"turn right"
-      }
-  
-      //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-      else { 
-        speedR = nominalSpeed;
-        speedL = nominalSpeed - ((360-deltaTheta) * nominalSpeed / 180);
-        analogWrite( CH1, speedR );
-        analogWrite( CH3, speedL );
-        Serial.print(":turn left");
-        controlStatus = 2;//"turn left"
-      }
+  if (x < degRtoA) {
+    deltaTheta = degRtoA - x;
+    Serial.print(":x < degRtoA:");
+    Serial.print(deltaTheta);
+
+    //閾値内にあるときは真っ直ぐ
+    if ((0 <= deltaTheta && deltaTheta <= threshold / 2) || (360 - threshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
+      speedR = nominalSpeed;
+      speedL = nominalSpeed;
+      analogWrite( CH1, speedR );
+      analogWrite( CH3, speedL );
+      Serial.print(":Go straight");
+      controlStatus = 1;//"Go straight"
+    }
+    //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+    else if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
+      speedR = nominalSpeed - (deltaTheta * nominalSpeed / 180);
+      speedL = nominalSpeed;
+      analogWrite( CH1, speedR );
+      analogWrite( CH3, speedL );
+      Serial.print(":turn right");
+      controlStatus = 3;//"turn right"
+    }
+
+    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+    else {
+      speedR = nominalSpeed;
+      speedL = nominalSpeed - ((360 - deltaTheta) * nominalSpeed / 180);
+      analogWrite( CH1, speedR );
+      analogWrite( CH3, speedL );
+      Serial.print(":turn left");
+      controlStatus = 2;//"turn left"
+    }
   }
 
   else {
-      deltaTheta = x - degRtoA;
-      Serial.print(":degRtoA < x:");
-      Serial.print(deltaTheta);
-     
-      //閾値内にあるときは真っ直ぐ
-      if ((0 <= deltaTheta && deltaTheta <= threshold/2)|| (360 - threshold/2 <= deltaTheta && deltaTheta <= 360)){
-        speedR = nominalSpeed;
-        speedL = nominalSpeed;
-        analogWrite( CH1, speedR );
-        analogWrite( CH3, speedL );
-        Serial.print(":Go straight");
-        controlStatus = 1;//"Go straight"
-      }
-      //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-      else if (threshold/2 < deltaTheta && deltaTheta <= 180){ 
-        speedR = nominalSpeed;
-        speedL = nominalSpeed - (deltaTheta * nominalSpeed / 180);
-        analogWrite( CH1, speedR );
-        analogWrite( CH3, speedL );
-        Serial.print(":turn left");
-        controlStatus = 2;//"turn left"
-      }
-  
-      //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      else { 
-        speedR = nominalSpeed - ((360-deltaTheta) * nominalSpeed / 180);
-        speedL = nominalSpeed;
-        analogWrite( CH1, speedR );
-        analogWrite( CH3, speedL );
-        Serial.print(":turn right");
-        controlStatus = 3;//"turn right"
-        
-      }
+    deltaTheta = x - degRtoA;
+    Serial.print(":degRtoA < x:");
+    Serial.print(deltaTheta);
+
+    //閾値内にあるときは真っ直ぐ
+    if ((0 <= deltaTheta && deltaTheta <= threshold / 2) || (360 - threshold / 2 <= deltaTheta && deltaTheta <= 360)) {
+      speedR = nominalSpeed;
+      speedL = nominalSpeed;
+      analogWrite( CH1, speedR );
+      analogWrite( CH3, speedL );
+      Serial.print(":Go straight");
+      controlStatus = 1;//"Go straight"
+    }
+    //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+    else if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
+      speedR = nominalSpeed;
+      speedL = nominalSpeed - (deltaTheta * nominalSpeed / 180);
+      analogWrite( CH1, speedR );
+      analogWrite( CH3, speedL );
+      Serial.print(":turn left");
+      controlStatus = 2;//"turn left"
+    }
+
+    //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+    else {
+      speedR = nominalSpeed - ((360 - deltaTheta) * nominalSpeed / 180);
+      speedL = nominalSpeed;
+      analogWrite( CH1, speedR );
+      analogWrite( CH3, speedL );
+      Serial.print(":turn right");
+      controlStatus = 3;//"turn right"
+
+    }
   }
   Serial.print(":speedL:");
   Serial.print(speedL);
@@ -1215,15 +1215,15 @@ void motor_angle_go()
 
 
 void motor_angle_spin()
-{    
-  if (x < degRtoA){
+{
+  if (x < degRtoA) {
     deltaTheta = degRtoA - x;
     Serial.print(":x < degRtoA:");
     Serial.print(deltaTheta);
 
-    if((0 <= deltaTheta && deltaTheta <= spinThreshold/2)|| (360 - spinThreshold/2 <= deltaTheta && deltaTheta <= degRtoA)){
+    if ((0 <= deltaTheta && deltaTheta <= spinThreshold / 2) || (360 - spinThreshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
       //閾値内にあるときは真っ直ぐ
-      if ((0 <= deltaTheta && deltaTheta <= threshold/2)|| (360 - threshold/2 <= deltaTheta && deltaTheta <= degRtoA)){
+      if ((0 <= deltaTheta && deltaTheta <= threshold / 2) || (360 - threshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
         speedR = slowSpeed;
         speedL = slowSpeed;
         //スロー前進
@@ -1237,22 +1237,22 @@ void motor_angle_spin()
         forwardCount += 1;
       }
       //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      else if (threshold/2 < deltaTheta && deltaTheta <= 180){ 
+      else if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
         speedR = slowSpeed - (deltaTheta * slowSpeed / 180);
         speedL = slowSpeed;
         digitalWrite(ENABLE, HIGH); // enable
         analogWrite( CH1, speedR );
         analogWrite( CH2, 0 );
-        analogWrite( CH3, speedL ); 
+        analogWrite( CH3, speedL );
         analogWrite( CH4, 0 );
         Serial.print(":turn right");
         controlStatus = 3;//"turn right"
       }
-  
+
       //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-      else { 
+      else {
         speedR = slowSpeed;
-        speedL = slowSpeed - ((360-deltaTheta) * slowSpeed / 180);
+        speedL = slowSpeed - ((360 - deltaTheta) * slowSpeed / 180);
         analogWrite( CH1, speedR );
         analogWrite( CH2, 0 );
         analogWrite( CH3, speedL );
@@ -1262,9 +1262,9 @@ void motor_angle_spin()
         spinCount += 1;
       }
     }
-    else{
+    else {
       //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      if (threshold/2 < deltaTheta && deltaTheta <= 180){ 
+      if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
         digitalWrite(ENABLE, HIGH); // enable
         analogWrite(CH1, 0);
         analogWrite(CH2, verySlowSpeed);
@@ -1274,9 +1274,9 @@ void motor_angle_spin()
         controlStatus = 4;//"spin to right"
         spinCount += 1;
       }
-  
+
       //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-      else { 
+      else {
         digitalWrite(ENABLE, HIGH); // enable
         analogWrite(CH1, verySlowSpeed);
         analogWrite(CH2, 0);
@@ -1293,9 +1293,9 @@ void motor_angle_spin()
     deltaTheta = x - degRtoA;
     Serial.print(":degRtoA < x:");
     Serial.print(deltaTheta);
-    if ((0 <= deltaTheta && deltaTheta <= spinThreshold/2)|| (360 - spinThreshold/2 <= deltaTheta && deltaTheta <= 360)){ 
+    if ((0 <= deltaTheta && deltaTheta <= spinThreshold / 2) || (360 - spinThreshold / 2 <= deltaTheta && deltaTheta <= 360)) {
       //閾値内にあるときは真っ直ぐ
-      if ((0 <= deltaTheta && deltaTheta <= threshold/2)|| (360 - threshold/2 <= deltaTheta && deltaTheta <= 360)){
+      if ((0 <= deltaTheta && deltaTheta <= threshold / 2) || (360 - threshold / 2 <= deltaTheta && deltaTheta <= 360)) {
         speedR = slowSpeed;
         speedL = slowSpeed;
         digitalWrite(ENABLE, HIGH); // enable
@@ -1308,7 +1308,7 @@ void motor_angle_spin()
         forwardCount += 1;
       }
       //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-      else if (threshold/2 < deltaTheta && deltaTheta <= 180){ 
+      else if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
         speedR = slowSpeed;
         speedL = slowSpeed - (deltaTheta * slowSpeed / 180);
         analogWrite( CH1, speedR );
@@ -1318,10 +1318,10 @@ void motor_angle_spin()
         Serial.print(":turn left");
         controlStatus = 2;//"turn left"
       }
-  
+
       //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      else { 
-        speedR = slowSpeed - ((360-deltaTheta) * slowSpeed / 180);
+      else {
+        speedR = slowSpeed - ((360 - deltaTheta) * slowSpeed / 180);
         speedL = slowSpeed;
         analogWrite( CH1, speedR );
         analogWrite( CH2, 0 );
@@ -1331,8 +1331,8 @@ void motor_angle_spin()
         controlStatus = 3;//"turn right"
       }
     }
-    else{
-      if (threshold/2 < deltaTheta && deltaTheta <= 180){ 
+    else {
+      if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
         digitalWrite(ENABLE, HIGH); // enable
         analogWrite(CH1, verySlowSpeed);
         analogWrite(CH2, 0);
@@ -1343,7 +1343,7 @@ void motor_angle_spin()
         spinCount += 1;
       }
       //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      else { 
+      else {
         digitalWrite(ENABLE, HIGH); // enable
         analogWrite(CH1, 0);
         analogWrite(CH2, verySlowSpeed);
@@ -1365,9 +1365,9 @@ void motor_angle_spin()
 
 
 
-    
+
 //============EEPROM function=========================================================================//
-void writeEEPROM(int addr_device, unsigned int addr_res, byte data ) 
+void writeEEPROM(int addr_device, unsigned int addr_res, byte data )
 {
   Wire.beginTransmission(addr_device);
   Wire.write((int)(addr_res >> 8));   // MSB
@@ -1377,100 +1377,100 @@ void writeEEPROM(int addr_device, unsigned int addr_res, byte data )
   delay(5);//この遅延はどうやら必要っぽい
 }
 
-void EEPROM_write_int(int addr_device, unsigned int addr_res, int data){
+void EEPROM_write_int(int addr_device, unsigned int addr_res, int data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
-  for (i = 0; i < (int)sizeof(data); i++){
-//    Serial.print(i+1);
-//    Serial.print("th byte:");
-//    Serial.println(p[i]);
-    writeEEPROM(addr_device, addr_res+i, p[i]);
+  for (i = 0; i < (int)sizeof(data); i++) {
+    //    Serial.print(i+1);
+    //    Serial.print("th byte:");
+    //    Serial.println(p[i]);
+    writeEEPROM(addr_device, addr_res + i, p[i]);
   }
-//  Serial.println("");
+  //  Serial.println("");
 }
 
 
-void EEPROM_write_long(int addr_device, unsigned int addr_res, unsigned long data){
+void EEPROM_write_long(int addr_device, unsigned int addr_res, unsigned long data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
-  for (i = 0; i < (int)sizeof(data); i++){
-//    Serial.print(i+1);
-//    Serial.print("th byte:");
-//    Serial.println(p[i]);
-    writeEEPROM(addr_device, addr_res+i, p[i]);
+  for (i = 0; i < (int)sizeof(data); i++) {
+    //    Serial.print(i+1);
+    //    Serial.print("th byte:");
+    //    Serial.println(p[i]);
+    writeEEPROM(addr_device, addr_res + i, p[i]);
   }
-//  Serial.println("");
+  //  Serial.println("");
 }
 
 
-void EEPROM_write_float(int addr_device, unsigned int addr_res, double data){
+void EEPROM_write_float(int addr_device, unsigned int addr_res, double data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
-  for (i = 0; i < (int)sizeof(data); i++){
-//    Serial.print(i+1);
-//    Serial.print("th byte:");
-//    Serial.println(p[i]);
-    writeEEPROM(addr_device, addr_res+i, p[i]);
+  for (i = 0; i < (int)sizeof(data); i++) {
+    //    Serial.print(i+1);
+    //    Serial.print("th byte:");
+    //    Serial.println(p[i]);
+    writeEEPROM(addr_device, addr_res + i, p[i]);
   }
-//  Serial.println("");
+  //  Serial.println("");
 }
 
-byte readEEPROM(int addr_device, unsigned int addr_res ) 
+byte readEEPROM(int addr_device, unsigned int addr_res )
 {
   byte rdata = 0xFF;
- 
+
   Wire.beginTransmission(addr_device);
   Wire.write((int)(addr_res >> 8));   // MSB
   Wire.write((int)(addr_res & 0xFF)); // LSB
   Wire.endTransmission();
- 
-  Wire.requestFrom(addr_device,1);
+
+  Wire.requestFrom(addr_device, 1);
   if (Wire.available()) rdata = Wire.read();
   return rdata;
 }
 
 
-double EEPROM_read_float(int addr_device, unsigned int addr_res){
+double EEPROM_read_float(int addr_device, unsigned int addr_res) {
   unsigned char p_read[4];
-  for (int i = 0; i < 4; i++){
-//    Serial.print(i+1);
-//    Serial.print("th byte:");
-    p_read[i] = readEEPROM(addr_device, addr_res+i);
-//    Serial.println(p_read[i]);
+  for (int i = 0; i < 4; i++) {
+    //    Serial.print(i+1);
+    //    Serial.print("th byte:");
+    p_read[i] = readEEPROM(addr_device, addr_res + i);
+    //    Serial.println(p_read[i]);
   }
-//  Serial.println("");
+  //  Serial.println("");
   double *d = (double *)p_read;
   double data = *d;
   return data;
 }
 
-void LogToEEPROM(){
-    EEPROM_write_int(addrEEPROM, addrData,xMag);
-    addrData += 2;
-    EEPROM_write_int(addrEEPROM, addrData,yMag);
-    addrData += 2;
-    EEPROM_write_int(addrEEPROM, addrData,Calibx);
-    addrData += 2;
-    EEPROM_write_int(addrEEPROM, addrData,Caliby);
-    addrData += 2;
-    EEPROM_write_float(addrEEPROM, addrData,x);
-    addrData += 4;
-    EEPROM_write_int(addrEEPROM, addrData,cm_long);
-    addrData += 2;
-    EEPROM_write_float(addrEEPROM, addrData,LatR);
-    addrData += 4;
-    EEPROM_write_float(addrEEPROM, addrData,LngR);
-    addrData += 4;
-    EEPROM_write_float(addrEEPROM, addrData,degRtoA);
-    addrData += 4;
-    writeEEPROM(addrEEPROM, addrData,(byte)controlStatus);
-    addrData += 2;
-    overallTime = millis();
-    EEPROM_write_long(addrEEPROM, addrData,overallTime);
-    addrData += 4;
+void LogToEEPROM() {
+  EEPROM_write_int(addrEEPROM, addrData, xMag);
+  addrData += 2;
+  EEPROM_write_int(addrEEPROM, addrData, yMag);
+  addrData += 2;
+  EEPROM_write_int(addrEEPROM, addrData, Calibx);
+  addrData += 2;
+  EEPROM_write_int(addrEEPROM, addrData, Caliby);
+  addrData += 2;
+  EEPROM_write_float(addrEEPROM, addrData, x);
+  addrData += 4;
+  EEPROM_write_int(addrEEPROM, addrData, cm_long);
+  addrData += 2;
+  EEPROM_write_float(addrEEPROM, addrData, LatR);
+  addrData += 4;
+  EEPROM_write_float(addrEEPROM, addrData, LngR);
+  addrData += 4;
+  EEPROM_write_float(addrEEPROM, addrData, degRtoA);
+  addrData += 4;
+  writeEEPROM(addrEEPROM, addrData, (byte)controlStatus);
+  addrData += 2;
+  overallTime = millis();
+  EEPROM_write_long(addrEEPROM, addrData, overallTime);
+  addrData += 4;
 }
 
-void LogGPSdata(){
+void LogGPSdata() {
   EEPROM_write_float(addrEEPROM, 0, dataRx.gpsData.latA[0]);
   EEPROM_write_float(addrEEPROM, 4, dataRx.gpsData.lngA[0]);
   EEPROM_write_float(addrEEPROM, 8, dataRx.gpsData.latA[1]);
@@ -1478,9 +1478,9 @@ void LogGPSdata(){
   EEPROM_write_float(addrEEPROM, 16, dataRx.gpsData.latA[2]);
   EEPROM_write_float(addrEEPROM, 20, dataRx.gpsData.lngA[2]);
 }
-   
+
 //============SDCard function=========================================================================//
-void LogToSDCard(){
+void LogToSDCard() {
   File dataFile = SD.open("datalog.txt", FILE_WRITE);
   if (dataFile) {
     dataFile.print(overallTime);
@@ -1545,18 +1545,18 @@ void processData() {
   }
 }
 
-void  writeToTwelite (){      
+void  writeToTwelite () {
   int ctr1 = 0;
   readRoverData();
   encodeCyclic();
   Serial2.print(":000100");
   //Serial.print(":000100");
-  while (ctr1<2*sizeof(roverData)){
-    if((uint8_t)encodedTx[ctr1]<16){
+  while (ctr1 < 2 * sizeof(roverData)) {
+    if ((uint8_t)encodedTx[ctr1] < 16) {
       Serial2.print("0");
       //Serial.print("0");
     }
-    Serial2.print(encodedTx[ctr1],HEX);
+    Serial2.print(encodedTx[ctr1], HEX);
     //Serial.print(encodedTx[ctr1],HEX);
     ctr1++;
   }
@@ -1564,41 +1564,41 @@ void  writeToTwelite (){
   //Serial.print("X\r\n");
 }
 
-void readRoverData(){
+void readRoverData() {
   packetTx.message.roverComsStat = 4;
   Serial.print("roverComsStat:");
   Serial.println(packetTx.message.roverComsStat);
   packetTx.message.xMag = xMag;
   Serial.print("xMag:");
   Serial.println(packetTx.message.xMag);
-  packetTx.message.yMag= yMag;
+  packetTx.message.yMag = yMag;
   Serial.print("yMag:");
   Serial.println(packetTx.message.yMag);
-  packetTx.message.calibX= Calibx;
+  packetTx.message.calibX = Calibx;
   Serial.print("Calibx:");
   Serial.println(packetTx.message.calibX);
-  packetTx.message.calibY= Caliby;
+  packetTx.message.calibY = Caliby;
   Serial.print("Caliby:");
   Serial.println(packetTx.message.calibY);
-  packetTx.message.x= x;
+  packetTx.message.x = x;
   Serial.print("x:");
   Serial.println(packetTx.message.x);
   packetTx.message.cmLong = cm_LIDAR;
   Serial.print("cm_long:");
   Serial.println(packetTx.message.cmLong);
-  packetTx.message.latR= LatR;
+  packetTx.message.latR = LatR;
   Serial.print("LatR:");
   Serial.println(packetTx.message.latR);
-  packetTx.message.lngR= LngR;
+  packetTx.message.lngR = LngR;
   Serial.print("LngR:");
   Serial.println(packetTx.message.lngR);
-  packetTx.message.degRtoA= degRtoA;
+  packetTx.message.degRtoA = degRtoA;
   Serial.print("degRtoA:");
   Serial.println(packetTx.message.degRtoA);
-  packetTx.message.statusControl= controlStatus;
+  packetTx.message.statusControl = controlStatus;
   Serial.print("controlStatus:");
   Serial.println(packetTx.message.statusControl);
-  packetTx.message.time= overallTime;
+  packetTx.message.time = overallTime;
   Serial.print("time:");
   Serial.println(packetTx.message.time);
 }
@@ -1606,14 +1606,14 @@ void readRoverData(){
 void encodeCyclic() {
   uint8_t ctr = 0;
   uint8_t m;
-  while(ctr<sizeof(roverData)) {
-    m = packetTx.packetData[ctr]>>4;
-    encodedTx[2*ctr] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
-                        (((m>>2)&1)*generator[1])^(((m>>3)&1)*generator[0]);
+  while (ctr < sizeof(roverData)) {
+    m = packetTx.packetData[ctr] >> 4;
+    encodedTx[2 * ctr] = ((m & 1) * generator[3]) ^ (((m >> 1) & 1) * generator[2]) ^
+                         (((m >> 2) & 1) * generator[1]) ^ (((m >> 3) & 1) * generator[0]);
     //Serial.print(encodedTx[2*ctr],HEX);
     m = packetTx.packetData[ctr];
-    encodedTx[2*ctr+1] = ((m&1)*generator[3])^(((m>>1)&1)*generator[2])^
-                        (((m>>2)&1)*generator[1])^(((m>>3)&1)*generator[0]);
+    encodedTx[2 * ctr + 1] = ((m & 1) * generator[3]) ^ (((m >> 1) & 1) * generator[2]) ^
+                             (((m >> 2) & 1) * generator[1]) ^ (((m >> 3) & 1) * generator[0]);
     //Serial.println(encodedTx[2*ctr+1],HEX);
     ctr++;
   }
@@ -1622,31 +1622,31 @@ void encodeCyclic() {
 bool checkError(uint8_t dataByte) {
   uint8_t p[3];
   uint8_t ctr = 0;
-  p[0] = dataByte&parityCheck[0];
-  p[1] = dataByte&parityCheck[1];
-  p[2] = dataByte&parityCheck[2];
-  while(ctr<sizeof(gpsDataStruct)/2) {
-    p[0] = (p[0]&1)^(p[0]>>1);
-    p[1] = (p[1]&1)^(p[1]>>1);
-    p[2] = (p[2]&1)^(p[2]>>1);
+  p[0] = dataByte & parityCheck[0];
+  p[1] = dataByte & parityCheck[1];
+  p[2] = dataByte & parityCheck[2];
+  while (ctr < sizeof(gpsDataStruct) / 2) {
+    p[0] = (p[0] & 1) ^ (p[0] >> 1);
+    p[1] = (p[1] & 1) ^ (p[1] >> 1);
+    p[2] = (p[2] & 1) ^ (p[2] >> 1);
     ctr++;
   }
-  return (p[0]>0)||(p[1]>0)||(p[2]>0);
+  return (p[0] > 0) || (p[1] > 0) || (p[2] > 0);
 }
 
-void decodeCyclic() {
+boolean decodeCyclic() {
   uint8_t ctr = 0;
   bool error[2];
-  while (ctr<sizeof(gpsDataStruct)) {
-    encodedRx[2*ctr] = encodedRx[2*ctr]&0x7F;
-    encodedRx[2*ctr+1] = encodedRx[2*ctr+1]&0x7F;
-    error[0] = checkError(encodedRx[2*ctr]);
-    error[1] = checkError(encodedRx[2*ctr+1]);
-    dataRx.gpsBytes[ctr] = ((encodedRx[2*ctr]<<1)&0xF0)+
-                            ((encodedRx[2*ctr+1]>>3)&0x0F);//populate GPS data of goals in dataRx     
-    if(error[0]||error[1]) { //NACK
-        Serial2.print(":000102X\r\n");
-        return true;
+  while (ctr < sizeof(gpsDataStruct)) {
+    encodedRx[2 * ctr] = encodedRx[2 * ctr] & 0x7F;
+    encodedRx[2 * ctr + 1] = encodedRx[2 * ctr + 1] & 0x7F;
+    error[0] = checkError(encodedRx[2 * ctr]);
+    error[1] = checkError(encodedRx[2 * ctr + 1]);
+    dataRx.gpsBytes[ctr] = ((encodedRx[2 * ctr] << 1) & 0xF0) +
+                           ((encodedRx[2 * ctr + 1] >> 3) & 0x0F); //populate GPS data of goals in dataRx
+    if (error[0] || error[1]) { //NACK
+      Serial2.print(":000102X\r\n");
+      return true;
     }
     ctr++;
   }
