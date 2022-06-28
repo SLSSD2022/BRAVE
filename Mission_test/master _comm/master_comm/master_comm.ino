@@ -121,10 +121,10 @@ int RST = 2;
 int BPS = 3; // if HIGH set Baud rate to 115200 at MWSerial, if LOW to 38400
 
 //Define Structures for receiving and Handling Rover data
-typedef struct _roverData{
+typedef struct _roverData {
   uint8_t roverComsStat;
-  uint16_t xMag;
-  uint16_t yMag;
+  int xMag;
+  int yMag;
   uint16_t calibX;
   uint16_t calibY;
   float x;
@@ -136,7 +136,7 @@ typedef struct _roverData{
   unsigned long int time;
 } roverData;
 
-typedef union _packetData{
+typedef union _packetData {
   roverData message;
   unsigned char packetData[sizeof(roverData)];
 } packetData;
@@ -277,22 +277,22 @@ void setup()
 
   //SDcard Initialization
   pinMode(SDSW, INPUT_PULLUP);
-  while (1) {
-    if (digitalRead(SDSW) == 0) {
-      Serial.println("Card inserted!");
-      break;
-    }
-    else {
-      Serial.println("Card not inserted!");
-    }
-    delay(1000);
-  }
-  if (!SD.begin(chipSelect)) {
-    Serial.println("Card failed, or not present");
-    // don't do anything more:
-    while (1);
-  }
-  Serial.println("card initialized.");
+  //  while (1) {
+  //    if (digitalRead(SDSW) == 0) {
+  //      Serial.println("Card inserted!");
+  //      break;
+  //    }
+  //    else {
+  //      Serial.println("Card not inserted!");
+  //    }
+  //    delay(1000);
+  //  }
+  //  if (!SD.begin(chipSelect)) {
+  //    Serial.println("Card failed, or not present");
+  //    // don't do anything more:
+  //    while (1);
+  //  }
+  //  Serial.println("card initialized.");
 
 
   //初期値
@@ -369,7 +369,7 @@ void loop()
 
 
             LogGPSdata();//log the gps data of destination to EEPROM
-
+            Serial2.print(":000101X\r\n"); //Send ACK to MC
             goalCalculation();//calculate distance to goals and decide root
 
             int first = goalRoute[0];//set first goal to the destination
@@ -380,7 +380,7 @@ void loop()
             roverStatus.toGoal = 1;
           }
         }
-        Serial.println(buffRx);
+        //Serial.println(buffRx);
         bufferPos = 0;
       }
     }
@@ -579,7 +579,7 @@ void loop()
 
 
   //---------------------Logger------------------------------------------------------
-  LogToSDCard();
+  //  LogToSDCard();
   if (memoryFlag > 5) {
     LogToEEPROM();
     memoryFlag = 0;
@@ -589,7 +589,7 @@ void loop()
   }
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
-  
+
   start = millis();
   int timer = start - stopi;
 
@@ -1532,7 +1532,7 @@ void  writeToTwelite () {
 }
 
 void readRoverData() {
-  packetTx.message.roverComsStat = 4;
+  packetTx.message.roverComsStat = 4; // need to implement
   Serial.print("roverComsStat:");
   Serial.println(packetTx.message.roverComsStat);
   packetTx.message.xMag = xMag;
@@ -1622,7 +1622,7 @@ boolean decodeCyclic() {
   return false;
 }
 
-void commToGS(){
+void commToGS() {
   unsigned long commStart;
   unsigned long commStop;
 
@@ -1632,9 +1632,9 @@ void commToGS(){
   commStop = millis();
   while (1) { //then go into waiting loop for ACK or NACK
     commStart = millis();
-    if (commStart > commStop + 20) { //if 20ms passes, then send HK again
+    if (commStart > commStop + 100) { //if 20ms passes, then send HK again
       writeToTwelite();
-      Serial.println("timeout:20ms");
+      Serial.println("timeout:100ms");
       break;
     }
     if (Serial2.available() > 0) {
@@ -1657,7 +1657,7 @@ void commToGS(){
             break;
           }
         }
-        Serial.println(buffRx);
+        //Serial.println(buffRx);
         bufferPos = 0;
       }
     }
