@@ -164,8 +164,6 @@ uint8_t encodedTx[2 * sizeof(roverData)]; //Encoded message to be sent
 uint8_t encodedRx[2 * sizeof(gpsDataStruct)];
 const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};
 const uint8_t parityCheck[3] = {0x5C, 0x72, 0x39};
-int commsStart;
-int commsStop;
 unsigned long start;
 unsigned long stopi;
 void readRoverData();
@@ -202,7 +200,6 @@ modeStruct roverMode = {0, 1, 0, 0};
 statusStruct roverStatus = {1, 1, 0, 0, 0, 0};
 successStruct roverSuccess = {0, 0, 0, 0};
 
-boolean commFlag = 1;
 boolean stopFlag = 0;
 
 int searchCount = 0;//探索中のシーケンス管理カウント
@@ -230,7 +227,6 @@ void setup()
 {
   // デバッグ用シリアル通信は9600bps
   Serial.begin(115200);//ステータス設定(試験したい状況)
-  commFlag = 1;
   roverStatus.calibration = 1;
   roverStatus.near = 0;//ゴール5m付近のとき
   roverStatus.search = 0;//ゴール5m付近で測距するとき
@@ -331,7 +327,7 @@ void loop()
   while (roverStatus.initial) {
     start = millis();
     if (start > stopi + 1000) {
-      Serial.println("initial Mode");
+      Serial.println("initial Mode: waiting for GPS...");
       stopi = millis();
     }
     if (Serial2.available() > 0) {
@@ -357,9 +353,18 @@ void loop()
 
 
             Serial.println("------------------------initial MODE SUCCESS!!!------------------------");
-            Serial.println(dataRx.gpsData.latA[0]);//decide which goal to go first
-            Serial.println(dataRx.gpsData.latA[1]);//decide which goal to go first
-            Serial.println(dataRx.gpsData.latA[2]);//decide which goal to go first
+            Serial.print("1st GPS:");
+            Serial.print(dataRx.gpsData.latA[0]);
+            Serial.print(",");
+            Serial.println(dataRx.gpsData.lngA[0]);
+            Serial.print("2nd GPS:");
+            Serial.print(dataRx.gpsData.latA[1]);
+            Serial.print(",");
+            Serial.println(dataRx.gpsData.lngA[1]);
+            Serial.print("3rd GPS:");
+            Serial.print(dataRx.gpsData.latA[2]);
+            Serial.print(",");
+            Serial.println(dataRx.gpsData.lngA[2]);
             Serial.println("---------------------------------------------------------------------");
 
 
@@ -584,62 +589,24 @@ void loop()
   }
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
+  
   start = millis();
-
-  Serial.print(":start:");
-  Serial.print(start);
-  Serial.print(":stopi:");
-  Serial.print(stopi);
   int timer = start - stopi;
-  Serial.print(":time:");
+
+  Serial.print(":start");
+  Serial.print(start);
+  Serial.print(":stopi");
+  Serial.print(stopi);
+  Serial.print(":timer");
   Serial.println(timer);
+
   if ( timer > 10000) {
-    Serial.println("HELLO!!!!!!!!!!!");
-    Serial.println(":10s Communication");
-    writeToTwelite();//send HK firstly
-    Serial.println("writeToTwelite 1st");
-    commsStop = millis();
-    while (commFlag == 1) { //then go into waiting loop for ACK or NACK
-      commsStart = millis();
-      if (commsStart > commsStop + 20) { //if 20ms passes, then send HK again
-        writeToTwelite();
-        Serial.println("writeToTwelite 20ms");
-        commsStop = millis();
-        commFlag = 0;
-        //break;
-      }
-      if (Serial2.available() > 0) {
-        char c = Serial2.read();
-        if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) {
-          buffRx[bufferPos] = c;
-          bufferPos++;
-        }
-        else
-        {
-          buffRx[bufferPos] = '\0';
-          //Checks
-          if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '0') { //Arbitrary packet for Rover
-            //Serial.println(Buffer);
-            if (buffRx[6] == '2') { //NACK
-              Serial.print("NACK: Resending packet...");
-              writeToTwelite();
-              Serial.println("writeToTwelite:NACK");
-            } else if (buffRx[6] == '1') { //ACK
-              Serial.print("ACKNOWLEDGEMENT!");
-              commFlag = 0;
-              //break;
-            }
-          }
-          Serial.println(buffRx);
-          bufferPos = 0;
-        }
-      }
-    }
-    bufferPos = 0;
-    commFlag = 1;
+    Serial.println(":Communication start!");
+    commToGS();
     stopi = millis();
-    Serial.println(":Communication end!!:");
+    Serial.println(":Communication end!");
   }
+
   //---------------------ステータス更新--------------------------------------------------
 
   //最後にシリアル通信を改行する
@@ -1653,4 +1620,47 @@ boolean decodeCyclic() {
   //If no errors send ACK
   Serial2.print(":000101X\r\n");
   return false;
+}
+
+void commToGS(){
+  unsigned long commStart;
+  unsigned long commStop;
+
+  writeToTwelite();//send HK firstly
+  Serial.println("Data transmission");
+
+  commStop = millis();
+  while (1) { //then go into waiting loop for ACK or NACK
+    commStart = millis();
+    if (commStart > commStop + 20) { //if 20ms passes, then send HK again
+      writeToTwelite();
+      Serial.println("timeout:20ms");
+      break;
+    }
+    if (Serial2.available() > 0) {
+      char c = Serial2.read();
+      if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) {
+        buffRx[bufferPos] = c;
+        bufferPos++;
+      }
+      else
+      {
+        buffRx[bufferPos] = '\0';
+        //Checks
+        if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '0') { //Arbitrary packet for Rover
+          //Serial.println(Buffer);
+          if (buffRx[6] == '2') { //NACK
+            Serial.print("NACK: Resending packet...");
+            writeToTwelite();
+          } else if (buffRx[6] == '1') { //ACK
+            Serial.print("ACK Received!");
+            break;
+          }
+        }
+        Serial.println(buffRx);
+        bufferPos = 0;
+      }
+    }
+  }
+  bufferPos = 0;
 }
