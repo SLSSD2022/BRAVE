@@ -667,7 +667,7 @@ void goalCalculation() {
   writeEEPROM(addrEEPROM, 24, (byte)goalRoute[0]);
   writeEEPROM(addrEEPROM, 25, (byte)goalRoute[1]);
   writeEEPROM(addrEEPROM, 26, (byte)goalRoute[2]);
-  // return;
+  return;
 }
 
 void swap(unsigned int* a, unsigned int* b) {
@@ -675,14 +675,14 @@ void swap(unsigned int* a, unsigned int* b) {
   temp = *a;
   *a = *b;
   *b = temp;
-  // return;
+  return;
 }
 
 void sortRange(unsigned int* data, unsigned int* array) {
   if (data[0] < data[1]) swap(&array[0], &array[1]);
   if (data[0] < data[2]) swap(&array[0], &array[2]);
   if (data[1] < data[2]) swap(&array[1], &array[2]);
-  // return;
+  return;
 }
 
 void successManagement() {
