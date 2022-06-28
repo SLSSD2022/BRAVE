@@ -104,7 +104,7 @@ float rangeRtoA;
 //------------------------------EEPROM------------------------------
 //デバイスアドレス(スレーブ)
 uint8_t Addr_eeprom = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
-unsigned int DATA_ADDRESS = 0; //書き込むレジスタ(0x0000~0xFFFF全部使える) 
+unsigned int DATA_ADDRESS = 30; //書き込むレジスタ(0x0000~0xFFFF全部使える) (0~30は目的地のGPSデータとステータスを保管する)
 
 //------------------------------SD card------------------------------
 const int chipSelect = 53;
@@ -173,27 +173,39 @@ void  writeToTwelite();
 char encodedReceived[2*sizeof(roverData)];
 
 ///-----------------------------Control Status, HK-----------------------------
+typedef struct modeStruct{
+  unsigned char Manual : 1;
+  unsigned char Auto_GPSonly : 1;
+  unsigned char Auto_Aggressive : 1;
+  unsigned char Sleep : 1;
+};
+
+
 //Status using bit field
-typedef struct {
+typedef struct statusStruct{
     unsigned char Initial : 1;
     unsigned char Calibration : 1;
-    unsigned char toG1 : 1;
-    unsigned char toG2: 1;
-    unsigned char toG3 : 1;
+    unsigned int toGoal;
     unsigned char Near : 1;
     unsigned char Search : 1;
-    unsigned char Success : 1;
-} roverStatus;
+    unsigned char Sleep : 1;
+};
 
-boolean Initial_flag = 1;
+
+typedef struct successStruct{
+    unsigned char GPSreceive : 1;
+    unsigned int Goal_GPS;
+    unsigned int Goal_0m;
+    unsigned char full : 1;
+} ;
+
+modeStruct roverMode = {0,1,0,0};
+statusStruct roverStatus = {1,1,0,0,0,0};
+successStruct roverSuccess = {0,0,0,0};
+
 boolean Communication_flag = 1;
-boolean GPS_flag = 1;
-boolean LIDAR_flag = 1;
-boolean Calibration_flag = 1;
 boolean Stop_flag = 0;
 
-boolean Near_flag = 0;//ゴール5m付近
-boolean Search_flag = 0;//ゴール5m付近で探索中
 int count_search = 0;//探索中のシーケンス管理カウント
 const int spin_iteration = 1;//探索中のスピン移動に使うループ回数
 const int spinmove_iteration = 1;//探索後のスピン移動に使うループ回数
@@ -203,16 +215,7 @@ int wait_spin = 0;//探索後、スピン後停止する回数のカウント
 const int wait_iteration = 10;//探索後、スピン後少し停止するループ数(10よりは大きくする)
 const int forward_iteration = 20;//探索後、方向に向かって進むループ数
 
-typedef struct {
-    unsigned char GPSreceive : 1;
-    unsigned char Calibration : 1;
-    unsigned char G1 : 1;
-    unsigned char G2: 1;
-    unsigned char G3 : 1;
-    unsigned char full : 1;
-} roverSuccess;
-
-int goalcounter = 0;
+int goal_rout[3];
 
 int Memory_flag = 0;
 int Status_control;
@@ -229,9 +232,9 @@ void setup()
     // デバッグ用シリアル通信は9600bps
   Serial.begin(115200);//ステータス設定(試験したい状況)
   Communication_flag = 1;
-  Calibration_flag = 1;
-  Near_flag = 0;//ゴール5m付近のとき
-  Search_flag = 0;//ゴール5m付近で測距するとき
+  roverStatus.Calibration = 1;
+  roverStatus.Near = 0;//ゴール5m付近のとき
+  roverStatus.Search = 0;//ゴール5m付近で測距するとき
 //  while(1){
 //    anVolt = analogRead(HEADpin);
 //    cm_long = anVolt/2;
@@ -326,10 +329,10 @@ void setup()
 void loop()
 {
   //=================================Initial Mode=================================
-  while (Initial_flag){
+  while (roverStatus.Initial){
     start = millis();
     if (start> stopi + 1000){
-     Serial.println("Initial Mode");
+      Serial.println("Initial Mode");
       stopi = millis();
     }
     if (Serial2.available() > 0){
@@ -340,29 +343,37 @@ void loop()
         bufferPos++;
         buffRx[bufferPos] = '\0';
       }
-      else //if it reads the last character in one packet
+      else //Check the buffa if it reads the last character in one packet
       {
-        //Checks
         if (buffRx[3]=='0' && buffRx[4]=='1' && buffRx[5]=='0'){    //Arbitrary packet for Rover 
-          //Serial.println(Buffer);
           if (buffRx[6]=='2'){//NACK
-            Serial.print("NACK: Resending packet...");
-            //writeToTwelite();
-            break;
-          } else if (buffRx[6]=='1'){//ACK
             //do nothing
-            //break;
-          } else if (buffRx[6]=='0'){//DATARECEIVE
+          }
+          else if (buffRx[6]=='1'){//ACK
+            //do nothing
+          }
+          else if (buffRx[6]=='0'){//DATARECEIVE
             processData();//character data is converted to uint8_t data here and is stored in the encodedRx[] buffer
             decodeCyclic();//decode GPS data of three goals
+
+
             Serial.println("------------------------INITIAL MODE SUCCESS!!!------------------------");
             Serial.println(dataRx.gpsData.latA[0]);//decide which goal to go first
             Serial.println(dataRx.gpsData.latA[1]);//decide which goal to go first
             Serial.println(dataRx.gpsData.latA[2]);//decide which goal to go first
             Serial.println("---------------------------------------------------------------------");
+
+
             LogGPSdata();//log the gps data of destination to EEPROM
-             = goal_calculation();
-            Initial_flag = false;
+            
+            goal_calculation();//calculate distance to goals and decide root
+
+            int first = goal_rout[0];//set first goal to the destination
+            LatA = dataRx.gpsData.latA[first];
+            LngA = dataRx.gpsData.lngA[first];
+
+            roverStatus.Initial = 0;
+            roverStatus.toGoal = 1;
           }
         }
         Serial.println(buffRx);
@@ -381,7 +392,7 @@ void loop()
   BMX055_Mag();
 
   //キャリブレーションが終了しているなら
-  if(Calibration_flag == 0){
+  if(roverStatus.Calibration == 0){
     x = angle_calculation(); 
   }
 
@@ -397,29 +408,50 @@ void loop()
   
   //---------------------GPS acquisition--------------------------------------------------
   updateGPSlocation();
-  updateRange_deg();
-  //---------------------Check Status--------------------------------------------------
+  degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+  rangeRtoA = gps.distanceBetween(LatR,LngR,LatA,LngA);
+
+  //---------------------Check parameter & update Status--------------------------------------------------
   
+  Serial.print(":LatR:");
+  Serial.print(LatR);
+  Serial.print(":LngR:");
+  Serial.print(LngR);
+  Serial.print(":LatA:");
+  Serial.print(LatA);
+  Serial.print(":LngA:");
+  Serial.print(LngA);
   Serial.print(":degRtoA:");
   Serial.print(degRtoA);
-
   Serial.print(":x:");
   Serial.print(x);
-  
+  Serial.print(":rangeRtoA:");
+  Serial.print(rangeRtoA);
+  if(rangeRtoA < 1.0){
+    if(roverMode.Auto_GPSonly){
+      success_management();
+    }
+    else if(roverMode.Auto_Aggressive){
+      roverStatus.Near = 1;
+      roverStatus.Search = 1;
+    }                                                                                                                               
+  }
   Serial.print(":cm_LIDAR:");
   Serial.print(cm_LIDAR);
   if(cm< emergency_stop_distance){
     Stop_flag = 1;                                                                                                                               
-    
   }else{
     Stop_flag = 0;
+  }
+  if(roverMode.Sleep == 1){
+    Stop_flag = 1;
   }
 
   //---------------------Special control for each status------------------------------------------------------
   
   
   //Calibration
-  if(Calibration_flag == 1){
+  if(roverStatus.Calibration == 1){
     Serial.print(":xMag:");
     Serial.print(xMag);
     Serial.print(":yMag:");
@@ -431,7 +463,7 @@ void loop()
     if(cal_index == CAL_BUF_LEN-1){//バッファに値がたまったら
       Calibx = xcenter_calculation();
       Caliby = ycenter_calculation();
-      Calibration_flag = 0 ;
+      roverStatus.Calibration = 0 ;
       Serial.print(":Calib_x:");
       Serial.print(Calibx);
       Serial.print(":Calib_y:");
@@ -443,55 +475,55 @@ void loop()
     }
   }
 
-  //ゴール探索時(ゴールの方向がまだ分かってない)
-  if(Calibration_flag == 0 && Search_flag == 1){
-   if(count_search < spin_iteration){//スピン段階
-    Stop_flag = 0;
-    count_search += 1;
-   }
-   else{
-    Stop_flag = 1;//測距中は停止する
-    bufcm[meas_index] = cm_LIDAR;
-    meas_index = (meas_index+1)%MEAS_BUF_LEN;
-    //バッファに値がたまったら
-    if(meas_index == 0){
-//      filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
-      listcm[search_index] = cm_LIDAR;//一番最後の角度がもっともらしい。
-      listdeg[search_index] = x;//一番最後の角度がもっともらしい。
-      Serial.print(":measure deg:");
-      Serial.print(listdeg[search_index]);
-      //バッファ番号初期化(中身は放置)
-      meas_index = 0;
-      count_search = 0;
-      search_index = (search_index+1)%SEAR_BUF_LEN;
-      //測距リストに値がたまったら
-      if(search_index == 0){
-        int list_index = goal_angle_search();//リストから測距値の最小値と対応するリスト番号を探す。
-        degRtoA = listdeg[list_index];//目的地の方向を決定
-        Serial.print(":searching_completed!");
-        //リスト番号初期化(中身は放置)
-        search_index = 0;
-        Search_flag = 0;//探索終了
-        Stop_flag = 0;//モーター解放
+  //ゴール探索時
+  if(roverStatus.Calibration == 0 && roverStatus.Near == 1){
+    if(roverStatus.Search == 1){//ゴールの方向がまだ分かってない
+      if(count_search < spin_iteration){//スピン段階
+        Stop_flag = 0;
+        count_search += 1;
+      }
+      else{
+        Stop_flag = 1;//測距中は停止する
+        bufcm[meas_index] = cm_LIDAR;
+        meas_index = (meas_index+1)%MEAS_BUF_LEN;
+        //バッファに値がたまったら
+        if(meas_index == 0){
+          //filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
+          listcm[search_index] = cm_LIDAR;//一番最後の角度がもっともらしい。
+          listdeg[search_index] = x;//一番最後の角度がもっともらしい。
+          Serial.print(":measure deg:");
+          Serial.print(listdeg[search_index]);
+          //バッファ番号初期化(中身は放置)
+          meas_index = 0;
+          count_search = 0;
+          search_index = (search_index+1)%SEAR_BUF_LEN;
+          //測距リストに値がたまったら
+          if(search_index == 0){
+            int list_index = goal_angle_search();//リストから測距値の最小値と対応するリスト番号を探す。
+            degRtoA = listdeg[list_index];//目的地の方向を決定
+            Serial.print(":searching_completed!");
+            //リスト番号初期化(中身は放置)
+            search_index = 0;
+            roverStatus.Search = 0;//探索終了
+            Stop_flag = 0;//モーター解放
+          }
+        }
       }
     }
-   }
-  }
-
-  //ゴール探索時(ゴールの方向が分かって動いている時)
-  if(Calibration_flag == 0 && Search_flag == 0){
-   if(count_spin < spin_iteration){//スピン段階
-    Stop_flag = 0;
-   }
-   else{
-    Stop_flag = 1;//測距中は停止する
-    wait_spin += 1;
-    if(wait_spin > wait_iteration){
-      wait_spin = 0;
-      count_spin = 0;
-      Stop_flag = 0;
+    else if(roverStatus.Search == 0){//ゴール探索時(ゴールの方向が分かって動いている時)
+      if(count_spin < spin_iteration){//設定回数まで連続スピンできる
+        Stop_flag = 0;
+      }
+      else{//設定回数までスピンしたら少し停止する
+        Stop_flag = 1;
+        wait_spin += 1;
+        if(wait_spin > wait_iteration){
+          wait_spin = 0;
+          count_spin = 0;
+          Stop_flag = 0;
+        }   
+      }
     }
-   }
   }
 
 
@@ -507,7 +539,7 @@ void loop()
     Status_control = 0;//"stop"
     Serial.print(":stop!");
   }
-  else if(Stop_flag == 0 && Calibration_flag == 1){//キャリブレーション時
+  else if(Stop_flag == 0 && roverStatus.Calibration == 1){//キャリブレーション時
     digitalWrite(ENABLE, HIGH); // enable
     analogWrite(CH1, Slow_speed);
     analogWrite(CH2, 0);
@@ -516,8 +548,8 @@ void loop()
     Status_control = 7;//"Calibration..."
     Serial.print(":calibration");
   }
-  else if(Stop_flag == 0 && Calibration_flag == 0 && Near_flag == 1){//ゴール5m付近時
-    if(Search_flag == 1){//スピンしながらコーンを探索
+  else if(Stop_flag == 0 && roverStatus.Calibration == 0 && roverStatus.Near == 1){//ゴール5m付近時
+    if(roverStatus.Search == 1){//スピンしながらコーンを探索
       digitalWrite(ENABLE, HIGH); // enable
       analogWrite(CH1, 0);
       analogWrite(CH2, Very_Slow_speed);
@@ -528,7 +560,7 @@ void loop()
     }
     else{//コーンの方を向く
        if(count_forward > forward_iteration){
-        Search_flag = 1;
+        roverStatus.Search = 1;
         count_forward = 0;
         Serial.print(":restart searching");
       }
@@ -537,14 +569,13 @@ void loop()
       }
     }
   }
-  else if(Stop_flag == 0 && Calibration_flag == 0 && Near_flag == 0 ){//通常走行時
+  else if(Stop_flag == 0 && roverStatus.Calibration == 0 && roverStatus.Near == 0 ){//通常走行時
     motor_angle_go();
   }
 
 
   //---------------------Logger------------------------------------------------------
   LogToSDCard();
-  /*it needs to be changed
   if(Memory_flag > 5){
     LogToEEPROM();
     Memory_flag = 0;
@@ -552,7 +583,6 @@ void loop()
   else{
     Memory_flag += 1;
   }
-  */
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
   start = millis();
@@ -624,6 +654,63 @@ void loop()
 
 
 
+//=========Status control function============================================================================//
+
+void goal_calculation(){
+  //基本方針:最初の時点でどう巡るかを決定する。
+  unsigned int range[3];
+  updateGPSlocation();
+  for(int i =0; i<3 ;i++){
+    range[i] = gps.distanceBetween(LatR,LngR,dataRx.gpsData.latA[i],dataRx.gpsData.lngA[i]);
+    goal_rout[i] = i + 1;
+  }
+  sortrange(range,goal_rout);//root = [1,2,3]
+  writeEEPROM(Addr_eeprom,24,(byte)goal_rout[0]);
+  writeEEPROM(Addr_eeprom,25,(byte)goal_rout[1]);
+  writeEEPROM(Addr_eeprom,26,(byte)goal_rout[2]);
+  return;
+}
+
+void swap(int* a, int* b) {
+	int temp;
+	temp = *a;
+	*a = *b;
+	*b = temp;
+	return;
+}
+
+void sortrange(int* data, int* array) {
+	if (data[0] < data[1]) swap(&array[0], &array[1]);
+	if (data[0] < data[2]) swap(&array[0], &array[2]);
+	if (data[1] < data[2]) swap(&array[1], &array[2]);
+	return;
+}
+
+void success_management(){
+  if(roverStatus.toGoal < 3){
+    roverSuccess.Goal_GPS = roverStatus.toGoal;
+    writeEEPROM(Addr_eeprom,27,(byte)roverSuccess.Goal_GPS);//logger
+
+    int next = goal_rout[roverStatus.toGoal];//set next goal to the destination
+    roverStatus.toGoal += 1;
+    LatA = dataRx.gpsData.latA[next];
+    LngA = dataRx.gpsData.lngA[next];
+
+    roverStatus.Near = 0;
+    roverStatus.Search = 0;
+  }
+  else if(roverStatus.toGoal == 3){
+    roverSuccess.Goal_GPS = roverStatus.toGoal;
+    roverSuccess.full = 1;
+    writeEEPROM(Addr_eeprom,27,(byte)roverSuccess.Goal_GPS);//logger//logger
+
+    roverStatus.Near = 0;
+    roverStatus.Search = 0;
+    roverMode.Sleep = 1;
+  }
+  return;
+}
+
 //=========Ultrasonic sensor function============================================================================//
 unsigned int getUltrasonic_HEAD(){
   long duration;
@@ -675,9 +762,10 @@ int goal_angle_search(){//探索時、最も測距値が近い角度をゴール
 
 //=========LIDAR sensor function============================================================================//
 unsigned int getLIDAR(){
+  boolean LIDAR_flag = 1;
   int distance;
   int bytenum = 0;
-  while (Serial2.available() > 0 && LIDAR_flag = 1)//Near_flagは一時的なもの
+  while (Serial2.available() > 0 && LIDAR_flag == 1)//Near_flagは一時的なもの
   {
     byte c = Serial2.read();
     switch(bytenum){
@@ -782,10 +870,10 @@ void updateGPSlocation(){
   }
 }
 
-void updateRange_deg(){
-  degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-  rangeRtoA = gps.distanceBetween(LatR,LngR,LatA,LngA);
-}
+// void updateRange_deg(){
+//   degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+//   rangeRtoA = gps.distanceBetween(LatR,LngR,LatA,LngA);
+// }
 // Hubenyの式
 
 float calculateDistance(double latitude1, double longitude1, double latitude2, double longitude2)
@@ -813,34 +901,6 @@ float calculateDistance(double latitude1, double longitude1, double latitude2, d
   return d;
 }
 
-int goal_calculation(){
-  //基本方針:最初の時点でどう巡るかを決定する。
-  unsigned int range[3];
-  unsigned int root[3];
-  updateGPSlocation();
-  for(int i =0; i<num ;i++){
-    range[i] = gps.distanceBetween(LatR,LngR,dataRx.gpsData.latA[i],dataRx.gpsData.lngA[i]);
-    root[i] = i + 1;
-  }
-  sortrange(range,root);//root = [1,2,3]
-  writeEEPROM()
-  return root;
-}
-
-void swap(int* a, int* b) {
-	int temp;
-	temp = *a;
-	*a = *b;
-	*b = temp;
-	return;
-}
-
-void sortrange(int* data, int* array) {
-	if (data[0] < data[1]) swap(&array[0], &array[1]);
-	if (data[0] < data[2]) swap(&array[0], &array[2]);
-	if (data[1] < data[2]) swap(&array[1], &array[2]);
-	return;
-}
 
 //===========9axis sensor function==========================================================================//
 void BMX055_Init()
@@ -1385,8 +1445,8 @@ double EEPROM_read_float(int addr_device, unsigned int addr_res){
   return data;
 }
 
-/*
-void LogToEEPROM(Addr_eeprom, DATA_ADDRESS,xMag);
+void LogToEEPROM(){
+    EEPROM_write_int(Addr_eeprom, DATA_ADDRESS,xMag);
     DATA_ADDRESS += 2;
     EEPROM_write_int(Addr_eeprom, DATA_ADDRESS,yMag);
     DATA_ADDRESS += 2;
@@ -1410,19 +1470,18 @@ void LogToEEPROM(Addr_eeprom, DATA_ADDRESS,xMag);
     EEPROM_write_long(Addr_eeprom, DATA_ADDRESS,time);
     DATA_ADDRESS += 4;
 }
-*/
 
 void LogGPSdata(){
-  EEPROM_write_float(Addr_eeprom, 0, dataRx.gpsData.latR[0]);
-  EEPROM_write_float(Addr_eeprom, 4, dataRx.gpsData.lngR[0]);
-  EEPROM_write_float(Addr_eeprom, 8, dataRx.gpsData.latR[1]);
-  EEPROM_write_float(Addr_eeprom, 12, dataRx.gpsData.lngR[1]);
-  EEPROM_write_float(Addr_eeprom, 16, dataRx.gpsData.latR[2]);
-  EEPROM_write_float(Addr_eeprom, 20, dataRx.gpsData.lngR[2]);
+  EEPROM_write_float(Addr_eeprom, 0, dataRx.gpsData.latA[0]);
+  EEPROM_write_float(Addr_eeprom, 4, dataRx.gpsData.lngA[0]);
+  EEPROM_write_float(Addr_eeprom, 8, dataRx.gpsData.latA[1]);
+  EEPROM_write_float(Addr_eeprom, 12, dataRx.gpsData.lngA[1]);
+  EEPROM_write_float(Addr_eeprom, 16, dataRx.gpsData.latA[2]);
+  EEPROM_write_float(Addr_eeprom, 20, dataRx.gpsData.lngA[2]);
 }
    
 //============SDCard function=========================================================================//
-void logToSDCard(){
+void LogToSDCard(){
   File dataFile = SD.open("datalog.txt", FILE_WRITE);
   if (dataFile) {
     dataFile.print(time);
