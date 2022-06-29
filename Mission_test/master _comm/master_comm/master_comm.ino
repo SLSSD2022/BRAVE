@@ -138,6 +138,8 @@ typedef struct _roverDataPacket {
 } roverDataPacket;
 
 typedef struct _roverData: roverDataPacket{
+  void initializeRoverComsStat();
+  void updateRoverComsStat(boolean changeGoalStat, byte statusUpdate);
   void printRoverComsStat();
   void setMag(int xMag, int yMag);
   void printMag();
@@ -1503,6 +1505,23 @@ void  writeToTwelite () {
   }
   Serial2.print("X\r\n");
   //Serial.print("X\r\n");
+}
+
+void roverData::initializeRoverComsStat()
+{
+  this->roverComsStat = 0;
+}
+
+void roverData::updateRoverComsStat(boolean changeGoalStat, byte statusUpdate)
+{
+  this->roverComsStat = this->roverComsStat | (uint8_t) statusUpdate;
+  if (changeGoalStat){
+    this->roverComsStat += 4;
+    if (((byte)(this->roverComsStat) >> 2 & 0b111) == 0b110)
+    {
+      this->roverComsStat += 1;
+    }
+  }
 }
 
 void roverData::printRoverComsStat()
