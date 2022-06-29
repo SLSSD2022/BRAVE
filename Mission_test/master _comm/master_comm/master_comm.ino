@@ -1,35 +1,10 @@
 //Header file
-#include <TinyGPSPlus.h>
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
-
-//------------------------------Ultrasonic sensor------------------------------
-//Ultrasonic sensor(short)Front
-unsigned int obstacleDistance;
-const int HEAD_Trig = 22;
-const int HEAD_Echo = 24;
-
-//Ultrasonic sensor(long)Front
-#define HEADpin A15
-unsigned int anVolt;
-unsigned int cm_long;
-int emergencyStopDist = 10;
-
-//Buffer for one range measurement near goal
-#define MEAS_BUF_LEN  10//it should be more than 10, length of 9axis basic buffer
-int bufcm[MEAS_BUF_LEN];
-int measureIndex = 0;
-
-//Buffer for all range measurement near goal
-#define SEAR_BUF_LEN 20
-int listcm[SEAR_BUF_LEN];
-int searchIndex = 0;
-
-
-//Ultrasonic sensor(short)Bottom
-const int BOTTOM_Trig = 6;
-const int BOTTOM_Echo = 7;
+#include "./rover.h"
+#include "./GPS.h"
+#include "./UltrasonicSensor.h"
 
 //------------------------------LIDAR sensor------------------------------
 //LIDAR
@@ -90,17 +65,6 @@ int bufdeg[MEAS_BUF_LEN];
 int listdeg[SEAR_BUF_LEN];
 
 
-//------------------------------GPS sensor------------------------------
-TinyGPSPlus gps;
-// float LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
-//float LatA = 35.7142738, LngA = 139.76185488809645; //目的地Aの緯度経度(2号館)
-//float LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
-float LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
-float latR = 35.715328, lngR = 139.761138;  //現在地の初期想定値(7号館屋上)
-float degRtoA; //GPS現在地における目的地の慣性方角
-float rangeRtoA;
-
-
 //------------------------------EEPROM------------------------------
 //デバイスアドレス(スレーブ)
 uint8_t addrEEPROM = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
@@ -122,59 +86,10 @@ int BPS = 3; // if HIGH set Baud rate to 115200 at MWSerial, if LOW to 38400
 
 //Define Structures for receiving and Handling Rover data
 
-typedef struct _roverDataPacket {
-  uint8_t roverComsStat;
-  int xMag;
-  int yMag;
-  uint16_t calibx;
-  uint16_t caliby;
-  float x;
-  uint16_t cmLong;
-  float latR;
-  float lngR;
-  float degRtoA;
-  byte statusControl;
-  unsigned long int time;
-} roverDataPacket;
-
-typedef struct _roverData: roverDataPacket{
-  void initializeRoverComsStat();
-  void updateRoverComsStat(boolean changeGoalStat, byte statusUpdate);
-  void printRoverComsStat();
-  void setMag(int xMag, int yMag);
-  void printMag();
-  void setCalib(uint16_t calibx, uint16_t caliby);
-  void printCalib();
-  void setAttitude(float x);
-  void printAttitude();
-  void setDistByLIDAR(uint16_t cm_LIDAR);
-  void printDistByLIDAR();
-  void setPosition(float latR, float lngR);
-  void printPosition();
-  void setDegRtoA(float degRtoA);
-  void printDegRtoA();
-  void setControlStatus(byte controlStatus);
-  void printControlStatus();
-  void setTime(unsigned long int overallTime);
-  void printTime();
-  void setAllData(int xMag, int yMag, uint16_t calibx, uint16_t caliby, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
-  void printAllData();
-} roverData;
-
 typedef union _packetData {
   roverData message;
   unsigned char packetData[sizeof(roverData)];
 } packetData;
-
-typedef struct _gpsDataStruct {
-  float latA[3];
-  float lngA[3];
-} gpsDataStruct;
-
-typedef union _gpsPacketUnion {
-  gpsDataStruct gpsData;
-  uint8_t gpsBytes[sizeof(gpsDataStruct)];
-} gpsPacketUnion;
 
 const int MaxBufferSize = 160;
 char buffRx[MaxBufferSize];
@@ -657,21 +572,6 @@ void successManagement() {
   return;
 }
 
-//=========Ultrasonic sensor function============================================================================//
-unsigned int getUltrasonic_HEAD() {
-  long duration;
-  digitalWrite(HEAD_Trig, LOW);
-  delayMicroseconds(2);
-  digitalWrite(HEAD_Trig, HIGH);
-  delayMicroseconds(10);
-  duration = pulseIn(HEAD_Echo, HIGH);
-  return microsecTocm(duration);
-}
-
-unsigned int microsecTocm(long microsec) {
-  return (unsigned int) microsec / 29 / 2;
-}
-
 void filter_angle_search() {
   //ソート用のバッファ
   static int sortBufcm[MEAS_BUF_LEN];
@@ -791,25 +691,6 @@ float deg2rad(float deg)
   return (float)(deg * PI / 180.0);
 }
 
-void updateGPSlocation() {
-  while (Serial1.available() > 0)
-  {
-    //    Serial.print("YES");
-    char c = Serial1.read();
-    //    Serial.print(c);
-    gps.encode(c);
-    if (gps.location.isUpdated())
-    {
-      Serial.println("");
-      Serial.println("I got new GPS!");
-      latR = gps.location.lat();  // roverの緯度を計算
-      lngR = gps.location.lng(); // roverの経度を計算
-      break;
-    }
-    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
-    delay(1);
-  }
-}
 
 // void updateRange_deg(){
 //   degRtoA = atan2((lngR - LngA) * 1.23, (latR - LatA)) * 57.3 + 180;
@@ -1505,149 +1386,6 @@ void  writeToTwelite () {
   }
   Serial2.print("X\r\n");
   //Serial.print("X\r\n");
-}
-
-void roverData::initializeRoverComsStat()
-{
-  this->roverComsStat = 0;
-}
-
-void roverData::updateRoverComsStat(boolean changeGoalStat, byte statusUpdate)
-{
-  this->roverComsStat = this->roverComsStat | (uint8_t) statusUpdate;
-  if (changeGoalStat){
-    this->roverComsStat += 4;
-    if (((byte)(this->roverComsStat) >> 2 & 0b111) == 0b110)
-    {
-      this->roverComsStat += 1;
-    }
-  }
-}
-
-void roverData::printRoverComsStat()
-{
-  Serial.print("roverComsStat:");
-  Serial.println(this->roverComsStat);
-}
-
-void roverData::setMag(int xMag, int yMag)
-{
-  this->xMag = xMag;
-  this->yMag = yMag;
-}
-
-void roverData::printMag()
-{
-  Serial.print("xMag:");
-  Serial.println(this->xMag);
-  Serial.print("yMag:");
-  Serial.println(this->yMag);
-}
-
-void roverData::setCalib(uint16_t calibx, uint16_t caliby)
-{
-  this->calibx = calibx;
-  this->caliby = caliby;
-}
-
-void roverData::printCalib()
-{
-  Serial.print("calibx:");
-  Serial.println(this->calibx);
-  Serial.print("caliby:");
-  Serial.println(this->caliby);
-}
-
-void roverData::setAttitude(float x)
-{
-  this->x = x;
-}
-
-void roverData::printAttitude()
-{
-  Serial.print("x:");
-  Serial.println(this->x);
-}
-void roverData::setDistByLIDAR(uint16_t cm_LIDAR)
-{
-  this->cmLong = cm_LIDAR;
-}
-
-void roverData::printDistByLIDAR()
-{
-  Serial.print("cm_long:");
-  Serial.println(this->cmLong);
-}
-
-void roverData::setPosition(float latR, float lngR)
-{
-  this->latR = latR;
-  this->lngR = lngR;
-}
-void roverData::printPosition()
-{
-  Serial.print("latR:");
-  Serial.println(this->latR);
-  Serial.print("lngR:");
-  Serial.println(this->lngR);
-}
-void roverData::setDegRtoA(float degRtoA)
-{
-  this->degRtoA = degRtoA;
-}
-
-void roverData::printDegRtoA()
-{
-  Serial.print("degRtoA:");
-  Serial.println(this->degRtoA);
-}
-
-void roverData::setControlStatus(byte controlStatus)
-{
-  this->statusControl = controlStatus;
-}
-
-void roverData::printControlStatus()
-{
-  Serial.print("controlStatus:");
-  Serial.println(this->statusControl);
-}
-
-void roverData::setTime(unsigned long int overallTime)
-{
-  this->time = overallTime;
-}
-
-void roverData::printTime()
-{
-  Serial.print("time:");
-  Serial.println(this->time);
-}
-
-void roverData::setAllData(int xMag, int yMag, uint16_t calibx, uint16_t caliby, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime)
-{
-  this->roverComsStat = 4;
-  this->setMag(xMag, yMag);
-  this->setCalib(calibx, caliby);
-  this->setAttitude(x);
-  this->setDistByLIDAR(cm_LIDAR);
-  this->setPosition(latR, lngR);
-  this->setDegRtoA(degRtoA);
-  this->setControlStatus(controlStatus);
-  this->setTime(overallTime);
-}
-
-void roverData::printAllData()
-{
-  this->printRoverComsStat();
-  this->printMag();
-  this->printCalib();
-  this->printAttitude();
-  this->printDistByLIDAR();
-  this->printPosition();
-  this->printDegRtoA();
-  this->printControlStatus();
-  this->printTime();
 }
 
 void encodeCyclic() {
