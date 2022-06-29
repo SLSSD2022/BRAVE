@@ -6,7 +6,7 @@
 
 //------------------------------Ultrasonic sensor------------------------------
 //Ultrasonic sensor(short)Front
-unsigned int cm;
+unsigned int obstacleDistance;
 const int HEAD_Trig = 22;
 const int HEAD_Echo = 24;
 
@@ -65,9 +65,9 @@ int yMag = 0;
 int zMag = 0;
 
 //Constant for calibration(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-double Calib = 175;
-double Calibx = 20;
-double Caliby = 132;
+float Calib = 175;
+float calibx = 20;
+float caliby = 132;
 
 float x; //ローバーの慣性姿勢角
 float deltaTheta;//目的方向と姿勢の相対角度差
@@ -92,11 +92,11 @@ int listdeg[SEAR_BUF_LEN];
 
 //------------------------------GPS sensor------------------------------
 TinyGPSPlus gps;
-// double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
-//double LatA = 35.7142738, LngA = 139.76185488809645; //目的地Aの緯度経度(2号館)
-//double LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
-double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
-double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
+// float LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
+//float LatA = 35.7142738, LngA = 139.76185488809645; //目的地Aの緯度経度(2号館)
+//float LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
+float LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
+float latR = 35.715328, lngR = 139.761138;  //現在地の初期想定値(7号館屋上)
 float degRtoA; //GPS現在地における目的地の慣性方角
 float rangeRtoA;
 
@@ -121,12 +121,13 @@ int RST = 2;
 int BPS = 3; // if HIGH set Baud rate to 115200 at MWSerial, if LOW to 38400
 
 //Define Structures for receiving and Handling Rover data
-typedef struct _roverData {
+
+typedef struct _roverDataPacket {
   uint8_t roverComsStat;
   int xMag;
   int yMag;
-  uint16_t calibX;
-  uint16_t calibY;
+  uint16_t calibx;
+  uint16_t caliby;
   float x;
   uint16_t cmLong;
   float latR;
@@ -134,6 +135,28 @@ typedef struct _roverData {
   float degRtoA;
   byte statusControl;
   unsigned long int time;
+} roverDataPacket;
+
+typedef struct _roverData: roverDataPacket{
+  void printRoverComsStat();
+  void setMag(int xMag, int yMag);
+  void printMag();
+  void setCalib(uint16_t calibx, uint16_t caliby);
+  void printCalib();
+  void setAttitude(float x);
+  void printAttitude();
+  void setDistByLIDAR(uint16_t cm_LIDAR);
+  void printDistByLIDAR();
+  void setPosition(float latR, float lngR);
+  void printPosition();
+  void setDegRtoA(float degRtoA);
+  void printDegRtoA();
+  void setControlStatus(byte controlStatus);
+  void printControlStatus();
+  void setTime(unsigned long int overallTime);
+  void printTime();
+  void setAllData(int xMag, int yMag, uint16_t calibx, uint16_t caliby, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
+  void printAllData();
 } roverData;
 
 typedef union _packetData {
@@ -166,7 +189,6 @@ const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};
 const uint8_t parityCheck[3] = {0x5C, 0x72, 0x39};
 unsigned long start;
 unsigned long stopi;
-void readRoverData();
 char encodedReceived[2 * sizeof(roverData)];
 
 ///-----------------------------Control Status, HK-----------------------------
@@ -296,7 +318,7 @@ void setup()
 
 
   //初期値
-  degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
+  degRtoA = atan2((lngR - LngA) * 1.23, (latR - LatA)) * 57.3 + 180;
   //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
   //  unsigned long k = 0;
   //  while(k < 6000){
@@ -360,7 +382,7 @@ void loop()
   cm_LIDAR = getLIDAR();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
-  cm = getUltrasonic_HEAD();
+  obstacleDistance = getUltrasonic_HEAD();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
   anVolt = analogRead(HEADpin);
@@ -368,15 +390,15 @@ void loop()
 
   //---------------------GPS acquisition--------------------------------------------------
   updateGPSlocation();
-  degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-  rangeRtoA = gps.distanceBetween(LatR, LngR, LatA, LngA);
+  degRtoA = atan2((lngR - LngA) * 1.23, (latR - LatA)) * 57.3 + 180;
+  rangeRtoA = gps.distanceBetween(latR, lngR, LatA, LngA);
 
   //---------------------Check parameter & update Status--------------------------------------------------
 
-  Serial.print(":LatR:");
-  Serial.print(LatR);
-  Serial.print(":LngR:");
-  Serial.print(LngR);
+  Serial.print(":latR:");
+  Serial.print(latR);
+  Serial.print(":lngR:");
+  Serial.print(lngR);
   Serial.print(":LatA:");
   Serial.print(LatA);
   Serial.print(":LngA:");
@@ -398,7 +420,7 @@ void loop()
   }
   Serial.print(":cm_LIDAR:");
   Serial.print(cm_LIDAR);
-  if (cm < emergencyStopDist) {
+  if (obstacleDistance < emergencyStopDist) {
     stopFlag = 1;
   } else {
     stopFlag = 0;
@@ -421,13 +443,13 @@ void loop()
     bufx[calIndex] = xMag;
     bufy[calIndex] = yMag;
     if (calIndex == CAL_BUF_LEN - 1) { //バッファに値がたまったら
-      Calibx = xcenter_calculation();
-      Caliby = ycenter_calculation();
+      calibx = xcenter_calculation();
+      caliby = ycenter_calculation();
       roverStatus.calibration = 0 ;
       Serial.print(":Calib_x:");
-      Serial.print(Calibx);
+      Serial.print(calibx);
       Serial.print(":Calib_y:");
-      Serial.print(Caliby);
+      Serial.print(caliby);
       x = angle_calculation();//このループ後半のためだけ
     }
     else {
@@ -583,7 +605,7 @@ void goalCalculation() {
   unsigned int range[3];
   updateGPSlocation();
   for (int i = 0; i < 3 ; i++) {
-    range[i] = gps.distanceBetween(LatR, LngR, dataRx.gpsData.latA[i], dataRx.gpsData.lngA[i]);
+    range[i] = gps.distanceBetween(latR, lngR, dataRx.gpsData.latA[i], dataRx.gpsData.lngA[i]);
     goalRoute[i] = i + 1;
   }
   sortRange(range, goalRoute); //root = [1,2,3]
@@ -767,11 +789,6 @@ float deg2rad(float deg)
   return (float)(deg * PI / 180.0);
 }
 
-double deg2rad(double deg)
-{
-  return (double)(deg * PI / 180.0);
-}
-
 void updateGPSlocation() {
   while (Serial1.available() > 0)
   {
@@ -783,8 +800,8 @@ void updateGPSlocation() {
     {
       Serial.println("");
       Serial.println("I got new GPS!");
-      LatR = gps.location.lat();  // roverの緯度を計算
-      LngR = gps.location.lng(); // roverの経度を計算
+      latR = gps.location.lat();  // roverの緯度を計算
+      lngR = gps.location.lng(); // roverの経度を計算
       break;
     }
     //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
@@ -793,22 +810,22 @@ void updateGPSlocation() {
 }
 
 // void updateRange_deg(){
-//   degRtoA = atan2((LngR - LngA) * 1.23, (LatR - LatA)) * 57.3 + 180;
-//   rangeRtoA = gps.distanceBetween(LatR,LngR,LatA,LngA);
+//   degRtoA = atan2((lngR - LngA) * 1.23, (latR - LatA)) * 57.3 + 180;
+//   rangeRtoA = gps.distanceBetween(latR,lngR,LatA,LngA);
 // }
 // Hubenyの式
 
-float calculateDistance(double latitude1, double longitude1, double latitude2, double longitude2)
+float calculateDistance(float latitude1, float longitude1, float latitude2, float longitude2)
 {
   // 先に計算しておいた定数
-  double e2 = 0.00669437999019758;   // WGS84における「離心率e」の2乗
-  double Rx = 6378137.0;             // WGS84における「赤道半径Rx」
-  double m_numer = 6335439.32729246; // WGS84における「子午線曲率半径M」の分子(Rx(1-e^2))
+  float e2 = 0.00669437999019758;   // WGS84における「離心率e」の2乗
+  float Rx = 6378137.0;             // WGS84における「赤道半径Rx」
+  float m_numer = 6335439.32729246; // WGS84における「子午線曲率半径M」の分子(Rx(1-e^2))
 
-  double rad_lat1 = deg2rad(latitude1);
-  double rad_lon1 = deg2rad(longitude1);
-  double rad_lat2 = deg2rad(latitude2);
-  double rad_lon2 = deg2rad(longitude2);
+  float rad_lat1 = deg2rad(latitude1);
+  float rad_lon1 = deg2rad(longitude1);
+  float rad_lat2 = deg2rad(latitude2);
+  float rad_lon2 = deg2rad(longitude2);
 
   float dp = (float)(rad_lon1 - rad_lon2);        // 2点の緯度差
   float dr = (float)(rad_lat1 - rad_lat2);        // 2点の経度差
@@ -947,7 +964,7 @@ void BMX055_Mag()
 }
 
 float angle_calculation() {
-  x = atan2(yMag - Caliby, xMag - Calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
+  x = atan2(yMag - caliby, xMag - calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
   x += Calib;
   x -= 7; //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
 
@@ -1326,7 +1343,7 @@ void EEPROM_write_long(int addr_device, unsigned int addr_res, unsigned long dat
 }
 
 
-void EEPROM_write_float(int addr_device, unsigned int addr_res, double data) {
+void EEPROM_write_float(int addr_device, unsigned int addr_res, float data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
   for (i = 0; i < (int)sizeof(data); i++) {
@@ -1353,7 +1370,7 @@ byte readEEPROM(int addr_device, unsigned int addr_res )
 }
 
 
-double EEPROM_read_float(int addr_device, unsigned int addr_res) {
+float EEPROM_read_float(int addr_device, unsigned int addr_res) {
   unsigned char p_read[4];
   for (int i = 0; i < 4; i++) {
     //    Serial.print(i+1);
@@ -1362,8 +1379,8 @@ double EEPROM_read_float(int addr_device, unsigned int addr_res) {
     //    Serial.println(p_read[i]);
   }
   //  Serial.println("");
-  double *d = (double *)p_read;
-  double data = *d;
+  float *d = (float *)p_read;
+  float data = *d;
   return data;
 }
 
@@ -1372,17 +1389,17 @@ void LogToEEPROM() {
   addrData += 2;
   EEPROM_write_int(addrEEPROM, addrData, yMag);
   addrData += 2;
-  EEPROM_write_int(addrEEPROM, addrData, Calibx);
+  EEPROM_write_int(addrEEPROM, addrData, calibx);
   addrData += 2;
-  EEPROM_write_int(addrEEPROM, addrData, Caliby);
+  EEPROM_write_int(addrEEPROM, addrData, caliby);
   addrData += 2;
   EEPROM_write_float(addrEEPROM, addrData, x);
   addrData += 4;
   EEPROM_write_int(addrEEPROM, addrData, cm_long);
   addrData += 2;
-  EEPROM_write_float(addrEEPROM, addrData, LatR);
+  EEPROM_write_float(addrEEPROM, addrData, latR);
   addrData += 4;
-  EEPROM_write_float(addrEEPROM, addrData, LngR);
+  EEPROM_write_float(addrEEPROM, addrData, lngR);
   addrData += 4;
   EEPROM_write_float(addrEEPROM, addrData, degRtoA);
   addrData += 4;
@@ -1412,17 +1429,17 @@ void LogToSDCard() {
     dataFile.print(",");
     dataFile.print(yMag);
     dataFile.print(",");
-    dataFile.print(Calibx);
+    dataFile.print(calibx);
     dataFile.print(",");
-    dataFile.print(Caliby);
+    dataFile.print(caliby);
     dataFile.print(",");
     dataFile.print(x);
     dataFile.print(",");
     dataFile.print(cm_long);
     dataFile.print(",");
-    dataFile.print(LatR);
+    dataFile.print(latR);
     dataFile.print(",");
-    dataFile.print(LngR);
+    dataFile.print(lngR);
     dataFile.print(",");
     dataFile.print(degRtoA);
     dataFile.print(",");
@@ -1470,7 +1487,8 @@ void processData() {
 
 void  writeToTwelite () {
   int ctr1 = 0;
-  readRoverData();
+  packetTx.message.setAllData(xMag,yMag,calibx,caliby,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
+  packetTx.message.printAllData();
   encodeCyclic();
   Serial2.print(":000100");
   //Serial.print(":000100");
@@ -1487,43 +1505,130 @@ void  writeToTwelite () {
   //Serial.print("X\r\n");
 }
 
-void readRoverData() {
-  packetTx.message.roverComsStat = 4; // need to implement
+void roverData::printRoverComsStat()
+{
   Serial.print("roverComsStat:");
-  Serial.println(packetTx.message.roverComsStat);
-  packetTx.message.xMag = xMag;
+  Serial.println(this->roverComsStat);
+}
+
+void roverData::setMag(int xMag, int yMag)
+{
+  this->xMag = xMag;
+  this->yMag = yMag;
+}
+
+void roverData::printMag()
+{
   Serial.print("xMag:");
-  Serial.println(packetTx.message.xMag);
-  packetTx.message.yMag = yMag;
+  Serial.println(this->xMag);
   Serial.print("yMag:");
-  Serial.println(packetTx.message.yMag);
-  packetTx.message.calibX = Calibx;
-  Serial.print("Calibx:");
-  Serial.println(packetTx.message.calibX);
-  packetTx.message.calibY = Caliby;
-  Serial.print("Caliby:");
-  Serial.println(packetTx.message.calibY);
-  packetTx.message.x = x;
+  Serial.println(this->yMag);
+}
+
+void roverData::setCalib(uint16_t calibx, uint16_t caliby)
+{
+  this->calibx = calibx;
+  this->caliby = caliby;
+}
+
+void roverData::printCalib()
+{
+  Serial.print("calibx:");
+  Serial.println(this->calibx);
+  Serial.print("caliby:");
+  Serial.println(this->caliby);
+}
+
+void roverData::setAttitude(float x)
+{
+  this->x = x;
+}
+
+void roverData::printAttitude()
+{
   Serial.print("x:");
-  Serial.println(packetTx.message.x);
-  packetTx.message.cmLong = cm_LIDAR;
+  Serial.println(this->x);
+}
+void roverData::setDistByLIDAR(uint16_t cm_LIDAR)
+{
+  this->cmLong = cm_LIDAR;
+}
+
+void roverData::printDistByLIDAR()
+{
   Serial.print("cm_long:");
-  Serial.println(packetTx.message.cmLong);
-  packetTx.message.latR = LatR;
-  Serial.print("LatR:");
-  Serial.println(packetTx.message.latR);
-  packetTx.message.lngR = LngR;
-  Serial.print("LngR:");
-  Serial.println(packetTx.message.lngR);
-  packetTx.message.degRtoA = degRtoA;
+  Serial.println(this->cmLong);
+}
+
+void roverData::setPosition(float latR, float lngR)
+{
+  this->latR = latR;
+  this->lngR = lngR;
+}
+void roverData::printPosition()
+{
+  Serial.print("latR:");
+  Serial.println(this->latR);
+  Serial.print("lngR:");
+  Serial.println(this->lngR);
+}
+void roverData::setDegRtoA(float degRtoA)
+{
+  this->degRtoA = degRtoA;
+}
+
+void roverData::printDegRtoA()
+{
   Serial.print("degRtoA:");
-  Serial.println(packetTx.message.degRtoA);
-  packetTx.message.statusControl = controlStatus;
+  Serial.println(this->degRtoA);
+}
+
+void roverData::setControlStatus(byte controlStatus)
+{
+  this->statusControl = controlStatus;
+}
+
+void roverData::printControlStatus()
+{
   Serial.print("controlStatus:");
-  Serial.println(packetTx.message.statusControl);
-  packetTx.message.time = overallTime;
+  Serial.println(this->statusControl);
+}
+
+void roverData::setTime(unsigned long int overallTime)
+{
+  this->time = overallTime;
+}
+
+void roverData::printTime()
+{
   Serial.print("time:");
-  Serial.println(packetTx.message.time);
+  Serial.println(this->time);
+}
+
+void roverData::setAllData(int xMag, int yMag, uint16_t calibx, uint16_t caliby, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime)
+{
+  this->roverComsStat = 4;
+  this->setMag(xMag, yMag);
+  this->setCalib(calibx, caliby);
+  this->setAttitude(x);
+  this->setDistByLIDAR(cm_LIDAR);
+  this->setPosition(latR, lngR);
+  this->setDegRtoA(degRtoA);
+  this->setControlStatus(controlStatus);
+  this->setTime(overallTime);
+}
+
+void roverData::printAllData()
+{
+  this->printRoverComsStat();
+  this->printMag();
+  this->printCalib();
+  this->printAttitude();
+  this->printDistByLIDAR();
+  this->printPosition();
+  this->printDegRtoA();
+  this->printControlStatus();
+  this->printTime();
 }
 
 void encodeCyclic() {
