@@ -6,6 +6,7 @@
 #include "./GPS.h"
 #include "./UltrasonicSensor.h"
 #include "./communication.h"
+#include "./EEPROM.h"
 
 //------------------------------LIDAR sensor------------------------------
 //LIDAR
@@ -65,12 +66,6 @@ int calIndex = 0;
 int bufdeg[MEAS_BUF_LEN];
 int listdeg[SEAR_BUF_LEN];
 
-
-//------------------------------EEPROM------------------------------
-//デバイスアドレス(スレーブ)
-uint8_t addrEEPROM = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
-unsigned int addrData = 30; //書き込むレジスタ(0x0000~0xFFFF全部使える) (0~30は目的地のGPSデータとステータスを保管する)
-
 //------------------------------SD card------------------------------
 const int chipSelect = 53;
 const int SDSW = 49;
@@ -78,38 +73,6 @@ const int SDSW = 49;
 
 //------------------------------Onboard Camera------------------------------
 
-
-
-///-----------------------------Control Status, HK-----------------------------
-typedef struct _modeStruct {
-  unsigned char manual : 1;
-  unsigned char autoGpsOnly : 1;
-  unsigned char autoAggressive : 1;
-  unsigned char sleep : 1;
-} modeStruct;
-
-
-//Status using bit field
-typedef struct _statusStruct {
-  unsigned char initial : 1;
-  unsigned char calibration : 1;
-  unsigned int toGoal;
-  unsigned char near : 1;
-  unsigned char search : 1;
-  unsigned char sleep : 1;
-} statusStruct;
-
-
-typedef struct _successStruct {
-  unsigned char GPSreceive : 1;
-  unsigned int goalGPS;
-  unsigned int goalArrived;
-  unsigned char full : 1;
-} successStruct;
-
-modeStruct roverMode = {0, 1, 0, 0};
-statusStruct roverStatus = {1, 1, 0, 0, 0, 0};
-successStruct roverSuccess = {0, 0, 0, 0};
 
 boolean stopFlag = 0;
 
@@ -1156,122 +1119,6 @@ void motor_angle_spin()
   Serial.print(speedR);
   Serial.print(":forwardCount:");
   Serial.print(forwardCount);
-}
-
-
-
-
-//============EEPROM function=========================================================================//
-void writeEEPROM(int addr_device, unsigned int addr_res, byte data )
-{
-  Wire.beginTransmission(addr_device);
-  Wire.write((int)(addr_res >> 8));   // MSB
-  Wire.write((int)(addr_res & 0xFF)); // LSB
-  Wire.write(data);
-  Wire.endTransmission();
-  delay(5);//この遅延はどうやら必要っぽい
-}
-
-void EEPROM_write_int(int addr_device, unsigned int addr_res, int data) {
-  unsigned char *p = (unsigned char *)&data;
-  int i;
-  for (i = 0; i < (int)sizeof(data); i++) {
-    //    Serial.print(i+1);
-    //    Serial.print("th byte:");
-    //    Serial.println(p[i]);
-    writeEEPROM(addr_device, addr_res + i, p[i]);
-  }
-  //  Serial.println("");
-}
-
-
-void EEPROM_write_long(int addr_device, unsigned int addr_res, unsigned long data) {
-  unsigned char *p = (unsigned char *)&data;
-  int i;
-  for (i = 0; i < (int)sizeof(data); i++) {
-    //    Serial.print(i+1);
-    //    Serial.print("th byte:");
-    //    Serial.println(p[i]);
-    writeEEPROM(addr_device, addr_res + i, p[i]);
-  }
-  //  Serial.println("");
-}
-
-
-void EEPROM_write_float(int addr_device, unsigned int addr_res, float data) {
-  unsigned char *p = (unsigned char *)&data;
-  int i;
-  for (i = 0; i < (int)sizeof(data); i++) {
-    //    Serial.print(i+1);
-    //    Serial.print("th byte:");
-    //    Serial.println(p[i]);
-    writeEEPROM(addr_device, addr_res + i, p[i]);
-  }
-  //  Serial.println("");
-}
-
-byte readEEPROM(int addr_device, unsigned int addr_res )
-{
-  byte rdata = 0xFF;
-
-  Wire.beginTransmission(addr_device);
-  Wire.write((int)(addr_res >> 8));   // MSB
-  Wire.write((int)(addr_res & 0xFF)); // LSB
-  Wire.endTransmission();
-
-  Wire.requestFrom(addr_device, 1);
-  if (Wire.available()) rdata = Wire.read();
-  return rdata;
-}
-
-
-float EEPROM_read_float(int addr_device, unsigned int addr_res) {
-  unsigned char p_read[4];
-  for (int i = 0; i < 4; i++) {
-    //    Serial.print(i+1);
-    //    Serial.print("th byte:");
-    p_read[i] = readEEPROM(addr_device, addr_res + i);
-    //    Serial.println(p_read[i]);
-  }
-  //  Serial.println("");
-  float *d = (float *)p_read;
-  float data = *d;
-  return data;
-}
-
-void LogToEEPROM() {
-  EEPROM_write_int(addrEEPROM, addrData, xMag);
-  addrData += 2;
-  EEPROM_write_int(addrEEPROM, addrData, yMag);
-  addrData += 2;
-  EEPROM_write_int(addrEEPROM, addrData, calibx);
-  addrData += 2;
-  EEPROM_write_int(addrEEPROM, addrData, caliby);
-  addrData += 2;
-  EEPROM_write_float(addrEEPROM, addrData, x);
-  addrData += 4;
-  EEPROM_write_int(addrEEPROM, addrData, cm_long);
-  addrData += 2;
-  EEPROM_write_float(addrEEPROM, addrData, latR);
-  addrData += 4;
-  EEPROM_write_float(addrEEPROM, addrData, lngR);
-  addrData += 4;
-  EEPROM_write_float(addrEEPROM, addrData, degRtoA);
-  addrData += 4;
-  writeEEPROM(addrEEPROM, addrData, (byte)controlStatus);
-  addrData += 2;
-  overallTime = millis();
-  EEPROM_write_long(addrEEPROM, addrData, overallTime);
-  addrData += 4;
-}
-
-void LogGPSdata() {
-  EEPROM_write_float(addrEEPROM, 0, dataRx.gpsData.latA[0]);
-  EEPROM_write_float(addrEEPROM, 4, dataRx.gpsData.lngA[0]);
-  EEPROM_write_float(addrEEPROM, 8, dataRx.gpsData.latA[1]);
-  EEPROM_write_float(addrEEPROM, 12, dataRx.gpsData.lngA[1]);
-  EEPROM_write_float(addrEEPROM, 16, dataRx.gpsData.latA[2]);
-  EEPROM_write_float(addrEEPROM, 20, dataRx.gpsData.lngA[2]);
 }
 
 //============SDCard function=========================================================================//
