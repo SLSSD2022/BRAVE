@@ -330,59 +330,15 @@ void loop()
       Serial.println("initial Mode: waiting for GPS...");
       stopi = millis();
     }
-    if (Serial2.available() > 0) {
-      char c = Serial2.read();
-      //Serial2.print(c);
-      if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) { //read as data in one packet before it receives "\n"
-        buffRx[bufferPos] = c;
-        bufferPos++;
-        buffRx[bufferPos] = '\0';
-      }
-      else //Check the buffa if it reads the last character in one packet
-      {
-        if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '0') { //Arbitrary packet for Rover
-          if (buffRx[6] == '2') { //NACK
-            //do nothing
-          }
-          else if (buffRx[6] == '1') { //ACK
-            //do nothing
-          }
-          else if (buffRx[6] == '0') { //DATARECEIVE
-            processData();//character data is converted to uint8_t data here and is stored in the encodedRx[] buffer
-            decodeCyclic();//decode GPS data of three goals
+    if(receiveGPS()){
+      goalCalculation();//calculate distance to goals and decide root
 
+      int first = goalRoute[0];//set first goal to the destination
+      LatA = dataRx.gpsData.latA[first];
+      LngA = dataRx.gpsData.lngA[first];
 
-            Serial.println("------------------------initial MODE SUCCESS!!!------------------------");
-            Serial.print("1st GPS:");
-            Serial.print(dataRx.gpsData.latA[0]);
-            Serial.print(",");
-            Serial.println(dataRx.gpsData.lngA[0]);
-            Serial.print("2nd GPS:");
-            Serial.print(dataRx.gpsData.latA[1]);
-            Serial.print(",");
-            Serial.println(dataRx.gpsData.lngA[1]);
-            Serial.print("3rd GPS:");
-            Serial.print(dataRx.gpsData.latA[2]);
-            Serial.print(",");
-            Serial.println(dataRx.gpsData.lngA[2]);
-            Serial.println("---------------------------------------------------------------------");
-
-
-            LogGPSdata();//log the gps data of destination to EEPROM
-            Serial2.print(":000101X\r\n"); //Send ACK to MC
-            goalCalculation();//calculate distance to goals and decide root
-
-            int first = goalRoute[0];//set first goal to the destination
-            LatA = dataRx.gpsData.latA[first];
-            LngA = dataRx.gpsData.lngA[first];
-
-            roverStatus.initial = 0;
-            roverStatus.toGoal = 1;
-          }
-        }
-        //Serial.println(buffRx);
-        bufferPos = 0;
-      }
+      roverStatus.initial = 0;
+      roverStatus.toGoal = 1;
     }
   }
 
@@ -1663,4 +1619,55 @@ void commToGS() {
     }
   }
   bufferPos = 0;
+}
+
+boolean receiveGPS(){
+  if (Serial2.available() > 0) {
+    char c = Serial2.read();
+    //Serial2.print(c);
+    if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) { //read as data in one packet before it receives "\n"
+      buffRx[bufferPos] = c;
+      bufferPos++;
+      buffRx[bufferPos] = '\0';
+    }
+    else //Check the buffa if it reads the last character in one packet
+    {
+      if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '0') { //Arbitrary packet for Rover
+        if (buffRx[6] == '2') { //NACK
+          //do nothing
+        }
+        else if (buffRx[6] == '1') { //ACK
+          //do nothing
+        }
+        else if (buffRx[6] == '0') { //DATARECEIVE
+          processData();//character data is converted to uint8_t data here and is stored in the encodedRx[] buffer
+          decodeCyclic();//decode GPS data of three goals
+
+
+          Serial.println("------------------------initial MODE SUCCESS!!!------------------------");
+          Serial.print("1st GPS:");
+          Serial.print(dataRx.gpsData.latA[0]);
+          Serial.print(",");
+          Serial.println(dataRx.gpsData.lngA[0]);
+          Serial.print("2nd GPS:");
+          Serial.print(dataRx.gpsData.latA[1]);
+          Serial.print(",");
+          Serial.println(dataRx.gpsData.lngA[1]);
+          Serial.print("3rd GPS:");
+          Serial.print(dataRx.gpsData.latA[2]);
+          Serial.print(",");
+          Serial.println(dataRx.gpsData.lngA[2]);
+          Serial.println("---------------------------------------------------------------------");
+
+
+          LogGPSdata();//log the gps data of destination to EEPROM
+          Serial2.print(":000101X\r\n"); //Send ACK to MC
+          return true;
+        }
+      }
+      //Serial.println(buffRx);
+      bufferPos = 0;
+    }
+  }
+  return false;
 }
