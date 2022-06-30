@@ -1,3 +1,6 @@
+#ifndef _IMU_HEAD_
+#define _IMU_HEAD_
+
 //------------------------------9axis sensor------------------------------
 // I2C address for BMX055 Gyro
 #define Addr_Gyro 0x69 // (JP1,JP2,JP3 = Openの時)
@@ -20,3 +23,5 @@ float caliby = 132;
 void BMX055_Init();
 void BMX055_Gyro();
 void BMX055_Mag();
+
+#endif

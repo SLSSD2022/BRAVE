@@ -1,3 +1,6 @@
+#include "./EEPROM.h"
+#include <Wire.h>
+
 //============EEPROM function=========================================================================//
 void writeEEPROM(int addr_device, unsigned int addr_res, byte data )
 {

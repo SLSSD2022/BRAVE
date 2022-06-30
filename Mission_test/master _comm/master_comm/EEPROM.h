@@ -1,3 +1,6 @@
+#ifndef _EEPROM_HEAD_
+#define _EEPROM_HEAD_
+
 //------------------------------EEPROM------------------------------
 //デバイスアドレス(スレーブ)
 uint8_t addrEEPROM = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
@@ -11,3 +14,5 @@ byte readEEPROM(int addr_device, unsigned int addr_res );
 float EEPROM_read_float(int addr_device, unsigned int addr_res);
 void LogToEEPROM();
 void LogGPSdata();
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef _ROVER_HEAD_
+#define _ROVER_HEAD_
+
 typedef struct _roverDataPacket {
   uint8_t roverComsStat;
   int xMag;
@@ -67,3 +70,5 @@ typedef struct _successStruct {
 modeStruct roverMode = {0, 1, 0, 0};
 statusStruct roverStatus = {1, 1, 0, 0, 0, 0};
 successStruct roverSuccess = {0, 0, 0, 0};
+
+#endif

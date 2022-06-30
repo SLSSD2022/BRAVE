@@ -1,3 +1,6 @@
+#ifndef _GPS_HEAD_
+#define _GPS_HEAD_
+
 #include <TinyGPSPlus.h>
 
 //------------------------------GPS sensor------------------------------
@@ -21,3 +24,5 @@ typedef union _gpsPacketUnion {
 } gpsPacketUnion;
 
 void updateGPSSolution();
+
+#endif

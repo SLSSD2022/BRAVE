@@ -1,3 +1,7 @@
+#include "./communication.h"
+#include "./rover.h"
+#include "./GPS.h"
+
 //=========Communication function============================================================================//
 void processData() {
   // character data is converted to uint8_t data here

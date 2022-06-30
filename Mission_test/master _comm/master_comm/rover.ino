@@ -1,3 +1,5 @@
+#include "./rover.h"
+
 void roverData::initializeRoverComsStat()
 {
   this->roverComsStat = 0;

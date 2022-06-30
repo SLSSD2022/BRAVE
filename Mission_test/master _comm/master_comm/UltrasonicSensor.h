@@ -1,3 +1,6 @@
+#ifndef _ULTRASONIC_SENSOR_HEAD_
+#define _ULTRASONIC_SENSOR_HEAD_
+
 //------------------------------Ultrasonic sensor------------------------------
 //Ultrasonic sensor(short)Front
 unsigned int obstacleDistance;
@@ -27,3 +30,5 @@ const int BOTTOM_Echo = 7;
 
 unsigned int getUltrasonic_HEAD();
 unsigned int microsecTocm(long microsec);
+
+#endif
