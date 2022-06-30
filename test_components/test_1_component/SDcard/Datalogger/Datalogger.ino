@@ -23,8 +23,8 @@
 #include <SPI.h>
 #include <SD.h>
 
-const int chipSelect = 53;
-const int SDSW = 49;
+const int chipSelect = 46;
+const int SDSW = 50;
 
 void setup() {
   // Open serial communications and wait for port to open:
@@ -48,6 +48,7 @@ void setup() {
   while(1){
     if(digitalRead(SDSW) == 0){
       Serial.println("Card inserted!");
+      break;
     }
     else{
       Serial.println("Card not inserted!");
