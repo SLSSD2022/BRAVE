@@ -3,11 +3,7 @@
 #include <SPI.h>
 #include <SD.h>
 #include "./rover.h"
-#include "./GPS.h"
-#include "./UltrasonicSensor.h"
 #include "./communication.h"
-#include "./EEPROM.h"
-#include "./IMU.h"
 
 //------------------------------LIDAR sensor------------------------------
 //LIDAR

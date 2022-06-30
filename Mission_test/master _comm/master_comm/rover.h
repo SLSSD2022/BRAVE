@@ -2,6 +2,9 @@
 #define _ROVER_HEAD_
 
 #include "./IMU.h"
+#include "./GPS.h"
+#include "./EEPROM.h"
+#include "./UltrasonicSensor.h"
 
 typedef struct _roverDataPacket {
   uint8_t roverComsStat;
