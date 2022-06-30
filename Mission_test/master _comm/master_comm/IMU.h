@@ -7,21 +7,24 @@
 // I2C address for BMX055 Magnetic
 #define Addr_Mag 0x13 // (JP1,JP2,JP3 = Openの時)
 
-// センサーの値を保存するグローバル変数
-float xGyro = 0.00;
-float yGyro = 0.00;
-float zGyro = 0.00;
-int xMag = 0;
-int yMag = 0;
-int zMag = 0;
+typedef struct _BMX055 {
+  float xGyro;
+  float yGyro;
+  float zGyro;
+  int xMag;
+  int yMag;
+  int zMag;
 
-//Constant for calibration(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
-float Calib = 175;
-float calibx = 20;
-float caliby = 132;
+  //Constant for calibration(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
+  float calib;
+  float calibx;
+  float caliby;
 
-void BMX055_Init();
-void BMX055_Gyro();
-void BMX055_Mag();
+  void init();
+  void getGyro();
+  void getMag();
+} BMX055;
+
+BMX055 IMU = {0.00, 0.00, 0.00, 0, 0, 0, 175, 20, 132};
 
 #endif

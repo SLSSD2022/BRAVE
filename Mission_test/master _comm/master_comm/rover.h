@@ -1,6 +1,8 @@
 #ifndef _ROVER_HEAD_
 #define _ROVER_HEAD_
 
+#include "./IMU.h"
+
 typedef struct _roverDataPacket {
   uint8_t roverComsStat;
   int xMag;
@@ -20,9 +22,9 @@ typedef struct _roverData: roverDataPacket{
   void initializeRoverComsStat();
   void updateRoverComsStat(boolean changeGoalStat, byte statusUpdate);
   void printRoverComsStat();
-  void setMag(int xMag, int yMag);
+  void setMag(BMX055 IMU);
   void printMag();
-  void setCalib(uint16_t calibx, uint16_t caliby);
+  void setCalib(BMX055 IMU);
   void printCalib();
   void setAttitude(float x);
   void printAttitude();
@@ -36,7 +38,7 @@ typedef struct _roverData: roverDataPacket{
   void printControlStatus();
   void setTime(unsigned long int overallTime);
   void printTime();
-  void setAllData(int xMag, int yMag, uint16_t calibx, uint16_t caliby, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
+  void setAllData(BMX055 IMU, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
   void printAllData();
 } roverData;
 

@@ -109,7 +109,7 @@ void setup()
   Wire.begin();
 
   // BMX055 初期化
-  BMX055_Init();
+  IMU.init();
 
   //GPS uses Hardware Serial1
   Serial1.begin(9600);
@@ -204,9 +204,9 @@ void loop()
 
   //---------------------9軸取得--------------------------------------------------
   // BMX055 ジャイロの読み取り
-  BMX055_Gyro();
+  IMU.getGyro();
   // BMX055 磁気の読み取り
-  BMX055_Mag();
+  IMU.getMag();
 
   //キャリブレーションが終了しているなら
   if (roverStatus.calibration == 0) {
@@ -270,21 +270,21 @@ void loop()
   //calibration
   if (roverStatus.calibration == 1) {
     Serial.print(":xMag:");
-    Serial.print(xMag);
+    Serial.print(IMU.xMag);
     Serial.print(":yMag:");
-    Serial.print(yMag);
+    Serial.print(IMU.yMag);
     Serial.print(":calIndex:");
     Serial.print(calIndex);
-    bufx[calIndex] = xMag;
-    bufy[calIndex] = yMag;
+    bufx[calIndex] = IMU.xMag;
+    bufy[calIndex] = IMU.yMag;
     if (calIndex == CAL_BUF_LEN - 1) { //バッファに値がたまったら
-      calibx = xcenter_calculation();
-      caliby = ycenter_calculation();
+      IMU.calibx = xcenter_calculation();
+      IMU.caliby = ycenter_calculation();
       roverStatus.calibration = 0 ;
       Serial.print(":Calib_x:");
-      Serial.print(calibx);
+      Serial.print(IMU.calibx);
       Serial.print(":Calib_y:");
-      Serial.print(caliby);
+      Serial.print(IMU.caliby);
       x = angle_calculation();//このループ後半のためだけ
     }
     else {
@@ -641,8 +641,8 @@ float calculateDistance(float latitude1, float longitude1, float latitude2, floa
 
 
 float angle_calculation() {
-  x = atan2(yMag - caliby, xMag - calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
-  x += Calib;
+  x = atan2(IMU.yMag - IMU.caliby, IMU.xMag - IMU.calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
+  x += IMU.calib;
   x -= 7; //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
 
   // calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
@@ -986,13 +986,13 @@ void LogToSDCard() {
   if (dataFile) {
     dataFile.print(overallTime);
     dataFile.print(",");
-    dataFile.print(xMag);
+    dataFile.print(IMU.xMag);
     dataFile.print(",");
-    dataFile.print(yMag);
+    dataFile.print(IMU.yMag);
     dataFile.print(",");
-    dataFile.print(calibx);
+    dataFile.print(IMU.calibx);
     dataFile.print(",");
-    dataFile.print(caliby);
+    dataFile.print(IMU.caliby);
     dataFile.print(",");
     dataFile.print(x);
     dataFile.print(",");
@@ -1020,14 +1020,14 @@ void LogToSDCard() {
   unsigned long commStart;
   unsigned long commStop;
 
-  sendData.writeToTwelite();//send HK firstly
+  sendData.writeToTwelite(IMU,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);//send HK firstly
   Serial.println("Data transmission");
 
   commStop = millis();
   while (1) { //then go into waiting loop for ACK or NACK
     commStart = millis();
     if (commStart > commStop + 100) { //if 20ms passes, then send HK again
-      sendData.writeToTwelite();
+      sendData.writeToTwelite(IMU,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
       Serial.println("timeout:100ms");
       break;
     }
@@ -1045,7 +1045,7 @@ void LogToSDCard() {
           //Serial.println(Buffer);
           if (receiveData.buffRx[6] == '2') { //NACK
             Serial.print("NACK: Resending packet...");
-            sendData.writeToTwelite();
+            sendData.writeToTwelite(IMU,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
           } else if (receiveData.buffRx[6] == '1') { //ACK
             Serial.print("ACK Received!");
             break;

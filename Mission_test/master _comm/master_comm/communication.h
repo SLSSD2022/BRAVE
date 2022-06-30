@@ -1,6 +1,8 @@
 #ifndef _COMM_HEAD_
 #define _COMM_HEAD_
 
+#include "./IMU.h"
+
 //------------------------------Communication--------------------------------------------
 // Set pins for reset and Baud rate speed of Twelite
 int RST = 2;
@@ -18,7 +20,7 @@ typedef struct _txPacketData {
   uint8_t encodedTx[2 * sizeof(roverDataPacket)]; //Encoded message to be sent
   const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};
   void encodeCyclic();
-  void  writeToTwelite ();
+  void  writeToTwelite (BMX055 IMU, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
 } txPacketData;
 
 const int MaxBufferSize = 160;

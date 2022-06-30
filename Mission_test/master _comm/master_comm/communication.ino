@@ -1,6 +1,5 @@
 #include "./communication.h"
 #include "./rover.h"
-#include "./GPS.h"
 #include "./IMU.h"
 
 
@@ -12,29 +11,30 @@ void txPacketData::encodeCyclic() {
     m = this->txPacket.packetData[ctr] >> 4;
     encodedTx[2 * ctr] = ((m & 1) * this->generator[3]) ^ (((m >> 1) & 1) * this->generator[2]) ^
                          (((m >> 2) & 1) *this->generator[1]) ^ (((m >> 3) & 1) * this->generator[0]);
-    //Serial.print(encodedTx[2*ctr],HEX);
+    //Serial.print(this->encodedTx[2*ctr],HEX);
     m = this->txPacket.packetData[ctr];
     encodedTx[2 * ctr + 1] = ((m & 1) * this->generator[3]) ^ (((m >> 1) & 1) * this->generator[2]) ^
                              (((m >> 2) & 1) * this->generator[1]) ^ (((m >> 3) & 1) * this->generator[0]);
-    //Serial.println(encodedTx[2*ctr+1],HEX);
+    //Serial.println(this->encodedTx[2*ctr+1],HEX);
     ctr++;
   }
 }
 
-void  txPacketData::writeToTwelite () {
+void  txPacketData::writeToTwelite (BMX055 IMU, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime) 
+{
   int ctr1 = 0;
-  this->txPacket.message.setAllData(xMag,yMag,calibx,caliby,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
+  this->txPacket.message.setAllData(IMU,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
   this->txPacket.message.printAllData();
   this->encodeCyclic();
   Serial2.print(":000100");
   //Serial.print(":000100");
   while (ctr1 < 2 * sizeof(roverDataPacket)) {
-    if ((uint8_t)this->encodedTx[ctr1] < 16) {
+    if ((uint8_t)(this->encodedTx[ctr1]) < 16) {
       Serial2.print("0");
       //Serial.print("0");
     }
     Serial2.print(this->encodedTx[ctr1], HEX);
-    //Serial.print(encodedTx[ctr1],HEX);
+    //Serial.print(this->encodedTx[ctr1],HEX);
     ctr1++;
   }
   Serial2.print("X\r\n");
@@ -43,7 +43,7 @@ void  txPacketData::writeToTwelite () {
 
 void rxPacketData::processData() {
   // character data is converted to uint8_t data here
-  // and is stored in the encodedRx[] buffer
+  // and is stored in the this->encodedRx[] buffer
   int i = 7;
   int d, e;
   int checker;
