@@ -1,7 +1,7 @@
 #include "./IMU.h"
 
 //===========9axis sensor function==========================================================================//
-void BMX055::init()
+void bmx055::init()
 {
   //------------------------------------------------------------//
   Wire.beginTransmission(Addr_Gyro);
@@ -65,7 +65,7 @@ void BMX055::init()
 }
 
 
-void BMX055::getGyro()
+void bmx055::getGyro()
 {
   unsigned int data[6];
   for (int i = 0; i < 6; i++)
@@ -96,7 +96,7 @@ void BMX055::getGyro()
 }
 
 
-void BMX055::getMag()
+void bmx055::getMag()
 {
   unsigned int data[8];
   for (int i = 0; i < 8; i++)

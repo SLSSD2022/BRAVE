@@ -25,9 +25,9 @@ typedef struct _roverData: roverDataPacket{
   void initializeRoverComsStat();
   void updateRoverComsStat(boolean changeGoalStat, byte statusUpdate);
   void printRoverComsStat();
-  void setMag(BMX055 IMU);
+  void setMag(bmx055 imu);
   void printMag();
-  void setCalib(BMX055 IMU);
+  void setCalib(bmx055 imu);
   void printCalib();
   void setAttitude(float x);
   void printAttitude();
@@ -41,7 +41,7 @@ typedef struct _roverData: roverDataPacket{
   void printControlStatus();
   void setTime(unsigned long int overallTime);
   void printTime();
-  void setAllData(BMX055 IMU, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
+  void setAllData(bmx055 imu, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
   void printAllData();
 } roverData;
 

@@ -7,7 +7,7 @@
 // I2C address for BMX055 Magnetic
 #define Addr_Mag 0x13 // (JP1,JP2,JP3 = Openの時)
 
-typedef struct _BMX055 {
+typedef struct _bmx055 {
   float xGyro;
   float yGyro;
   float zGyro;
@@ -23,8 +23,8 @@ typedef struct _BMX055 {
   void init();
   void getGyro();
   void getMag();
-} BMX055;
+} bmx055;
 
-BMX055 IMU = {0.00, 0.00, 0.00, 0, 0, 0, 175, 20, 132};
+bmx055 imu = {0.00, 0.00, 0.00, 0, 0, 0, 175, 20, 132};
 
 #endif

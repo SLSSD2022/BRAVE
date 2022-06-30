@@ -23,10 +23,10 @@ void roverData::printRoverComsStat()
   Serial.println(this->roverComsStat);
 }
 
-void roverData::setMag(BMX055 IMU)
+void roverData::setMag(bmx055 imu)
 {
-  this->xMag = IMU.xMag;
-  this->yMag = IMU.yMag;
+  this->xMag = imu.xMag;
+  this->yMag = imu.yMag;
 }
 
 void roverData::printMag()
@@ -37,10 +37,10 @@ void roverData::printMag()
   Serial.println(this->yMag);
 }
 
-void roverData::setCalib(BMX055 IMU)
+void roverData::setCalib(bmx055 imu)
 {
-  this->calibx = IMU.calibx;
-  this->caliby = IMU.caliby;
+  this->calibx = imu.calibx;
+  this->caliby = imu.caliby;
 }
 
 void roverData::printCalib()
@@ -117,11 +117,11 @@ void roverData::printTime()
   Serial.println(this->time);
 }
 
-void roverData::setAllData(BMX055 IMU, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime)
+void roverData::setAllData(bmx055 imu, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime)
 {
   this->roverComsStat = 4;
-  this->setMag(IMU);
-  this->setCalib(IMU);
+  this->setMag(imu);
+  this->setCalib(imu);
   this->setAttitude(x);
   this->setDistByLIDAR(cm_LIDAR);
   this->setPosition(latR, lngR);

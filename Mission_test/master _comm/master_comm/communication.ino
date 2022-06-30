@@ -1,6 +1,6 @@
 #include "./communication.h"
 
-//=========Communication function============================================================================//
+//=========Communibmx055cation function============================================================================//
 void txPacketData::encodeCyclic() {
   uint8_t ctr = 0;
   uint8_t m;
@@ -17,10 +17,10 @@ void txPacketData::encodeCyclic() {
   }
 }
 
-void  txPacketData::writeToTwelite (BMX055 IMU, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime) 
+void  txPacketData::writeToTwelite (bmx055 imu, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime) 
 {
   int ctr1 = 0;
-  this->txPacket.message.setAllData(IMU,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
+  this->txPacket.message.setAllData(imu,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
   this->txPacket.message.printAllData();
   this->encodeCyclic();
   Serial2.print(":000100");

@@ -80,13 +80,13 @@ float EEPROM_read_float(int addr_device, unsigned int addr_res) {
 }
 
 void LogToEEPROM() {
-  EEPROM_write_int(addrEEPROM, addrData, IMU.xMag);
+  EEPROM_write_int(addrEEPROM, addrData, imu.xMag);
   addrData += 2;
-  EEPROM_write_int(addrEEPROM, addrData, IMU.yMag);
+  EEPROM_write_int(addrEEPROM, addrData, imu.yMag);
   addrData += 2;
-  EEPROM_write_int(addrEEPROM, addrData, IMU.calibx);
+  EEPROM_write_int(addrEEPROM, addrData, imu.calibx);
   addrData += 2;
-  EEPROM_write_int(addrEEPROM, addrData, IMU.caliby);
+  EEPROM_write_int(addrEEPROM, addrData, imu.caliby);
   addrData += 2;
   EEPROM_write_float(addrEEPROM, addrData, x);
   addrData += 4;
