@@ -144,7 +144,7 @@ boolean rxPacketData::receiveGPS(){
           Serial.println("---------------------------------------------------------------------");
 
 
-          eeprom.LogGPSdata();//log the gps data of destination to EEPROM
+          eeprom.logGPSdata();//log the gps data of destination to EEPROM
           Serial2.print(":000101X\r\n"); //Send ACK to MC
           return true;
         }

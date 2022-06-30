@@ -130,6 +130,9 @@ void setup()
     ; // wait for serial port to connect. Needed for native USB port only
   }
 
+  // EEPROM
+  eeprom.init();
+  
   //SDcard Initialization
   pinMode(SDSW, INPUT_PULLUP);
   //  while (1) {
@@ -390,7 +393,7 @@ void loop()
   //---------------------Logger------------------------------------------------------
   //  LogToSDCard();
   if (memoryFlag > 5) {
-    eeprom.Log();
+    eeprom.log();
     memoryFlag = 0;
   }
   else {
@@ -440,9 +443,9 @@ void goalCalculation() {
     goalRoute[i] = i + 1;
   }
   sortRange(range, goalRoute); //root = [1,2,3]
-  eeprom.write(eeprom.addrEEPROM, 24, (byte)goalRoute[0]);
-  eeprom.write(eeprom.addrEEPROM, 25, (byte)goalRoute[1]);
-  eeprom.write(eeprom.addrEEPROM, 26, (byte)goalRoute[2]);
+  eeprom.write(24, (byte)goalRoute[0]);
+  eeprom.write(25, (byte)goalRoute[1]);
+  eeprom.write(26, (byte)goalRoute[2]);
   return;
 }
 
@@ -464,7 +467,7 @@ void sortRange(unsigned int* data, unsigned int* array) {
 void successManagement() {
   if (roverStatus.toGoal < 3) {
     roverSuccess.goalGPS = roverStatus.toGoal;
-    eeprom.write(eeprom.addrEEPROM, 27, (byte)roverSuccess.goalGPS); //logger
+    eeprom.write(27, (byte)roverSuccess.goalGPS); //logger
 
     int next = goalRoute[roverStatus.toGoal];//set next goal to the destination
     roverStatus.toGoal += 1;
@@ -477,7 +480,7 @@ void successManagement() {
   else if (roverStatus.toGoal == 3) {
     roverSuccess.goalGPS = roverStatus.toGoal;
     roverSuccess.full = 1;
-    eeprom.write(eeprom.addrEEPROM, 27, (byte)roverSuccess.goalGPS); //logger//logger
+    eeprom.write(27, (byte)roverSuccess.goalGPS); //logger//logger
 
     roverStatus.near = 0;
     roverStatus.search = 0;

@@ -2,9 +2,21 @@
 #include <Wire.h>
 
 //============EEPROM function=========================================================================//
-void EEPROM::write(int addr_device, unsigned int addr_res, byte data )
+
+void EEPROM::init()
 {
-  Wire.beginTransmission(addr_device);
+  this->addrEEPROM = 0x50; //24lC1025の場合1010000(前半)or1010100(後半)を選べる
+  this->addrData = 30; //書き込むレジスタ(0x0000~0xFFFF全部使える) (0~30は目的地のGPSデータとステータスを保管する)
+}
+
+void EEPROM::setAddr(uint8_t addr)
+{
+  this->addrEEPROM = addr;
+}
+
+void EEPROM::write(unsigned int addr_res, byte data )
+{
+  Wire.beginTransmission(this->addrEEPROM);
   Wire.write((int)(addr_res >> 8));   // MSB
   Wire.write((int)(addr_res & 0xFF)); // LSB
   Wire.write(data);
@@ -12,40 +24,40 @@ void EEPROM::write(int addr_device, unsigned int addr_res, byte data )
   delay(5);//この遅延はどうやら必要っぽい
 }
 
-void EEPROM::writeInt(int addr_device, unsigned int addr_res, int data) {
+void EEPROM::writeInt(unsigned int addr_res, int data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
   for (i = 0; i < (int)sizeof(data); i++) {
     //    Serial.print(i+1);
     //    Serial.print("th byte:");
     //    Serial.println(p[i]);
-    this->write(addr_device, addr_res + i, p[i]);
+    this->write(addr_res + i, p[i]);
   }
   //  Serial.println("");
 }
 
 
-void EEPROM::writeLong(int addr_device, unsigned int addr_res, unsigned long data) {
+void EEPROM::writeLong(unsigned int addr_res, unsigned long data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
   for (i = 0; i < (int)sizeof(data); i++) {
     //    Serial.print(i+1);
     //    Serial.print("th byte:");
     //    Serial.println(p[i]);
-    this->write(addr_device, addr_res + i, p[i]);
+    this->write(addr_res + i, p[i]);
   }
   //  Serial.println("");
 }
 
 
-void EEPROM::writeFloat(int addr_device, unsigned int addr_res, float data) {
+void EEPROM::writeFloat(unsigned int addr_res, float data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
   for (i = 0; i < (int)sizeof(data); i++) {
     //    Serial.print(i+1);
     //    Serial.print("th byte:");
     //    Serial.println(p[i]);
-    this->write(addr_device, addr_res + i, p[i]);
+    this->write(addr_res + i, p[i]);
   }
   //  Serial.println("");
 }
@@ -79,37 +91,37 @@ float EEPROM::readFloat(int addr_device, unsigned int addr_res) {
   return data;
 }
 
-void EEPROM::Log() {
-  this->writeInt(this->addrEEPROM, this->addrData, imu.xMag);
+void EEPROM::log() {
+  this->writeInt(this->addrData, imu.xMag);
   this->addrData += 2;
-  this->writeInt(this->addrEEPROM, this->addrData, imu.yMag);
+  this->writeInt(this->addrData, imu.yMag);
   this->addrData += 2;
-  this->writeInt(this->addrEEPROM, this->addrData, imu.calibx);
+  this->writeInt(this->addrData, imu.calibx);
   this->addrData += 2;
-  this->writeInt(this->addrEEPROM, this->addrData, imu.caliby);
+  this->writeInt(this->addrData, imu.caliby);
   this->addrData += 2;
-  this->writeFloat(this->addrEEPROM, this->addrData, x);
+  this->writeFloat(this->addrData, x);
   this->addrData += 4;
-  this->writeInt(this->addrEEPROM, this->addrData, cm_long);
+  this->writeInt(this->addrData, cm_long);
   this->addrData += 2;
-  this->writeFloat(this->addrEEPROM, this->addrData, latR);
+  this->writeFloat(this->addrData, latR);
   this->addrData += 4;
-  this->writeFloat(this->addrEEPROM, this->addrData, lngR);
+  this->writeFloat(this->addrData, lngR);
   this->addrData += 4;
-  this->writeFloat(this->addrEEPROM, this->addrData, degRtoA);
+  this->writeFloat(this->addrData, degRtoA);
   this->addrData += 4;
-  this->write(this->addrEEPROM, this->addrData, (byte)controlStatus);
+  this->write(this->addrData, (byte)controlStatus);
   this->addrData += 2;
   overallTime = millis();
-  this->writeLong(this->addrEEPROM, this->addrData, overallTime);
+  this->writeLong(this->addrData, overallTime);
   this->addrData += 4;
 }
 
-void EEPROM::LogGPSdata() {
-  this->writeFloat(this->addrEEPROM, 0, receiveData.rxData.gpsData.latA[0]);
-  this->writeFloat(this->addrEEPROM, 4, receiveData.rxData.gpsData.lngA[0]);
-  this->writeFloat(this->addrEEPROM, 8, receiveData.rxData.gpsData.latA[1]);
-  this->writeFloat(this->addrEEPROM, 12, receiveData.rxData.gpsData.lngA[1]);
-  this->writeFloat(this->addrEEPROM, 16, receiveData.rxData.gpsData.latA[2]);
-  this->writeFloat(this->addrEEPROM, 20, receiveData.rxData.gpsData.lngA[2]);
+void EEPROM::logGPSdata() {
+  this->writeFloat(0, receiveData.rxData.gpsData.latA[0]);
+  this->writeFloat(4, receiveData.rxData.gpsData.lngA[0]);
+  this->writeFloat(8, receiveData.rxData.gpsData.latA[1]);
+  this->writeFloat(12, receiveData.rxData.gpsData.lngA[1]);
+  this->writeFloat(16, receiveData.rxData.gpsData.latA[2]);
+  this->writeFloat(20, receiveData.rxData.gpsData.lngA[2]);
 }

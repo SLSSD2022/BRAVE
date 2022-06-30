@@ -5,16 +5,18 @@
 //デバイスアドレス(スレーブ)
 class EEPROM {
   public:
-    uint8_t addrEEPROM = 0x50;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
-    unsigned int addrData = 30; //書き込むレジスタ(0x0000~0xFFFF全部使える) (0~30は目的地のGPSデータとステータスを保管する)
-    void write(int addr_device, unsigned int addr_res, byte data );
-    void writeInt(int addr_device, unsigned int addr_res, int data);
-    void writeLong(int addr_device, unsigned int addr_res, unsigned long data);
-    void writeFloat(int addr_device, unsigned int addr_res, float data);
+    uint8_t addrEEPROM;
+    unsigned int addrData;
+    void init();
+    void setAddr(uint8_t addr);
+    void write(unsigned int addr_res, byte data );
+    void writeInt(unsigned int addr_res, int data);
+    void writeLong(unsigned int addr_res, unsigned long data);
+    void writeFloat(unsigned int addr_res, float data);
     byte read(int addr_device, unsigned int addr_res );
     float readFloat(int addr_device, unsigned int addr_res);
-    void Log();
-    void LogGPSdata();
+    void log();
+    void logGPSdata();
 };
 
 #endif
