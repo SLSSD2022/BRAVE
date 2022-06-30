@@ -92,6 +92,7 @@ void setup()
   //    Serial.println(cm_long);
   //    delay(1000);
   //  }
+  sendData.txPacket.message.initializeRoverComsStat();
 
   //超音波センサ
   pinMode(HEAD_Trig, OUTPUT);
@@ -186,12 +187,12 @@ void loop()
       Serial.println("initial Mode: waiting for GPS...");
       stopi = millis();
     }
-    if(receiveGPS()){
+    if(receiveData.receiveGPS()){
       goalCalculation();//calculate distance to goals and decide root
 
       int first = goalRoute[0];//set first goal to the destination
-      LatA = dataRx.gpsData.latA[first];
-      LngA = dataRx.gpsData.lngA[first];
+      LatA = receiveData.rxData.gpsData.latA[first];
+      LngA = receiveData.rxData.gpsData.lngA[first];
 
       roverStatus.initial = 0;
       roverStatus.toGoal = 1;
@@ -342,8 +343,6 @@ void loop()
     }
   }
 
-
-
   //---------------------Motor Control--------------------------------------------------
   if (stopFlag == 1) {
     //ブレーキ
@@ -439,7 +438,7 @@ void goalCalculation() {
   unsigned int range[3];
   updateGPSlocation();
   for (int i = 0; i < 3 ; i++) {
-    range[i] = gps.distanceBetween(latR, lngR, dataRx.gpsData.latA[i], dataRx.gpsData.lngA[i]);
+    range[i] = gps.distanceBetween(latR, lngR, receiveData.rxData.gpsData.latA[i], receiveData.rxData.gpsData.lngA[i]);
     goalRoute[i] = i + 1;
   }
   sortRange(range, goalRoute); //root = [1,2,3]
@@ -471,8 +470,8 @@ void successManagement() {
 
     int next = goalRoute[roverStatus.toGoal];//set next goal to the destination
     roverStatus.toGoal += 1;
-    LatA = dataRx.gpsData.latA[next];
-    LngA = dataRx.gpsData.lngA[next];
+    LatA = receiveData.rxData.gpsData.latA[next];
+    LngA = receiveData.rxData.gpsData.lngA[next];
 
     roverStatus.near = 0;
     roverStatus.search = 0;
@@ -1014,4 +1013,48 @@ void LogToSDCard() {
     Serial.println("error opening datalog.txt");
   }
 
+}
+
+//---------------------Communication--------------------------
+  void commToGS() {
+  unsigned long commStart;
+  unsigned long commStop;
+
+  sendData.writeToTwelite();//send HK firstly
+  Serial.println("Data transmission");
+
+  commStop = millis();
+  while (1) { //then go into waiting loop for ACK or NACK
+    commStart = millis();
+    if (commStart > commStop + 100) { //if 20ms passes, then send HK again
+      sendData.writeToTwelite();
+      Serial.println("timeout:100ms");
+      break;
+    }
+    if (Serial2.available() > 0) {
+      char c = Serial2.read();
+      if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) {
+        receiveData.buffRx[bufferPos] = c;
+        bufferPos++;
+      }
+      else
+      {
+        receiveData.buffRx[bufferPos] = '\0';
+        //Checks
+        if (receiveData.buffRx[3] == '0' && receiveData.buffRx[4] == '1' && receiveData.buffRx[5] == '0') { //Arbitrary packet for Rover
+          //Serial.println(Buffer);
+          if (receiveData.buffRx[6] == '2') { //NACK
+            Serial.print("NACK: Resending packet...");
+            sendData.writeToTwelite();
+          } else if (receiveData.buffRx[6] == '1') { //ACK
+            Serial.print("ACK Received!");
+            break;
+          }
+        }
+        //Serial.println(buffRx);
+        bufferPos = 0;
+      }
+    }
+  }
+  bufferPos = 0;
 }

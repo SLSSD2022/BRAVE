@@ -106,10 +106,10 @@ void LogToEEPROM() {
 }
 
 void LogGPSdata() {
-  EEPROM_write_float(addrEEPROM, 0, dataRx.gpsData.latA[0]);
-  EEPROM_write_float(addrEEPROM, 4, dataRx.gpsData.lngA[0]);
-  EEPROM_write_float(addrEEPROM, 8, dataRx.gpsData.latA[1]);
-  EEPROM_write_float(addrEEPROM, 12, dataRx.gpsData.lngA[1]);
-  EEPROM_write_float(addrEEPROM, 16, dataRx.gpsData.latA[2]);
-  EEPROM_write_float(addrEEPROM, 20, dataRx.gpsData.lngA[2]);
+  EEPROM_write_float(addrEEPROM, 0, receiveData.rxData.gpsData.latA[0]);
+  EEPROM_write_float(addrEEPROM, 4, receiveData.rxData.gpsData.lngA[0]);
+  EEPROM_write_float(addrEEPROM, 8, receiveData.rxData.gpsData.latA[1]);
+  EEPROM_write_float(addrEEPROM, 12, receiveData.rxData.gpsData.lngA[1]);
+  EEPROM_write_float(addrEEPROM, 16, receiveData.rxData.gpsData.latA[2]);
+  EEPROM_write_float(addrEEPROM, 20, receiveData.rxData.gpsData.lngA[2]);
 }
