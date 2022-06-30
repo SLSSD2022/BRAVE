@@ -4,7 +4,7 @@
 #include <SD.h>
 #include "./rover.h"
 #include "./communication.h"
-
+#include "./EEPROM.h"
 //------------------------------LIDAR sensor------------------------------
 //LIDAR
 unsigned int cm_LIDAR = 0;
@@ -28,6 +28,8 @@ float x; //ローバーの慣性姿勢角
 float deltaTheta;//目的方向と姿勢の相対角度差
 int threshold = 10; //角度の差分の閾値
 int spinThreshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
+
+EEPROM eeprom;
 
 //9axis filter
 //姿勢フィルターバッファの長さ
@@ -388,7 +390,7 @@ void loop()
   //---------------------Logger------------------------------------------------------
   //  LogToSDCard();
   if (memoryFlag > 5) {
-    LogToEEPROM();
+    eeprom.Log();
     memoryFlag = 0;
   }
   else {
@@ -438,9 +440,9 @@ void goalCalculation() {
     goalRoute[i] = i + 1;
   }
   sortRange(range, goalRoute); //root = [1,2,3]
-  writeEEPROM(addrEEPROM, 24, (byte)goalRoute[0]);
-  writeEEPROM(addrEEPROM, 25, (byte)goalRoute[1]);
-  writeEEPROM(addrEEPROM, 26, (byte)goalRoute[2]);
+  eeprom.write(eeprom.addrEEPROM, 24, (byte)goalRoute[0]);
+  eeprom.write(eeprom.addrEEPROM, 25, (byte)goalRoute[1]);
+  eeprom.write(eeprom.addrEEPROM, 26, (byte)goalRoute[2]);
   return;
 }
 
@@ -462,7 +464,7 @@ void sortRange(unsigned int* data, unsigned int* array) {
 void successManagement() {
   if (roverStatus.toGoal < 3) {
     roverSuccess.goalGPS = roverStatus.toGoal;
-    writeEEPROM(addrEEPROM, 27, (byte)roverSuccess.goalGPS); //logger
+    eeprom.write(eeprom.addrEEPROM, 27, (byte)roverSuccess.goalGPS); //logger
 
     int next = goalRoute[roverStatus.toGoal];//set next goal to the destination
     roverStatus.toGoal += 1;
@@ -475,7 +477,7 @@ void successManagement() {
   else if (roverStatus.toGoal == 3) {
     roverSuccess.goalGPS = roverStatus.toGoal;
     roverSuccess.full = 1;
-    writeEEPROM(addrEEPROM, 27, (byte)roverSuccess.goalGPS); //logger//logger
+    eeprom.write(eeprom.addrEEPROM, 27, (byte)roverSuccess.goalGPS); //logger//logger
 
     roverStatus.near = 0;
     roverStatus.search = 0;
