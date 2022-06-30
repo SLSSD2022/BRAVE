@@ -1,7 +1,4 @@
 #include "./communication.h"
-#include "./rover.h"
-#include "./IMU.h"
-
 
 //=========Communication function============================================================================//
 void txPacketData::encodeCyclic() {

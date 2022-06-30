@@ -1,7 +1,7 @@
 #ifndef _COMM_HEAD_
 #define _COMM_HEAD_
 
-#include "./IMU.h"
+#include "./rover.h"
 
 //------------------------------Communication--------------------------------------------
 // Set pins for reset and Baud rate speed of Twelite
