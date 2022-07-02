@@ -5,7 +5,6 @@
 #include "./GPS.h"
 #include "./EEPROM.h"
 #include "./UltrasonicSensor.h"
-#include "./LIDAR.h"
 
 typedef struct _roverDataPacket {
   uint8_t roverComsStat;

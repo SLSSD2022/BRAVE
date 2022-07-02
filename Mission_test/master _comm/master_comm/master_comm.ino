@@ -6,6 +6,10 @@
 #include "./communication.h"
 #include "./EEPROM.h"
 
+//------------------------------LIDAR sensor------------------------------
+//LIDAR
+unsigned int cm_LIDAR = 0;
+
 //------------------------------Motor------------------------------
 const int ENABLE = 8;
 const int CH1 = 9;
@@ -211,7 +215,7 @@ void loop()
   }
 
   //---------------------LIDARセンサ取得--------------------------------------------------
-  cm_LIDAR = getLIDAR();
+  cm_LIDAR = getLIDAR(cm_LIDAR);
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
   obstacleDistance = getUltrasonic_HEAD();
