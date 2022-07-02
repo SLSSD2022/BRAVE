@@ -23,7 +23,8 @@ typedef struct _roverDataPacket {
 
 typedef struct _roverData: roverDataPacket{
   void initializeRoverComsStat();
-  void updateRoverComsStat(boolean changeGoalStat, byte statusUpdate);
+  void updateRoverComsStat(byte statusUpdate);
+  void updateGoalStat();
   void printRoverComsStat();
   void setMag(bmx055 imu);
   void printMag();

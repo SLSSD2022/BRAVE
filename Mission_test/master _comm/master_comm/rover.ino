@@ -5,15 +5,17 @@ void roverData::initializeRoverComsStat()
   this->roverComsStat = 0;
 }
 
-void roverData::updateRoverComsStat(boolean changeGoalStat, byte statusUpdate)
+void roverData::updateRoverComsStat(byte statusUpdate)
 {
   this->roverComsStat = this->roverComsStat | (uint8_t) statusUpdate;
-  if (changeGoalStat){
-    this->roverComsStat += 4;
-    if (((byte)(this->roverComsStat) >> 2 & 0b111) == 0b110)
-    {
-      this->roverComsStat += 1;
-    }
+}
+
+void roverData::updateGoalStat()
+{
+  this->roverComsStat += 4;
+  if (((byte)(this->roverComsStat) >> 2 & 0b111) == 0b110)
+  {
+    this->roverComsStat += 1;
   }
 }
 
