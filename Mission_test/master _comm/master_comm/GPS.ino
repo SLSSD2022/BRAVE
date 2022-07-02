@@ -16,6 +16,6 @@ void updateGPSlocation() {
       break;
     }
     //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
-    delay(1);
+    delay(10);
   }
 }
