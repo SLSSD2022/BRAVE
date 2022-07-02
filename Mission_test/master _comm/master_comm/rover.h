@@ -21,30 +21,37 @@ typedef struct _roverDataPacket {
   unsigned long int time;
 } roverDataPacket;
 
-typedef struct _roverData: roverDataPacket{
-  void initializeRoverComsStat();
-  void updateRoverComsStat(byte statusUpdate);
-  void updateGoalStat();
-  void printRoverComsStat();
-  void setMag(bmx055 imu);
-  void printMag();
-  void setCalib(bmx055 imu);
-  void printCalib();
-  void setAttitude(float x);
-  void printAttitude();
-  void setDistByLIDAR(uint16_t cm_LIDAR);
-  void printDistByLIDAR();
-  void setPosition(float latR, float lngR);
-  void printPosition();
-  void setDegRtoA(float degRtoA);
-  void printDegRtoA();
-  void setControlStatus(byte controlStatus);
-  void printControlStatus();
-  void setTime(unsigned long int overallTime);
-  void printTime();
-  void setAllData(bmx055 imu, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
-  void printAllData();
-} roverData;
+typedef union _packetData {
+  roverDataPacket message;
+  unsigned char packetData[sizeof(roverDataPacket)];
+} packetData;
+
+class Rover{
+  public:
+    packetData roverPacketData;
+    void initializeRoverComsStat();
+    void updateRoverComsStat(byte statusUpdate);
+    void updateGoalStat();
+    void printRoverComsStat();
+    void setMag(bmx055 imu);
+    void printMag();
+    void setCalib(bmx055 imu);
+    void printCalib();
+    void setAttitude(float x);
+    void printAttitude();
+    void setDistByLIDAR(uint16_t cm_LIDAR);
+    void printDistByLIDAR();
+    void setPosition(float latR, float lngR);
+    void printPosition();
+    void setDegRtoA(float degRtoA);
+    void printDegRtoA();
+    void setControlStatus(byte controlStatus);
+    void printControlStatus();
+    void setTime(unsigned long int overallTime);
+    void printTime();
+    void setAllData(bmx055 imu, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
+    void printAllData();
+};
 
 ///-----------------------------Control Status, HK-----------------------------
 typedef struct _modeStruct {

@@ -1,127 +1,127 @@
 #include "./rover.h"
 
-void roverData::initializeRoverComsStat()
+void Rover::initializeRoverComsStat()
 {
-  this->roverComsStat = 0;
+  this->roverPacketData.message.roverComsStat = 0;
 }
 
-void roverData::updateRoverComsStat(byte statusUpdate)
+void Rover::updateRoverComsStat(byte statusUpdate)
 {
-  this->roverComsStat = this->roverComsStat | (uint8_t) statusUpdate;
+  this->roverPacketData.message.roverComsStat = this->roverPacketData.message.roverComsStat | (uint8_t) statusUpdate;
 }
 
-void roverData::updateGoalStat()
+void Rover::updateGoalStat()
 {
-  this->roverComsStat += 4;
-  if (((byte)(this->roverComsStat) >> 2 & 0b111) == 0b110)
+  this->roverPacketData.message.roverComsStat += 4;
+  if (((byte)(this->roverPacketData.message.roverComsStat) >> 2 & 0b111) == 0b110)
   {
-    this->roverComsStat += 1;
+    this->roverPacketData.message.roverComsStat += 1;
   }
 }
 
-void roverData::printRoverComsStat()
+void Rover::printRoverComsStat()
 {
   Serial.print("roverComsStat:");
-  Serial.println(this->roverComsStat);
+  Serial.println(this->roverPacketData.message.roverComsStat);
 }
 
-void roverData::setMag(bmx055 imu)
+void Rover::setMag(bmx055 imu)
 {
-  this->xMag = imu.xMag;
-  this->yMag = imu.yMag;
+  this->roverPacketData.message.xMag = imu.xMag;
+  this->roverPacketData.message.yMag = imu.yMag;
 }
 
-void roverData::printMag()
+void Rover::printMag()
 {
   Serial.print("xMag:");
-  Serial.println(this->xMag);
+  Serial.println(this->roverPacketData.message.xMag);
   Serial.print("yMag:");
-  Serial.println(this->yMag);
+  Serial.println(this->roverPacketData.message.yMag);
 }
 
-void roverData::setCalib(bmx055 imu)
+void Rover::setCalib(bmx055 imu)
 {
-  this->calibx = imu.calibx;
-  this->caliby = imu.caliby;
+  this->roverPacketData.message.calibx = imu.calibx;
+  this->roverPacketData.message.caliby = imu.caliby;
 }
 
-void roverData::printCalib()
+void Rover::printCalib()
 {
   Serial.print("calibx:");
-  Serial.println(this->calibx);
+  Serial.println(this->roverPacketData.message.calibx);
   Serial.print("caliby:");
-  Serial.println(this->caliby);
+  Serial.println(this->roverPacketData.message.caliby);
 }
 
-void roverData::setAttitude(float x)
+void Rover::setAttitude(float x)
 {
-  this->x = x;
+  this->roverPacketData.message.x = x;
 }
 
-void roverData::printAttitude()
+void Rover::printAttitude()
 {
   Serial.print("x:");
-  Serial.println(this->x);
+  Serial.println(this->roverPacketData.message.x);
 }
-void roverData::setDistByLIDAR(uint16_t cm_LIDAR)
+void Rover::setDistByLIDAR(uint16_t cm_LIDAR)
 {
-  this->cmLong = cm_LIDAR;
+  this->roverPacketData.message.cmLong = cm_LIDAR;
 }
 
-void roverData::printDistByLIDAR()
+void Rover::printDistByLIDAR()
 {
   Serial.print("cm_long:");
-  Serial.println(this->cmLong);
+  Serial.println(this->roverPacketData.message.cmLong);
 }
 
-void roverData::setPosition(float latR, float lngR)
+void Rover::setPosition(float latR, float lngR)
 {
-  this->latR = latR;
-  this->lngR = lngR;
+  this->roverPacketData.message.latR = latR;
+  this->roverPacketData.message.lngR = lngR;
 }
-void roverData::printPosition()
+void Rover::printPosition()
 {
   Serial.print("latR:");
-  Serial.println(this->latR);
+  Serial.println(this->roverPacketData.message.latR);
   Serial.print("lngR:");
-  Serial.println(this->lngR);
+  Serial.println(this->roverPacketData.message.lngR);
 }
-void roverData::setDegRtoA(float degRtoA)
+void Rover::setDegRtoA(float degRtoA)
 {
-  this->degRtoA = degRtoA;
+  this->roverPacketData.message.degRtoA = degRtoA;
 }
 
-void roverData::printDegRtoA()
+void Rover::printDegRtoA()
 {
   Serial.print("degRtoA:");
-  Serial.println(this->degRtoA);
+  Serial.println(this->roverPacketData.message.degRtoA);
 }
 
-void roverData::setControlStatus(byte controlStatus)
+void Rover::setControlStatus(byte controlStatus)
 {
-  this->statusControl = controlStatus;
+  this->roverPacketData.message.statusControl = controlStatus;
 }
 
-void roverData::printControlStatus()
+void Rover::printControlStatus()
 {
   Serial.print("controlStatus:");
-  Serial.println(this->statusControl);
+  Serial.println(this->roverPacketData.message.statusControl);
 }
 
-void roverData::setTime(unsigned long int overallTime)
+void Rover::setTime(unsigned long int overallTime)
 {
-  this->time = overallTime;
+  this->roverPacketData.message.time = overallTime;
 }
 
-void roverData::printTime()
+void Rover::printTime()
 {
   Serial.print("time:");
-  Serial.println(this->time);
+  Serial.println(this->roverPacketData.message.time);
 }
 
-void roverData::setAllData(bmx055 imu, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime)
+void Rover::setAllData(bmx055 imu, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime)
 {
-  this->roverComsStat = 4;
+  this->roverPacketData.message.roverComsStat = 4;
   this->setMag(imu);
   this->setCalib(imu);
   this->setAttitude(x);
@@ -132,7 +132,7 @@ void roverData::setAllData(bmx055 imu, float x, uint16_t cm_LIDAR, float latR, f
   this->setTime(overallTime);
 }
 
-void roverData::printAllData()
+void Rover::printAllData()
 {
   this->printRoverComsStat();
   this->printMag();

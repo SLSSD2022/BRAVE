@@ -93,7 +93,7 @@ void setup()
   //    Serial.println(cm_long);
   //    delay(1000);
   //  }
-  sendData.txPacket.message.initializeRoverComsStat();
+  sendData.initializeRoverComsStat();
 
   //超音波センサ
   ultrasonicSensor.init();

@@ -10,18 +10,14 @@ int BPS = 3; // if HIGH set Baud rate to 115200 at MWSerial, if LOW to 38400
 
 //Define Structures for receiving and Handling Rover data
 
-typedef union _packetData {
-  roverData message;
-  unsigned char packetData[sizeof(roverDataPacket)];
-} packetData;
-
-typedef struct _txPacketData {
-  packetData txPacket;
-  uint8_t encodedTx[2 * sizeof(roverDataPacket)]; //Encoded message to be sent
-  const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};
-  void encodeCyclic();
-  void  writeToTwelite (bmx055 imu, float x, uint16_t distance, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
-} txPacketData;
+class TxPacketData : public Rover{
+  private:
+    uint8_t encodedTx[2 * sizeof(roverDataPacket)]; //Encoded message to be sent
+    const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};
+  public:
+    void encodeCyclic();
+    void  writeToTwelite (bmx055 imu, float x, uint16_t distance, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
+};
 
 const int MaxBufferSize = 160;
 typedef struct _rxPacketData {
@@ -39,7 +35,7 @@ typedef struct _rxPacketData {
 void Parse();
 int bufferPos = 0;
 
-txPacketData sendData; //Packet to be coded and then written to twelite
+TxPacketData sendData; //Packet to be coded and then written to twelite
 // packetData packetTx;//Packet to be coded and then written to twelite
 rxPacketData receiveData; //Received packet with GPS data
 // gpsPacketUnion dataRx;//Received packet with GPS data

@@ -1,15 +1,15 @@
 #include "./communication.h"
 
 //=========Communibmx055cation function============================================================================//
-void txPacketData::encodeCyclic() {
+void TxPacketData::encodeCyclic() {
   uint8_t ctr = 0;
   uint8_t m;
   while (ctr < sizeof(roverDataPacket)) {
-    m = this->txPacket.packetData[ctr] >> 4;
+    m = this->roverPacketData.packetData[ctr] >> 4;
     encodedTx[2 * ctr] = ((m & 1) * this->generator[3]) ^ (((m >> 1) & 1) * this->generator[2]) ^
                          (((m >> 2) & 1) *this->generator[1]) ^ (((m >> 3) & 1) * this->generator[0]);
     //Serial.print(this->encodedTx[2*ctr],HEX);
-    m = this->txPacket.packetData[ctr];
+    m = this->roverPacketData.packetData[ctr];
     encodedTx[2 * ctr + 1] = ((m & 1) * this->generator[3]) ^ (((m >> 1) & 1) * this->generator[2]) ^
                              (((m >> 2) & 1) * this->generator[1]) ^ (((m >> 3) & 1) * this->generator[0]);
     //Serial.println(this->encodedTx[2*ctr+1],HEX);
@@ -17,11 +17,11 @@ void txPacketData::encodeCyclic() {
   }
 }
 
-void  txPacketData::writeToTwelite (bmx055 imu, float x, uint16_t distance, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime) 
+void  TxPacketData::writeToTwelite (bmx055 imu, float x, uint16_t distance, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime) 
 {
   int ctr1 = 0;
-  this->txPacket.message.setAllData(imu,x,distance,latR,lngR,degRtoA,controlStatus,overallTime);
-  this->txPacket.message.printAllData();
+  this->setAllData(imu,x,distance,latR,lngR,degRtoA,controlStatus,overallTime);
+  this->printAllData();
   this->encodeCyclic();
   Serial2.print(":000100");
   //Serial.print(":000100");
