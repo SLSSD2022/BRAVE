@@ -3,7 +3,7 @@ int RST = 2;
 int BPS = 3; // if HIGH set Baud rate to 115200 at MWSerial, if LOW to 38400
 
 //----------------- Define Structures for receiving and Handling Rover data--------------------------
-typedef struct Rover{
+typedef struct roverData{
   uint8_t roverComsStat;
   uint16_t xMag;
   uint16_t yMag;
@@ -19,8 +19,8 @@ typedef struct Rover{
 };
   
 typedef union packetData{
-  Rover message;
-  unsigned char packetData[sizeof(Rover)];
+  roverData message;
+  unsigned char packetData[sizeof(roverData)];
 };
 
 typedef struct gpsDataStruct{
@@ -44,7 +44,7 @@ gpsPacketUnion dataRx;                                      //Received packet wi
 
 void  writeToTwelite();
 void encodeCyclic();
-uint8_t encodedTx[2*sizeof(Rover)];            //Encoded message to be sent 
+uint8_t encodedTx[2*sizeof(roverData)];            //Encoded message to be sent 
 uint8_t encodedRX[2*sizeof(gpsDataStruct)];
 const uint8_t generator[4] = {0x46,0x23,0x17,0x0D};
 const uint8_t parityCheck[3] = {0x5C,0x72,0x39};
@@ -54,7 +54,7 @@ int start;
 int stopi;
 void readRoverData();
 void  writeToTwelite();
-char encodedReceived[2*sizeof(Rover)];
+char encodedReceived[2*sizeof(roverData)];
 
 
 void setup() {
