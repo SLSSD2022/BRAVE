@@ -230,7 +230,7 @@ void  writeToTwelite (){
   encodeCyclic();
   Serial2.print(":000100");
   //Serial.print(":000100");
-  while (ctr1<2*sizeof(Rover)){
+  while (ctr1<2*sizeof(roverData)){
     if((uint8_t)encodedTx[ctr1]<16){
       Serial2.print("0");
       //Serial.print("0");
