@@ -10,7 +10,7 @@ int BPS = 3; // if HIGH set Baud rate to 115200 at MWSerial, if LOW to 38400
 
 //Define Structures for receiving and Handling Rover data
 
-class TxPacketData : public Rover{
+class TxPacketData : public RoverData{
   private:
     uint8_t encodedTx[2 * sizeof(roverDataPacket)]; //Encoded message to be sent
     const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};

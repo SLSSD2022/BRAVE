@@ -26,7 +26,7 @@ typedef union _packetData {
   unsigned char packetData[sizeof(roverDataPacket)];
 } packetData;
 
-class Rover{
+class RoverData{
   public:
     packetData roverPacketData;
     void initializeRoverComsStat();
