@@ -6,9 +6,12 @@
 #include "./communication.h"
 #include "./EEPROM.h"
 
+
+//-----------------------------Ultrasonic sensor--------------------------------
+unsigned int obstacleDistance = 0;
+
 //------------------------------LIDAR sensor------------------------------
-//LIDAR
-unsigned int cm_LIDAR = 0;
+unsigned int distanceByLIDAR = 0;
 
 //------------------------------Motor------------------------------
 const int ENABLE = 8;
@@ -93,8 +96,7 @@ void setup()
   sendData.txPacket.message.initializeRoverComsStat();
 
   //超音波センサ
-  pinMode(HEAD_Trig, OUTPUT);
-  pinMode(HEAD_Echo, INPUT);
+  ultrasonicSensor.init();
 
   //モーター
   pinMode(CH1, OUTPUT);
@@ -127,7 +129,7 @@ void setup()
   //LIDAR uses Hardware Serial 3
   Serial3.begin(115200);
   while (!Serial3) {
-    ; // wait for serial port to connect. Needed for native USB port only
+    // wait for serial port to connect. Needed for native USB port only
   }
 
   // EEPROM
@@ -215,10 +217,10 @@ void loop()
   }
 
   //---------------------LIDARセンサ取得--------------------------------------------------
-  cm_LIDAR = getLIDAR(cm_LIDAR);
+  distanceByLIDAR = getLIDAR(distanceByLIDAR);
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
-  obstacleDistance = getUltrasonic_HEAD();
+  obstacleDistance = ultrasonicSensor.getDistance();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
   anVolt = analogRead(HEADpin);
@@ -255,7 +257,7 @@ void loop()
     }
   }
   Serial.print(":cm_LIDAR:");
-  Serial.print(cm_LIDAR);
+  Serial.print(distanceByLIDAR);
   if (obstacleDistance < emergencyStopDist) {
     stopFlag = 1;
   } else {
@@ -282,9 +284,9 @@ void loop()
       imu.calibx = xcenter_calculation();
       imu.caliby = ycenter_calculation();
       roverStatus.calibration = 0 ;
-      Serial.print(":Calib_x:");
+      Serial.print(":calib_x:");
       Serial.print(imu.calibx);
-      Serial.print(":Calib_y:");
+      Serial.print(":calib_y:");
       Serial.print(imu.caliby);
       x = angle_calculation();//このループ後半のためだけ
     }
@@ -302,12 +304,12 @@ void loop()
       }
       else {
         stopFlag = 1;//測距中は停止する
-        bufcm[measureIndex] = cm_LIDAR;
+        bufcm[measureIndex] = distanceByLIDAR;
         measureIndex = (measureIndex + 1) % MEAS_BUF_LEN;
         //バッファに値がたまったら
         if (measureIndex == 0) {
           //filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
-          listcm[searchIndex] = cm_LIDAR;//一番最後の角度がもっともらしい。
+          listcm[searchIndex] = distanceByLIDAR;//一番最後の角度がもっともらしい。
           listdeg[searchIndex] = x;//一番最後の角度がもっともらしい。
           Serial.print(":measure deg:");
           Serial.print(listdeg[searchIndex]);
@@ -940,14 +942,14 @@ void LogToSDCard() {
   unsigned long commStart;
   unsigned long commStop;
 
-  sendData.writeToTwelite(imu,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);//send HK firstly
+  sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,controlStatus,overallTime);//send HK firstly
   Serial.println("Data transmission");
 
   commStop = millis();
   while (1) { //then go into waiting loop for ACK or NACK
     commStart = millis();
     if (commStart > commStop + 100) { //if 20ms passes, then send HK again
-      sendData.writeToTwelite(imu,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
+      sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
       Serial.println("timeout:100ms");
       break;
     }
@@ -965,7 +967,7 @@ void LogToSDCard() {
           //Serial.println(Buffer);
           if (receiveData.buffRx[6] == '2') { //NACK
             Serial.print("NACK: Resending packet...");
-            sendData.writeToTwelite(imu,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
+            sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
           } else if (receiveData.buffRx[6] == '1') { //ACK
             Serial.print("ACK Received!");
             break;

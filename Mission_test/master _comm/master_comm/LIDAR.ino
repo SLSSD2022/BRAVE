@@ -1,5 +1,6 @@
 //=========LIDAR sensor function============================================================================//
 unsigned int getLIDAR(unsigned int distanceByLIDAR) {
+
   /*---------------------------------------//
   //    Data Format and Code Explanation   //
   /-----------------------------------------/
@@ -13,6 +14,7 @@ unsigned int getLIDAR(unsigned int distanceByLIDAR) {
   // Byte7: Temp_H
   // Byte8: Checksum 
   //---------------------------------------*/
+  
   unsigned int distByLidarBuf;
   int bytenum = 0;
   while (Serial2.available() > 0 && bytenum < 4)//near_flagは一時的なもの
@@ -41,7 +43,7 @@ unsigned int getLIDAR(unsigned int distanceByLIDAR) {
         //        Serial.println(c,HEX);
         distByLidarBuf += 256 * (int)c;
         //        Serial.print("distance:");
-        //        Serial.println(cm_LIDAR);
+        //        Serial.println(distanceByLIDAR);
         bytenum += 1;
         if (0 < distByLidarBuf && distByLidarBuf < 1000) {
           distanceByLIDAR = distByLidarBuf;

@@ -17,10 +17,10 @@ void txPacketData::encodeCyclic() {
   }
 }
 
-void  txPacketData::writeToTwelite (bmx055 imu, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime) 
+void  txPacketData::writeToTwelite (bmx055 imu, float x, uint16_t distance, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime) 
 {
   int ctr1 = 0;
-  this->txPacket.message.setAllData(imu,x,cm_LIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
+  this->txPacket.message.setAllData(imu,x,distance,latR,lngR,degRtoA,controlStatus,overallTime);
   this->txPacket.message.printAllData();
   this->encodeCyclic();
   Serial2.print(":000100");

@@ -2,10 +2,6 @@
 #define _ULTRASONIC_SENSOR_HEAD_
 
 //------------------------------Ultrasonic sensor------------------------------
-//Ultrasonic sensor(short)Front
-unsigned int obstacleDistance;
-const int HEAD_Trig = 22;
-const int HEAD_Echo = 24;
 
 //Ultrasonic sensor(long)Front
 #define HEADpin A15
@@ -24,11 +20,18 @@ int listcm[SEAR_BUF_LEN];
 int searchIndex = 0;
 
 
-//Ultrasonic sensor(short)Bottom
-const int BOTTOM_Trig = 6;
-const int BOTTOM_Echo = 7;
+class UltrasonicSensor {
+  private:
+    //Ultrasonic sensor(short)Bottom
+    const int HEAD_Trig = 22;
+    const int HEAD_Echo = 24;
+    const int BOTTOM_Trig = 6;
+    const int BOTTOM_Echo = 7;
+  public:
+    void init();
+    unsigned int getDistance();
+};
 
-unsigned int getUltrasonic_HEAD();
-unsigned int microsecTocm(long microsec);
+UltrasonicSensor ultrasonicSensor;
 
 #endif
