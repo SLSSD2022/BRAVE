@@ -38,7 +38,7 @@ void  TxPacketData::writeToTwelite (bmx055 imu, float x, uint16_t distance, floa
   //Serial.print("X\r\n");
 }
 
-void rxPacketData::processData() {
+void RxPacketData::processData() {
   // character data is converted to uint8_t data here
   // and is stored in the this->encodedRx[] buffer
   int i = 7;
@@ -69,7 +69,7 @@ void rxPacketData::processData() {
   }
 }
 
-bool rxPacketData::checkError(uint8_t dataByte) {
+bool RxPacketData::checkError(uint8_t dataByte) {
   uint8_t p[3];
   uint8_t ctr = 0;
   p[0] = dataByte & this->parityCheck[0];
@@ -84,7 +84,7 @@ bool rxPacketData::checkError(uint8_t dataByte) {
   return (p[0] > 0) || (p[1] > 0) || (p[2] > 0);
 }
 
-boolean rxPacketData::decodeCyclic() {
+boolean RxPacketData::decodeCyclic() {
   uint8_t ctr = 0;
   bool error[2];
   while (ctr < sizeof(gpsDataStruct)) {
@@ -105,7 +105,7 @@ boolean rxPacketData::decodeCyclic() {
   return false;
 }
 
-boolean rxPacketData::receiveGPS(){
+boolean RxPacketData::receiveGPS(){
   if (Serial2.available() > 0) {
     char c = Serial2.read();
     //Serial2.print(c);

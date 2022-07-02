@@ -20,24 +20,26 @@ class TxPacketData : public RoverData{
 };
 
 const int MaxBufferSize = 160;
-typedef struct _rxPacketData {
+class RxPacketData {
+  private:
+    const uint8_t parityCheck[3] = {0x5C, 0x72, 0x39};
+  public:
   gpsPacketUnion rxData;
-  const uint8_t parityCheck[3] = {0x5C, 0x72, 0x39};
-  char buffRx[MaxBufferSize];
-  uint8_t encodedRx[2 * sizeof(gpsDataStruct)];
-  void processData();
-  bool checkError(uint8_t dataByte);
-  boolean decodeCyclic();
-  boolean receiveGPS();
-  char encodedReceived[2 * sizeof(roverDataPacket)];
-} rxPacketData;
+    char buffRx[MaxBufferSize];
+    uint8_t encodedRx[2 * sizeof(gpsDataStruct)];
+    void processData();
+    bool checkError(uint8_t dataByte);
+    boolean decodeCyclic();
+    boolean receiveGPS();
+    char encodedReceived[2 * sizeof(roverDataPacket)];
+};
 
 void Parse();
 int bufferPos = 0;
 
 TxPacketData sendData; //Packet to be coded and then written to twelite
 // packetData packetTx;//Packet to be coded and then written to twelite
-rxPacketData receiveData; //Received packet with GPS data
+RxPacketData receiveData; //Received packet with GPS data
 // gpsPacketUnion dataRx;//Received packet with GPS data
 
 
