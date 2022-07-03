@@ -62,9 +62,9 @@ void loop() {
   String dataString = "";
 
   // read three sensors and append to the string:
-  for (int i = 0; i < 7; i++) {
+  for (int i = 0; i < 15; i++) {
     dataString += String(i);
-    if (i < 6) {
+    if (i < 15) {
       dataString += ",";
     }
   }
