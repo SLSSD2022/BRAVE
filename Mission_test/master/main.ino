@@ -3,51 +3,41 @@
 #include <SPI.h>
 #include <SD.h>
 #include "./rover.h"
+#include "./Ultrasonic.h"
+#include "./Motor.h"
+#include "./IMU.h"
 #include "./communication.h"
 #include "./EEPROM.h"
 
 
 //-----------------------------Ultrasonic sensor--------------------------------
-unsigned int obstacleDistance = 0;
+Ultrasonic ultrasonicHead(22,24);
+Ultrasonic ultrasonicBottom(6,7);
+Ultrasonic ultrasonicLong(A15);
+int emergencyStopDist = 10;
 
 //------------------------------LIDAR sensor------------------------------
 unsigned int distanceByLIDAR = 0;
 
 //------------------------------Motor------------------------------
-const int ENABLE = 8;
-const int CH1 = 9;
-const int CH2 = 11;
-const int CH3 = 10;
-const int CH4 = 12;
-
-int nominalSpeed = 250;
-int slowSpeed = 200;
-int verySlowSpeed = 150;
+Motor motor(8,9,11,10,12);
 int speedR;
 int speedL;
 int forwardCount = 0;
 
-float x; //ローバーの慣性姿勢角
-float deltaTheta;//目的方向と姿勢の相対角度差
-int threshold = 10; //角度の差分の閾値
-int spinThreshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
-
-EEPROM eeprom;
-
 //9axis filter
-//姿勢フィルターバッファの長さ
-#define BUF_LEN 10
-int buf[BUF_LEN];
-int index = 0;
-float filterVal = 0.0; //フィルター後の値
+//------------------------------9axis sensor------------------------------
+IMU imu(0.00, 0.00, 0.00, 0, 0, 0, 175, 20, 132);
+float x; //ローバーの慣性姿勢角
+
 //キャリブレーション用バッファの長さ
 #define CAL_BUF_LEN 100
 int bufx[CAL_BUF_LEN];
 int bufy[CAL_BUF_LEN];
 int calIndex = 0;
-//測距用バッファの長さ
-int bufdeg[MEAS_BUF_LEN];
-int listdeg[SEAR_BUF_LEN];
+
+//------------------------------EEPROM------------------------------
+EEPROM eeprom;
 
 //------------------------------SD card------------------------------
 const int chipSelect = 53;
@@ -67,6 +57,20 @@ int spinCount = 0;//探索後、方向に向けてスピン回数のカウント
 int waitSpin = 0;//探索後、スピン後停止する回数のカウント
 const int waitIteration = 10;//探索後、スピン後少し停止するループ数(10よりは大きくする)
 const int forward_iteration = 20;//探索後、方向に向かって進むループ数
+
+//測距用バッファの長さ
+int bufdeg[MEAS_BUF_LEN];
+int listdeg[SEAR_BUF_LEN];
+
+//Buffer for one range measurement near goal
+#define MEAS_BUF_LEN  10//it should be more than 10, length of 9axis basic buffer
+int bufcm[MEAS_BUF_LEN];
+int measureIndex = 0;
+
+//Buffer for all range measurement near goal
+#define SEAR_BUF_LEN 20
+int listcm[SEAR_BUF_LEN];
+int searchIndex = 0;
 
 unsigned int goalRoute[3];
 
@@ -96,7 +100,8 @@ void setup()
   sendData.initializeRoverComsStat();
 
   //超音波センサ
-  ultrasonicSensor.init();
+  ultrasonicHead.init();
+  ultrasonicBottom.init();
 
   //モーター
   pinMode(CH1, OUTPUT);
@@ -213,18 +218,17 @@ void loop()
 
   //キャリブレーションが終了しているなら
   if (roverStatus.calibration == 0) {
-    x = angle_calculation();
+    x = imu.angle_calculation();
   }
 
   //---------------------LIDARセンサ取得--------------------------------------------------
   distanceByLIDAR = getLIDAR(distanceByLIDAR);
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
-  obstacleDistance = ultrasonicSensor.getDistance();
+  ultrasonicHead.getDistance();
 
-  //---------------------超音波(短・前面)取得--------------------------------------------------
-  anVolt = analogRead(HEADpin);
-  cm_long = anVolt / 2;
+  //---------------------超音波(長・前面)取得--------------------------------------------------
+  ultrasonicLong.getDistance();
 
   //---------------------GPS acquisition--------------------------------------------------
   updateGPSlocation();
@@ -258,7 +262,7 @@ void loop()
   }
   Serial.print(":cm_LIDAR:");
   Serial.print(distanceByLIDAR);
-  if (obstacleDistance < emergencyStopDist) {
+  if (ultrasonicHead.distance < emergencyStopDist) {
     stopFlag = 1;
   } else {
     stopFlag = 0;
@@ -288,7 +292,7 @@ void loop()
       Serial.print(imu.calibx);
       Serial.print(":calib_y:");
       Serial.print(imu.caliby);
-      x = angle_calculation();//このループ後半のためだけ
+      x = imu.angle_calculation();//このループ後半のためだけ
     }
     else {
       calIndex = (calIndex + 1) % CAL_BUF_LEN;
@@ -561,54 +565,8 @@ float calculateDistance(float latitude1, float longitude1, float latitude2, floa
   return d;
 }
 
+//=========9axis function============================================================================//
 
-float angle_calculation() {
-  x = atan2(imu.yMag - imu.caliby, imu.xMag - imu.calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
-  x += imu.calib;
-  x -= 7; //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
-
-  // calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
-
-  if (x > 360)
-  {
-    x -= 360;
-  }
-
-  else if (x < 0)
-  {
-    x += 360;
-  }
-
-  else
-  {
-    //x = x;
-  }
-
-  // バッファに取り込んで、インデックスを更新する。
-  buf[index] = x;
-  index = (index + 1) % BUF_LEN;
-  //フィルタ後の値を計算
-  filterVal = medianFilter();
-  return filterVal;
-}
-
-// Medianフィルタ関数
-int medianFilter()
-{
-  //ソート用のバッファ
-  static int sortBuf[BUF_LEN];
-
-  //ソート用バッファにデータをコピー
-  for (int i = 0; i < BUF_LEN; i++)
-  {
-    sortBuf[i] = buf[i];
-  }
-
-  //クイックソートで並べ替える
-  qsort(sortBuf, BUF_LEN, sizeof(int), quicksortFunc);
-
-  return sortBuf[(int)BUF_LEN / 2];
-}
 
 int xcenter_calculation() {
   //ソート用のバッファ
@@ -662,11 +620,6 @@ int ycenter_calculation() {
   return (sortBufy[1] + sortBufy[CAL_BUF_LEN - 2]) / 2; //取得値ではない「0」が最少と最大になってしまう場合の対処(「0」が複数取れてしまった場合に対応できていないので注意)
 }
 
-//クイックソート関数
-int quicksortFunc(const void *a, const void *b)
-{
-  return *(int *)a - *(int *)b;
-}
 
 
 //=========Motor Control function============================================================================//

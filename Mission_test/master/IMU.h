@@ -6,8 +6,10 @@
 #define Addr_Gyro 0x69 // (JP1,JP2,JP3 = Openの時)
 // I2C address for BMX055 Magnetic
 #define Addr_Mag 0x13 // (JP1,JP2,JP3 = Openの時)
+#define BUF_LEN 10
 
-typedef struct _bmx055 {
+class IMU {
+public:
   float xGyro;
   float yGyro;
   float zGyro;
@@ -20,11 +22,17 @@ typedef struct _bmx055 {
   float calibx;
   float caliby;
 
+  _IMU();
+  _IMU(float xG,float yG,float zG,int xM,int yM,int zM,float ca,float cax,float cay) ;
   void init();
   void getGyro();
   void getMag();
-} bmx055;
+  int medianFilter();
+private: 
+  int buf[BUF_LEN];
+  int index;
+} IMU;
 
-bmx055 imu = {0.00, 0.00, 0.00, 0, 0, 0, 175, 20, 132};
+int quicksortFunc(const void *a, const void *b);
 
 #endif

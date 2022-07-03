@@ -1,7 +1,33 @@
 #include "./IMU.h"
-
+#include <wire.h>
 //===========9axis sensor function==========================================================================//
-void bmx055::init()
+IMU::IMU()
+  :xGyro(0)
+  ,yGyro(0)
+  ,zGyro(0)
+  ,xMag(0)
+  ,yMag(0)
+  ,zMag(0)
+  ,calib(175)
+  ,calibx(20)
+  ,caliby(132)
+{
+}
+
+IMU::IMU(float xG,float yG,float zG,int xM,int yM,int zM,float ca,float cax,float cay)
+  :xGyro(xG)
+  ,yGyro(yG)
+  ,zGyro(zG)
+  ,xMag(xM)
+  ,yMag(yM)
+  ,zMag(zM)
+  ,calib(ca)
+  ,calibx(cax)
+  ,caliby(cay)
+{
+}
+
+void IMU::init()
 {
   //------------------------------------------------------------//
   Wire.beginTransmission(Addr_Gyro);
@@ -65,7 +91,7 @@ void bmx055::init()
 }
 
 
-void bmx055::getGyro()
+void IMU::getGyro()
 {
   unsigned int data[6];
   for (int i = 0; i < 6; i++)
@@ -96,7 +122,7 @@ void bmx055::getGyro()
 }
 
 
-void bmx055::getMag()
+void IMU::getMag()
 {
   unsigned int data[8];
   for (int i = 0; i < 8; i++)
@@ -120,4 +146,60 @@ void bmx055::getMag()
   zMag = ((data[5] << 7) | (data[4] >> 1));
   if (zMag > 16383)
     zMag -= 32768;
+}
+
+int IMU::angle_calculation()
+{
+  int x = atan2(this->yMag - this->caliby, this->xMag - this->calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
+  x += this->calib;
+  x -= 7; //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
+
+  // calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
+
+  if (x > 360)
+  {
+    x -= 360;
+  }
+
+  else if (x < 0)
+  {
+    x += 360;
+  }
+
+  else
+  {
+    //x = x;
+  }
+
+  // バッファに取り込んで、インデックスを更新する。
+  this->buf[this->index] = x;
+  this->index = (this->index + 1) % BUF_LEN;
+  //フィルタ後の値を計算
+  int filterVal = this->medianFilter();
+  return filterVal;
+}
+
+// Medianフィルタ関数
+int IMU::medianFilter()
+{
+  //ソート用のバッファ
+  static int sortBuf[BUF_LEN];
+
+  //ソート用バッファにデータをコピー
+  for (int i = 0; i < BUF_LEN; i++)
+  {
+    sortBuf[i] = this->buf[i];
+  }
+
+  //クイックソートで並べ替える
+  qsort(sortBuf, BUF_LEN, sizeof(int), quicksortFunc);
+
+  return sortBuf[(int)BUF_LEN / 2];
+}
+
+
+//クイックソート関数
+int quicksortFunc(const void *a, const void *b)
+{
+  return *(int *)a - *(int *)b;
 }
