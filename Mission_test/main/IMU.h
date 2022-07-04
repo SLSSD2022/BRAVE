@@ -29,6 +29,7 @@ public:
   void getMag();
   int angleCalculation();
   int medianFilter();
+  void printall();
 private: 
   int buf[BUF_LEN];
   int index;

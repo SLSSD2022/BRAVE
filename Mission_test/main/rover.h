@@ -7,7 +7,6 @@
 #include "./Ultrasonic.h"
 
 typedef struct _dataStruct {
-  uint8_t roverComsStat;
   float x;
   uint16_t cmBottom;
   uint16_t cmHead;

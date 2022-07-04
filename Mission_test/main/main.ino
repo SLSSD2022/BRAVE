@@ -259,6 +259,7 @@ void loop()
   roverData.rangeRtoA = gps.distanceBetween(roverData.latR, roverData.lngR, roverData.latA, roverData.lngA);
 
   //---------------------Check parameter & update Status--------------------------------------------------
+  imu.printAll();
   roverData.printAll();
 
   if (roverData.rangeRtoA < 1.0) {
@@ -750,14 +751,14 @@ void commToGS() {
   unsigned long commStart;
   unsigned long commStop;
 
-  sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,motor.controlStatus,overallTime);//send HK firstly
+  sendData.writeToTwelite(&imu,&roverData);//send HK firstly
   Serial.println("Data transmission");
 
   commStop = millis();
   while (1) { //then go into waiting loop for ACK or NACK
     commStart = millis();
     if (commStart > commStop + 100) { //if 20ms passes, then send HK again
-      sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,motor.controlStatus,overallTime);
+      sendData.writeToTwelite(&imu,&roverData);
       Serial.println("timeout:100ms");
       break;
     }
@@ -775,7 +776,7 @@ void commToGS() {
           //Serial.println(Buffer);
           if (receiveData.buffRx[6] == '2') { //NACK
             Serial.print("NACK: Resending packet...");
-            sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,motor.controlStatus,overallTime);
+            sendData.writeToTwelite(&imu,&roverData);
           } else if (receiveData.buffRx[6] == '1') { //ACK
             Serial.print("ACK Received!");
             break;
