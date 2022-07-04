@@ -1,5 +1,8 @@
 #include "./EEPROM.h"
 #include <Wire.h>
+#include "./rover.h"
+#include "./IMU.h"
+#include "./communication.h"
 
 //============EEPROM function=========================================================================//
 
@@ -100,28 +103,27 @@ void EEPROM::log() {
   this->addrData += 2;
   this->writeInt(this->addrData, imu.caliby);
   this->addrData += 2;
-  this->writeFloat(this->addrData, x);
+  this->writeFloat(this->addrData, rover.data.x);
   this->addrData += 4;
-  this->writeInt(this->addrData, cm_long);
+  this->writeInt(this->addrData, rover.data.cmLong);
   this->addrData += 2;
-  this->writeFloat(this->addrData, latR);
+  this->writeFloat(this->addrData, rover.data.latR);
   this->addrData += 4;
-  this->writeFloat(this->addrData, lngR);
+  this->writeFloat(this->addrData, rover.data.lngR);
   this->addrData += 4;
-  this->writeFloat(this->addrData, degRtoA);
+  this->writeFloat(this->addrData, rover.data.degRtoA);
   this->addrData += 4;
-  this->write(this->addrData, (byte)controlStatus);
+  this->write(this->addrData, (byte)rover.data.motorControl);
   this->addrData += 2;
-  overallTime = millis();
-  this->writeLong(this->addrData, overallTime);
+  this->writeLong(this->addrData, rover.data.overallTime);
   this->addrData += 4;
 }
 
 void EEPROM::logGPSdata() {
-  this->writeFloat(0, receiveData.rxData.gpsData.latA[0]);
-  this->writeFloat(4, receiveData.rxData.gpsData.lngA[0]);
-  this->writeFloat(8, receiveData.rxData.gpsData.latA[1]);
-  this->writeFloat(12, receiveData.rxData.gpsData.lngA[1]);
-  this->writeFloat(16, receiveData.rxData.gpsData.latA[2]);
-  this->writeFloat(20, receiveData.rxData.gpsData.lngA[2]);
+  this->writeFloat(0, comm.gpsPacket.gpsData.latA[0]);
+  this->writeFloat(4, comm.gpsPacket.gpsData.lngA[0]);
+  this->writeFloat(8, comm.gpsPacket.gpsData.latA[1]);
+  this->writeFloat(12, comm.gpsPacket.gpsData.lngA[1]);
+  this->writeFloat(16, comm.gpsPacket.gpsData.latA[2]);
+  this->writeFloat(20, comm.gpsPacket.gpsData.lngA[2]);
 }

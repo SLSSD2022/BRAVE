@@ -1,12 +1,31 @@
 #include "./LIDAR.h"
+#include <HardwareSerial.h>
 //=========LIDAR sensor function============================================================================//
 LIDAR::LIDAR()//constructer
-  :bytenum(0)
+  :HWSerial(&Serial3)
+  ,bytenum(0)
   ,available(1)
   ,distanceUpdated(0)
   ,distancebuf(0)
   ,distance(0)
 {
+}
+
+LIDAR::LIDAR(HardwareSerial *serialport)//constructer
+  :HWSerial(serialport)
+  ,bytenum(0)
+  ,available(1)
+  ,distanceUpdated(0)
+  ,distancebuf(0)
+  ,distance(0)
+{
+}
+
+void LIDAR::init(){
+  HWSerial->begin(115200);
+  while (!HWSerial) {
+      // wait for serial port to connect. Needed for native USB port only
+  }
 }
 
 void LIDAR::encode(char c)
@@ -47,5 +66,18 @@ void LIDAR::encode(char c)
     // case 8://checksum
     //   bytenum += 1;
     //   break;
+  }
+}
+
+unsigned int LIDAR::getDistance(){
+  while (HWSerial->available() > 0)//near_flagは一時的なもの
+  {
+    byte c = HWSerial->read();
+    lidar.encode(c);
+    if (lidar.distanceUpdated())
+    {
+      return lidar.distance();  // roverの緯度を計算
+      break;
+    }
   }
 }

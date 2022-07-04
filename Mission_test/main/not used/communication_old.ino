@@ -1,47 +1,11 @@
 #include "./communication.h"
-#include <HardwareSerial.h>
 
-//=========Communication Class============================================================================//
-Communication::Communication()
-  :HWSerial(&Serial2)
-  ,BPS(2)
-  ,RST(3)
-{
+//=========TxPacketData Class============================================================================//
+void TxPacketData::init(HardwareSerial serialPort) {
+  HWSerial = serialPort;
 }
 
-Communication::Communication(uint8_t bps,uint8_t rst)
-  :HWSerial(&Serial2)
-  ,BPS(bps)
-  ,RST(rst)
-{
-}
-
-Communication::Communication(HardwareSerial *serialPort,uint8_t bps,uint8_t rst)
-  :HWSerial(serialPort)
-  ,BPS(bps)
-  ,RST(rst)
-{
-}
-
-void Communication::init()
-{
-  //TWElite uses Hardware Serial 2
-  HWSerial->begin(115200);
-  while (!HWSerial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
-  pinMode(RST, OUTPUT);
-  pinMode(BPS, OUTPUT);
-  digitalWrite(BPS, LOW);
-  digitalWrite(RST, LOW);
-  delay(10);
-  digitalWrite(RST, HIGH);
-
-}
-
-//=========TxPacketData function============================================================================//
-
-void Communication::encodeCyclic() {
+void TxPacketData::encodeCyclic() {
   uint8_t ctr = 0;
   uint8_t m;
   while (ctr < sizeof(messageStruct)) {
@@ -57,84 +21,38 @@ void Communication::encodeCyclic() {
   }
 }
 
-void  Communication::writeToTwelite (IMU* imu_p,dataStruct* roverData_p) 
+void  TxPacketData::writeToTwelite (IMU* imu_p,dataStruct* roverData_p) 
 {
   int ctr1 = 0;
   this->setAllData(imu_p,roverData_p);
   this->printAllData();
   this->encodeCyclic();
-  HWSerial->print(":000100");
+  HWSerial.print(":000100");
   //Serial.print(":000100");
   while (ctr1 < 2 * sizeof(messageStruct)) {
     if ((uint8_t)(this->encodedTx[ctr1]) < 16) {
-      HWSerial->print("0");
+      HWSerial.print("0");
       //Serial.print("0");
     }
-    HWSerial->print(this->encodedTx[ctr1], HEX);
+    HWSerial.print(this->encodedTx[ctr1], HEX);
     //Serial.print(this->encodedTx[ctr1],HEX);
     ctr1++;
   }
-  HWSerial->print("X\r\n");
+  HWSerial.print("X\r\n");
   //Serial.print("X\r\n");
 }
 
-void Communication::HKtoGS(IMU* imu_p,dataStruct* roverData_p)
-{
-  unsigned long commStart;
-  unsigned long commStop;
-
-  writeToTwelite(imu_p,roverData_p);//send HK firstly
-  Serial.println("Data transmission");
-
-  commStop = millis();
-  while (1) { //then go into waiting loop for ACK or NACK
-    commStart = millis();
-    if (commStart > commStop + 100) { //if 20ms passes, then send HK again
-      writeToTwelite(imu_p,roverData_p);
-      Serial.println("timeout:100ms");
-      break;
-    }
-    if (HWSerial->available() > 0) {
-      char c = HWSerial->read();
-      if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) {
-        buff[bufferPos] = c;
-        bufferPos++;
-      }
-      else
-      {
-        buff[bufferPos] = '\0';
-        //Checks
-        if (buff[3] == '0' && buff[4] == '1' && buff[5] == '0') { //Arbitrary packet for Rover
-          //Serial.println(Buffer);
-          if (buff[6] == '2') { //NACK
-            Serial.print("NACK: Resending packet...");
-            writeToTwelite(imu_p,roverData_p);
-          } else if (buff[6] == '1') { //ACK
-            Serial.print("ACK Received!");
-            break;
-          }
-        }
-        //Serial.println(buff);
-        bufferPos = 0;
-      }
-    }
-  }
-  bufferPos = 0;
-}
-
-//=========update function============================================================================//
-
-void Communication::initializeRoverComsStat()
+void TxPacketData::initializeRoverComsStat()
 {
   this->roverPacketData.message.roverComsStat = 0;
 }
 
-void Communication::updateRoverComsStat(byte statusUpdate)
+void TxPacketData::updateRoverComsStat(byte statusUpdate)
 {
   this->roverPacketData.message.roverComsStat = this->roverPacketData.message.roverComsStat | (uint8_t) statusUpdate;
 }
 
-void Communication::updateGoalStat()
+void TxPacketData::updateGoalStat()
 {
   this->roverPacketData.message.roverComsStat += 4;
   if (((byte)(this->roverPacketData.message.roverComsStat) >> 2 & 0b111) == 0b110)
@@ -143,19 +61,19 @@ void Communication::updateGoalStat()
   }
 }
 
-void Communication::printRoverComsStat()
+void TxPacketData::printRoverComsStat()
 {
   Serial.print("roverComsStat:");
   Serial.println(this->roverPacketData.message.roverComsStat);
 }
 
-void Communication::setMag(IMU* imu_p)
+void TxPacketData::setMag(IMU* imu_p)
 {
   this->roverPacketData.message.xMag = imu_p->xMag;
   this->roverPacketData.message.yMag = imu_p->yMag;
 }
 
-void Communication::printMag()
+void TxPacketData::printMag()
 {
   Serial.print("xMag:");
   Serial.println(this->roverPacketData.message.xMag);
@@ -163,13 +81,13 @@ void Communication::printMag()
   Serial.println(this->roverPacketData.message.yMag);
 }
 
-void Communication::setCalib(IMU* imu_p)
+void TxPacketData::setCalib(IMU* imu_p)
 {
   this->roverPacketData.message.calibx = imu_p->calibx;
   this->roverPacketData.message.caliby = imu_p->caliby;
 }
 
-void Communication::printCalib()
+void TxPacketData::printCalib()
 {
   Serial.print("calibx:");
   Serial.println(this->roverPacketData.message.calibx);
@@ -177,73 +95,73 @@ void Communication::printCalib()
   Serial.println(this->roverPacketData.message.caliby);
 }
 
-void Communication::setAttitude(float x)
+void TxPacketData::setAttitude(float x)
 {
   this->roverPacketData.message.x = x;
 }
 
-void Communication::printAttitude()
+void TxPacketData::printAttitude()
 {
   Serial.print("x:");
   Serial.println(this->roverPacketData.message.x);
 }
-void Communication::setDistByLIDAR(uint16_t cm_LIDAR)
+void TxPacketData::setDistByLIDAR(uint16_t cm_LIDAR)
 {
   this->roverPacketData.message.cmLong = cm_LIDAR;
 }
 
-void Communication::printDistByLIDAR()
+void TxPacketData::printDistByLIDAR()
 {
   Serial.print("cm_long:");
   Serial.println(this->roverPacketData.message.cmLong);
 }
 
-void Communication::setPosition(float latR, float lngR)
+void TxPacketData::setPosition(float latR, float lngR)
 {
   this->roverPacketData.message.latR = latR;
   this->roverPacketData.message.lngR = lngR;
 }
-void Communication::printPosition()
+void TxPacketData::printPosition()
 {
   Serial.print("latR:");
   Serial.println(this->roverPacketData.message.latR);
   Serial.print("lngR:");
   Serial.println(this->roverPacketData.message.lngR);
 }
-void Communication::setDegRtoA(float degRtoA)
+void TxPacketData::setDegRtoA(float degRtoA)
 {
   this->roverPacketData.message.degRtoA = degRtoA;
 }
 
-void Communication::printDegRtoA()
+void TxPacketData::printDegRtoA()
 {
   Serial.print("degRtoA:");
   Serial.println(this->roverPacketData.message.degRtoA);
 }
 
-void Communication::setControlStatus(byte controlStatus)
+void TxPacketData::setControlStatus(byte controlStatus)
 {
   this->roverPacketData.message.motorControl = controlStatus;
 }
 
-void Communication::printControlStatus()
+void TxPacketData::printControlStatus()
 {
   Serial.print("controlStatus:");
   Serial.println(this->roverPacketData.message.motorControl);
 }
 
-void Communication::setTime(unsigned long int overallTime)
+void TxPacketData::setTime(unsigned long int overallTime)
 {
   this->roverPacketData.message.overallTime = overallTime;
 }
 
-void Communication::printTime()
+void TxPacketData::printTime()
 {
   Serial.print("time:");
   Serial.println(this->roverPacketData.message.overallTime);
 }
 
-void Communication::setAllData(IMU* imu_p, dataStruct* roverData_p)
+void TxPacketData::setAllData(IMU* imu_p, dataStruct* roverData_p)
 {
   this->roverPacketData.message.roverComsStat = 4;
   this->setMag(imu_p);
@@ -256,7 +174,7 @@ void Communication::setAllData(IMU* imu_p, dataStruct* roverData_p)
   this->setTime(roverData_p->overallTime);
 }
 
-void Communication::printAllData()
+void TxPacketData::printAllData()
 {
   this->printRoverComsStat();
   this->printMag();
@@ -269,8 +187,12 @@ void Communication::printAllData()
   this->printTime();
 }
 
-//=========Receive function============================================================================//
-void Communication::processData() {
+//=========RxPacketData Class============================================================================//
+void RxPacketData::init(HardwareSerial serialPort) {
+  HWSerial = serialPort;
+}
+
+void RxPacketData::processData() {
   // character data is converted to uint8_t data here
   // and is stored in the this->encodedRx[] buffer
   int i = 7;
@@ -301,7 +223,7 @@ void Communication::processData() {
   }
 }
 
-bool Communication::checkError(uint8_t dataByte) {
+bool RxPacketData::checkError(uint8_t dataByte) {
   uint8_t p[3];
   uint8_t ctr = 0;
   p[0] = dataByte & this->parityCheck[0];
@@ -316,8 +238,7 @@ bool Communication::checkError(uint8_t dataByte) {
   return (p[0] > 0) || (p[1] > 0) || (p[2] > 0);
 }
 
-
-boolean Communication::decodeCyclic() {
+boolean RxPacketData::decodeCyclic() {
   uint8_t ctr = 0;
   bool error[2];
   while (ctr < sizeof(gpsDataStruct)) {
@@ -325,68 +246,139 @@ boolean Communication::decodeCyclic() {
     this->encodedRx[2 * ctr + 1] = this->encodedRx[2 * ctr + 1] & 0x7F;
     error[0] = this->checkError(this->encodedRx[2 * ctr]);
     error[1] = this->checkError(this->encodedRx[2 * ctr + 1]);
-    this->gpsPacket.gpsBytes[ctr] = ((this->encodedRx[2 * ctr] << 1) & 0xF0) +
+    this->packet.gpsBytes[ctr] = ((this->encodedRx[2 * ctr] << 1) & 0xF0) +
                            ((this->encodedRx[2 * ctr + 1] >> 3) & 0x0F); //populate GPS data of goals in dataRx
     if (error[0] || error[1]) { //NACK
-      HWSerial->print(":000102X\r\n");
+      HWSerial.print(":000102X\r\n");
       return true;
     }
     ctr++;
   }
   //If no errors send ACK
-  HWSerial->print(":000101X\r\n");
+  HWSerial.print(":000101X\r\n");
   return false;
+}
+
+//=========Communication Class============================================================================//
+Communication::Communication(HardwareSerial serialPort,uint8_t bps,uint8_t rst)
+  :HWSerial(serialPort)
+  ,BPS(bps)
+  ,RST(rst)
+{
+  tx.init(HWSerial);
+  rx.init(HWSerial);
+}
+
+void Communication::init()
+{
+  //TWElite uses Hardware Serial 2
+  HWSerial.begin(115200);
+  while (!HWSerial) {
+    ; // wait for serial port to connect. Needed for native USB port only
+  }
+  pinMode(RST, OUTPUT);
+  pinMode(BPS, OUTPUT);
+  digitalWrite(BPS, LOW);
+  digitalWrite(RST, LOW);
+  delay(10);
+  digitalWrite(RST, HIGH);
+
 }
 
 
 
-
 boolean Communication::receiveGPS(){
-  if (HWSerial->available() > 0) {
-    char c = HWSerial->read();
-    //HWSerial->print(c);
-    if ( c != '\n' && (this->bufferPos < MaxBufferSize - 1) ) { //read as data in one packet before it receives "\n"
-      buff[this->bufferPos] = c;
-      this->bufferPos++;
-      buff[this->bufferPos] = '\0';
+  if (HWSerial.available() > 0) {
+    char c = HWSerial.read();
+    //HWSerial.print(c);
+    if ( c != '\n' && (rx.bufferPos < MaxBufferSize - 1) ) { //read as data in one packet before it receives "\n"
+      rx.buff[rx.bufferPos] = c;
+      rx.bufferPos++;
+      rx.buff[rx.bufferPos] = '\0';
     }
     else //Check the buffa if it reads the last character in one packet
     {
-      if (buff[3] == '0' && buff[4] == '1' && buff[5] == '0') { //Arbitrary packet for Rover
-        if (buff[6] == '2') { //NACK
+      if (rx.buff[3] == '0' && rx.buff[4] == '1' && rx.buff[5] == '0') { //Arbitrary packet for Rover
+        if (rx.buff[6] == '2') { //NACK
           //do nothing
         }
-        else if (buff[6] == '1') { //ACK
+        else if (rx.buff[6] == '1') { //ACK
           //do nothing
         }
-        else if (buff[6] == '0') { //DATARECEIVE
+        else if (rx.buff[6] == '0') { //DATARECEIVE
           this->processData();//character data is converted to uint8_t data here and is stored in the encodedRx[] buffer
           this->decodeCyclic();//decode GPS data of three goals
 
 
           Serial.println("------------------------initial MODE SUCCESS!!!------------------------");
           Serial.print("1st GPS:");
-          Serial.print(this->gpsPacket.gpsData.latA[0]);
+          Serial.print(this->packet.gpsData.latA[0]);
           Serial.print(",");
-          Serial.println(this->gpsPacket.gpsData.lngA[0]);
+          Serial.println(this->packet.gpsData.lngA[0]);
           Serial.print("2nd GPS:");
-          Serial.print(this->gpsPacket.gpsData.latA[1]);
+          Serial.print(this->packet.gpsData.latA[1]);
           Serial.print(",");
-          Serial.println(this->gpsPacket.gpsData.lngA[1]);
+          Serial.println(this->packet.gpsData.lngA[1]);
           Serial.print("3rd GPS:");
-          Serial.print(this->gpsPacket.gpsData.latA[2]);
+          Serial.print(this->packet.gpsData.latA[2]);
           Serial.print(",");
-          Serial.println(this->gpsPacket.gpsData.lngA[2]);
+          Serial.println(this->packet.gpsData.lngA[2]);
           Serial.println("---------------------------------------------------------------------");
 
-          HWSerial->print(":000101X\r\n"); //Send ACK to MC
+
+          eeprom.logGPSdata();//log the gps data of destination to EEPROM
+          HWSerial.print(":000101X\r\n"); //Send ACK to MC
           return true;
         }
       }
-      //Serial.println(buff);
-      this->bufferPos = 0;
+      //Serial.println(rx.buff);
+      bufferPos = 0;
     }
   }
   return false;
 }
 
+
+void Communication::HKtoGS(IMU* imu_p,dataStruct* roverData_p)
+{
+  unsigned long commStart;
+  unsigned long commStop;
+
+  tx.writeToTwelite(imu_p,roverData_p);//send HK firstly
+  Serial.println("Data transmission");
+
+  commStop = millis();
+  while (1) { //then go into waiting loop for ACK or NACK
+    commStart = millis();
+    if (commStart > commStop + 100) { //if 20ms passes, then send HK again
+      tx.writeToTwelite(imu_p,roverData_p);
+      Serial.println("timeout:100ms");
+      break;
+    }
+    if (HWSerial.available() > 0) {
+      char c = HWSerial.read();
+      if ( c != '\n' && (rx.bufferPos < MaxBufferSize - 1) ) {
+        rx.buff[rx.bufferPos] = c;
+        rx.bufferPos++;
+      }
+      else
+      {
+        rx.buff[rx.bufferPos] = '\0';
+        //Checks
+        if (rx.buff[3] == '0' && rx.buff[4] == '1' && rx.buff[5] == '0') { //Arbitrary packet for Rover
+          //Serial.println(Buffer);
+          if (rx.buff[6] == '2') { //NACK
+            Serial.print("NACK: Resending packet...");
+            tx.writeToTwelite(imu_p,roverData_p);
+          } else if (rx.buff[6] == '1') { //ACK
+            Serial.print("ACK Received!");
+            break;
+          }
+        }
+        //Serial.println(buff);
+        rx.bufferPos = 0;
+      }
+    }
+  }
+  rx.bufferPos = 0;
+}
