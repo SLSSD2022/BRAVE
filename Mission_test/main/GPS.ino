@@ -1,5 +1,3 @@
-#include "./GPS.h"
-
 void updateGPSlocation() {
   while (Serial1.available() > 0)
   {

@@ -1,10 +1,10 @@
 #include "./communication.h"
 
-//=========Communibmx055cation function============================================================================//
+//=========TxPacketData Class============================================================================//
 void TxPacketData::encodeCyclic() {
   uint8_t ctr = 0;
   uint8_t m;
-  while (ctr < sizeof(roverDataPacket)) {
+  while (ctr < sizeof(messageStruct)) {
     m = this->roverPacketData.packetData[ctr] >> 4;
     encodedTx[2 * ctr] = ((m & 1) * this->generator[3]) ^ (((m >> 1) & 1) * this->generator[2]) ^
                          (((m >> 2) & 1) *this->generator[1]) ^ (((m >> 3) & 1) * this->generator[0]);
@@ -17,15 +17,15 @@ void TxPacketData::encodeCyclic() {
   }
 }
 
-void  TxPacketData::writeToTwelite (bmx055 imu, float x, uint16_t distance, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime) 
+void  TxPacketData::writeToTwelite (IMU* imu_p,dataStruct* roverData_p) 
 {
   int ctr1 = 0;
-  this->setAllData(imu,x,distance,latR,lngR,degRtoA,controlStatus,overallTime);
+  this->setAllData(imu_p,roverData_p);
   this->printAllData();
   this->encodeCyclic();
   Serial2.print(":000100");
   //Serial.print(":000100");
-  while (ctr1 < 2 * sizeof(roverDataPacket)) {
+  while (ctr1 < 2 * sizeof(messageStruct)) {
     if ((uint8_t)(this->encodedTx[ctr1]) < 16) {
       Serial2.print("0");
       //Serial.print("0");
@@ -37,6 +37,155 @@ void  TxPacketData::writeToTwelite (bmx055 imu, float x, uint16_t distance, floa
   Serial2.print("X\r\n");
   //Serial.print("X\r\n");
 }
+
+
+
+void TxPacketData::initializeRoverComsStat()
+{
+  this->roverPacketData.message.roverComsStat = 0;
+}
+
+void TxPacketData::updateRoverComsStat(byte statusUpdate)
+{
+  this->roverPacketData.message.roverComsStat = this->roverPacketData.message.roverComsStat | (uint8_t) statusUpdate;
+}
+
+void TxPacketData::updateGoalStat()
+{
+  this->roverPacketData.message.roverComsStat += 4;
+  if (((byte)(this->roverPacketData.message.roverComsStat) >> 2 & 0b111) == 0b110)
+  {
+    this->roverPacketData.message.roverComsStat += 1;
+  }
+}
+
+void TxPacketData::printRoverComsStat()
+{
+  Serial.print("roverComsStat:");
+  Serial.println(this->roverPacketData.message.roverComsStat);
+}
+
+void TxPacketData::setMag(IMU* imu_p)
+{
+  this->roverPacketData.message.xMag = imu_p->xMag;
+  this->roverPacketData.message.yMag = imu_p->yMag;
+}
+
+void TxPacketData::printMag()
+{
+  Serial.print("xMag:");
+  Serial.println(this->roverPacketData.message.xMag);
+  Serial.print("yMag:");
+  Serial.println(this->roverPacketData.message.yMag);
+}
+
+void TxPacketData::setCalib(IMU* imu_p)
+{
+  this->roverPacketData.message.calibx = imu_p->calibx;
+  this->roverPacketData.message.caliby = imu_p->caliby;
+}
+
+void TxPacketData::printCalib()
+{
+  Serial.print("calibx:");
+  Serial.println(this->roverPacketData.message.calibx);
+  Serial.print("caliby:");
+  Serial.println(this->roverPacketData.message.caliby);
+}
+
+void TxPacketData::setAttitude(float x)
+{
+  this->roverPacketData.message.x = x;
+}
+
+void TxPacketData::printAttitude()
+{
+  Serial.print("x:");
+  Serial.println(this->roverPacketData.message.x);
+}
+void TxPacketData::setDistByLIDAR(uint16_t cm_LIDAR)
+{
+  this->roverPacketData.message.cmLong = cm_LIDAR;
+}
+
+void TxPacketData::printDistByLIDAR()
+{
+  Serial.print("cm_long:");
+  Serial.println(this->roverPacketData.message.cmLong);
+}
+
+void TxPacketData::setPosition(float latR, float lngR)
+{
+  this->roverPacketData.message.latR = latR;
+  this->roverPacketData.message.lngR = lngR;
+}
+void TxPacketData::printPosition()
+{
+  Serial.print("latR:");
+  Serial.println(this->roverPacketData.message.latR);
+  Serial.print("lngR:");
+  Serial.println(this->roverPacketData.message.lngR);
+}
+void TxPacketData::setDegRtoA(float degRtoA)
+{
+  this->roverPacketData.message.degRtoA = degRtoA;
+}
+
+void TxPacketData::printDegRtoA()
+{
+  Serial.print("degRtoA:");
+  Serial.println(this->roverPacketData.message.degRtoA);
+}
+
+void TxPacketData::setControlStatus(byte controlStatus)
+{
+  this->roverPacketData.message.motorControl = controlStatus;
+}
+
+void TxPacketData::printControlStatus()
+{
+  Serial.print("controlStatus:");
+  Serial.println(this->roverPacketData.message.motorControl);
+}
+
+void TxPacketData::setTime(unsigned long int overallTime)
+{
+  this->roverPacketData.message.overallTime = overallTime;
+}
+
+void TxPacketData::printTime()
+{
+  Serial.print("time:");
+  Serial.println(this->roverPacketData.message.overallTime);
+}
+
+void TxPacketData::setAllData(IMU* imu_p, dataStruct* roverData_p)
+{
+  this->roverPacketData.message.roverComsStat = 4;
+  this->setMag(imu_p);
+  this->setCalib(imu_p);
+  this->setAttitude(roverData_p->x);
+  this->setDistByLIDAR(roverData_p->cm_LIDAR);
+  this->setPosition(roverData_p->latR, roverData_p->lngR);
+  this->setDegRtoA(roverData_p->degRtoA);
+  this->setControlStatus(roverData_p->motorControl);
+  this->setTime(roverData_p->overallTime);
+}
+
+void TxPacketData::printAllData()
+{
+  this->printRoverComsStat();
+  this->printMag();
+  this->printCalib();
+  this->printAttitude();
+  this->printDistByLIDAR();
+  this->printPosition();
+  this->printDegRtoA();
+  this->printControlStatus();
+  this->printTime();
+}
+
+//=========RxPacketData Class============================================================================//
 
 void RxPacketData::processData() {
   // character data is converted to uint8_t data here

@@ -22,16 +22,17 @@ public:
   float calibx;
   float caliby;
 
-  _IMU();
-  _IMU(float xG,float yG,float zG,int xM,int yM,int zM,float ca,float cax,float cay) ;
+  IMU();
+  IMU(float xG,float yG,float zG,int xM,int yM,int zM,float ca,float cax,float cay) ;
   void init();
   void getGyro();
   void getMag();
+  int angleCalculation();
   int medianFilter();
 private: 
   int buf[BUF_LEN];
   int index;
-} IMU;
+};
 
 int quicksortFunc(const void *a, const void *b);
 

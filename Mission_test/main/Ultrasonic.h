@@ -16,7 +16,7 @@ class Ultrasonic{
     Ultrasonic(const uint8_t read);
     Ultrasonic(const uint8_t trig,const uint8_t echo);
     void init();
-    void getDistance();
+    unsigned int getDistance();
 };
 
 #endif

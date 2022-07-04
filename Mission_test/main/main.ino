@@ -2,8 +2,10 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
+#include <TinyGPSPlus.h>
 #include "./rover.h"
 #include "./Ultrasonic.h"
+#include "./LIDAR.h"
 #include "./Motor.h"
 #include "./IMU.h"
 #include "./communication.h"
@@ -14,22 +16,25 @@
 Ultrasonic ultrasonicHead(22,24);
 Ultrasonic ultrasonicBottom(6,7);
 Ultrasonic ultrasonicLong(A15);
-int emergencyStopDist = 10;
+const int emergencyStopDist = 10;
 
 //------------------------------LIDAR sensor------------------------------
-unsigned int distanceByLIDAR = 0;
+LIDAR lidar;
 
 //------------------------------Motor------------------------------
 Motor motor(8,9,11,10,12);
-int speedR;
-int speedL;
-int forwardCount = 0;
+const int Threshold = 10;
+const int spinThreshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
+const int nominalSpeed = 250;
+const int slowSpeed = 200;
+const int verySlowSpeed = 150;
+
+//------------------------------GPS---------------------------------
+TinyGPSPlus gps;
 
 //9axis filter
 //------------------------------9axis sensor------------------------------
 IMU imu(0.00, 0.00, 0.00, 0, 0, 0, 175, 20, 132);
-float x; //ローバーの慣性姿勢角
-
 //キャリブレーション用バッファの長さ
 #define CAL_BUF_LEN 100
 int bufx[CAL_BUF_LEN];
@@ -43,20 +48,42 @@ EEPROM eeprom;
 const int chipSelect = 53;
 const int SDSW = 49;
 
-
 //------------------------------Onboard Camera------------------------------
 
+//------------------------------TWElite------------------------------
+TxPacketData sendData; //Packet to be coded and then written to twelite
+// packetData packetTx;//Packet to be coded and then written to twelite
+RxPacketData receiveData; //Received packet with GPS data
+// gpsPacketUnion dataRx;//Received packet with GPS data
+unsigned long start;
+unsigned long stopi;
 
-boolean stopFlag = 0;
+//------------------------------Rover data as global variables-----------------------
+// float latA = 35.719970703125, lngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
+// float latR = 35.715328, lngR = 139.761138;  //現在地の初期想定値(7号館屋上)
+// float degRtoA; //GPS現在地における目的地の慣性方角
+// float rangeRtoA;
+// float x; //ローバーの慣性姿勢角
+// unsigned int distanceByLIDAR = 0;
 
-int searchCount = 0;//探索中のシーケンス管理カウント
-const int spinIteration = 1;//探索中のスピン移動に使うループ回数
-const int spinmove_iteration = 1;//探索後のスピン移動に使うループ回数
 
-int spinCount = 0;//探索後、方向に向けてスピン回数のカウント
-int waitSpin = 0;//探索後、スピン後停止する回数のカウント
+//------------------------------Control Status----------------------------
+dataStruct roverData;
+modeStruct roverMode = {0, 1, 0, 0};
+statusStruct roverStatus = {1, 1, 0, 0, 0, 0};
+successStruct roverSuccess = {0, 0, 0, 0};
+boolean emergencyStopFlag = 0;
+
+int spinsearchCount = 0;//探索中のシーケンス管理カウント
+const int spinsearchIteration = 1;//探索中のスピン移動に使うループ回数
+
+int spinmoveCount = 0;//探索後、方向に向けてスピン回数のカウント
+const int spinmoveIteration = 1;//探索後のスピン移動に使うループ回数
+int waitCount = 0;//探索後、スピン後停止する回数のカウント
 const int waitIteration = 10;//探索後、スピン後少し停止するループ数(10よりは大きくする)
-const int forward_iteration = 20;//探索後、方向に向かって進むループ数
+int forwardCount = 0;
+const int forwardIteration = 20;//探索後、方向に向かって進むループ数
+
 
 //測距用バッファの長さ
 int bufdeg[MEAS_BUF_LEN];
@@ -75,9 +102,6 @@ int searchIndex = 0;
 unsigned int goalRoute[3];
 
 int memoryFlag = 0;
-int controlStatus;
-unsigned long overallTime;
-
 
 /*
   ############################################################################################################
@@ -104,11 +128,8 @@ void setup()
   ultrasonicBottom.init();
 
   //モーター
-  pinMode(CH1, OUTPUT);
-  pinMode(CH2, OUTPUT);
-  pinMode(CH3, OUTPUT);
-  pinMode(CH4, OUTPUT);
-  digitalWrite(ENABLE, LOW); // disable
+  motor.init();
+  motor.setThreshold(Threshold,spinThreshold);
 
   // Wire(Arduino-I2C)の初期化
   Wire.begin();
@@ -160,8 +181,6 @@ void setup()
   //  Serial.println("card initialized.");
 
 
-  //初期値
-  degRtoA = atan2((lngR - LngA) * 1.23, (latR - LatA)) * 57.3 + 180;
   //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
   //  unsigned long k = 0;
   //  while(k < 6000){
@@ -188,10 +207,14 @@ void setup()
 
 void loop()
 {
-  //=================================initial Mode=================================
+  //=================================Sleep Mode=================================
+  while(roverMode.sleep == 1){
+    //do nothing
+  }
+  //=================================initial Status=================================
   while (roverStatus.initial) {
     start = millis();
-    if (start > stopi + 1000) {
+    if (start > (stopi + 1000)) {
       Serial.println("initial Mode: waiting for GPS...");
       stopi = millis();
     }
@@ -199,15 +222,15 @@ void loop()
       goalCalculation();//calculate distance to goals and decide root
 
       int first = goalRoute[0];//set first goal to the destination
-      LatA = receiveData.rxData.gpsData.latA[first];
-      LngA = receiveData.rxData.gpsData.lngA[first];
+      roverData.latA = receiveData.rxData.gpsData.latA[first];
+      roverData.lngA = receiveData.rxData.gpsData.lngA[first];
 
       roverStatus.initial = 0;
       roverStatus.toGoal = 1;
     }
   }
 
-  //=================================Nominal Mode=================================
+  //=================================toGoal Status=================================
 
 
   //---------------------9軸取得--------------------------------------------------
@@ -218,40 +241,27 @@ void loop()
 
   //キャリブレーションが終了しているなら
   if (roverStatus.calibration == 0) {
-    x = imu.angle_calculation();
+    roverData.x = imu.angleCalculation();
   }
 
   //---------------------LIDARセンサ取得--------------------------------------------------
-  distanceByLIDAR = getLIDAR(distanceByLIDAR);
+  roverData.cmLIDAR = getLIDAR();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
-  ultrasonicHead.getDistance();
+  roverData.cmHead = ultrasonicHead.getDistance();
 
   //---------------------超音波(長・前面)取得--------------------------------------------------
-  ultrasonicLong.getDistance();
+  roverData.cmLong = ultrasonicLong.getDistance();
 
   //---------------------GPS acquisition--------------------------------------------------
-  updateGPSlocation();
-  degRtoA = atan2((lngR - LngA) * 1.23, (latR - LatA)) * 57.3 + 180;
-  rangeRtoA = gps.distanceBetween(latR, lngR, LatA, LngA);
+  updateGPSlocation(&roverData.latR,&roverData.lngR);
+  roverData.degRtoA = atan2((roverData.lngR - roverData.lngA) * 1.23, (roverData.latR - roverData.latA)) * 57.3 + 180;
+  roverData.rangeRtoA = gps.distanceBetween(roverData.latR, roverData.lngR, roverData.latA, roverData.lngA);
 
   //---------------------Check parameter & update Status--------------------------------------------------
+  roverData.printAll();
 
-  Serial.print(":latR:");
-  Serial.print(latR);
-  Serial.print(":lngR:");
-  Serial.print(lngR);
-  Serial.print(":LatA:");
-  Serial.print(LatA);
-  Serial.print(":LngA:");
-  Serial.print(LngA);
-  Serial.print(":degRtoA:");
-  Serial.print(degRtoA);
-  Serial.print(":x:");
-  Serial.print(x);
-  Serial.print(":rangeRtoA:");
-  Serial.print(rangeRtoA);
-  if (rangeRtoA < 1.0) {
+  if (roverData.rangeRtoA < 1.0) {
     if (roverMode.autoGpsOnly) {
       successManagement();
     }
@@ -260,15 +270,10 @@ void loop()
       roverStatus.search = 1;
     }
   }
-  Serial.print(":cm_LIDAR:");
-  Serial.print(distanceByLIDAR);
-  if (ultrasonicHead.distance < emergencyStopDist) {
-    stopFlag = 1;
+  if (roverData.cmHead < emergencyStopDist) {
+    emergencyStopFlag = 1;
   } else {
-    stopFlag = 0;
-  }
-  if (roverMode.sleep == 1) {
-    stopFlag = 1;
+    emergencyStopFlag = 0;
   }
 
   //---------------------Special control for each status------------------------------------------------------
@@ -276,128 +281,63 @@ void loop()
 
   //calibration
   if (roverStatus.calibration == 1) {
-    Serial.print(":xMag:");
-    Serial.print(imu.xMag);
-    Serial.print(":yMag:");
-    Serial.print(imu.yMag);
-    Serial.print(":calIndex:");
-    Serial.print(calIndex);
-    bufx[calIndex] = imu.xMag;
-    bufy[calIndex] = imu.yMag;
-    if (calIndex == CAL_BUF_LEN - 1) { //バッファに値がたまったら
-      imu.calibx = xcenter_calculation();
-      imu.caliby = ycenter_calculation();
-      roverStatus.calibration = 0 ;
-      Serial.print(":calib_x:");
-      Serial.print(imu.calibx);
-      Serial.print(":calib_y:");
-      Serial.print(imu.caliby);
-      x = imu.angle_calculation();//このループ後半のためだけ
-    }
-    else {
-      calIndex = (calIndex + 1) % CAL_BUF_LEN;
-    }
+    calibLoop();
   }
 
   //ゴール探索時
   if (roverStatus.calibration == 0 && roverStatus.near == 1) {
     if (roverStatus.search == 1) { //ゴールの方向がまだ分かってない
-      if (searchCount < spinIteration) { //スピン段階
-        stopFlag = 0;
-        searchCount += 1;
-      }
-      else {
-        stopFlag = 1;//測距中は停止する
-        bufcm[measureIndex] = distanceByLIDAR;
-        measureIndex = (measureIndex + 1) % MEAS_BUF_LEN;
-        //バッファに値がたまったら
-        if (measureIndex == 0) {
-          //filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
-          listcm[searchIndex] = distanceByLIDAR;//一番最後の角度がもっともらしい。
-          listdeg[searchIndex] = x;//一番最後の角度がもっともらしい。
-          Serial.print(":measure deg:");
-          Serial.print(listdeg[searchIndex]);
-          //バッファ番号初期化(中身は放置)
-          measureIndex = 0;
-          searchCount = 0;
-          searchIndex = (searchIndex + 1) % SEAR_BUF_LEN;
-          //測距リストに値がたまったら
-          if (searchIndex == 0) {
-            int listIndex = goal_angle_search();//リストから測距値の最小値と対応するリスト番号を探す。
-            degRtoA = listdeg[listIndex];//目的地の方向を決定
-            Serial.print(":searching_completed!");
-            //リスト番号初期化(中身は放置)
-            searchIndex = 0;
-            roverStatus.search = 0;//探索終了
-            stopFlag = 0;//モーター解放
-          }
-        }
-      }
+      searchLoop();
     }
     else if (roverStatus.search == 0) { //ゴール探索時(ゴールの方向が分かって動いている時)
-      if (spinCount < spinIteration) { //設定回数まで連続スピンできる
-        stopFlag = 0;
-      }
-      else { //設定回数までスピンしたら少し停止する
-        stopFlag = 1;
-        waitSpin += 1;
-        if (waitSpin > waitIteration) {
-          waitSpin = 0;
-          spinCount = 0;
-          stopFlag = 0;
-        }
-      }
+      //do nothing for special, just move
     }
   }
 
   //---------------------Motor Control--------------------------------------------------
-  if (stopFlag == 1) {
+  if (emergencyStopFlag == 1) {
     //ブレーキ
-    digitalWrite(ENABLE, HIGH);
-    digitalWrite(CH1, HIGH);
-    digitalWrite(CH2, HIGH);
-    digitalWrite(CH3, HIGH);
-    digitalWrite(CH4, HIGH);
-    controlStatus = 0;//"stop"
-    Serial.print(":stop!");
+    motor.stop();
   }
-  else if (stopFlag == 0 && roverStatus.calibration == 1) { //キャリブレーション時
-    digitalWrite(ENABLE, HIGH); // enable
-    analogWrite(CH1, slowSpeed);
-    analogWrite(CH2, 0);
-    analogWrite(CH3, 0);
-    analogWrite(CH4, slowSpeed);
-    controlStatus = 7;//"calibration..."
+  else if (emergencyStopFlag == 0 && roverStatus.calibration == 1) { //キャリブレーション時
+    motor.spinLeft(slowSpeed);
     Serial.print(":calibration");
   }
-  else if (stopFlag == 0 && roverStatus.calibration == 0 && roverStatus.near == 1) { //ゴール5m付近時
-    if (roverStatus.search == 1) { //スピンしながらコーンを探索
-      digitalWrite(ENABLE, HIGH); // enable
-      analogWrite(CH1, 0);
-      analogWrite(CH2, verySlowSpeed);
-      analogWrite(CH3, verySlowSpeed);
-      analogWrite(CH4, 0);
-      controlStatus = 8;//"searching..."
+  else if (emergencyStopFlag == 0 && roverStatus.calibration == 0 && roverStatus.near == 1) { //ゴール5m付近時
+    if (roverStatus.search == 1) {  //ゴールの方向がまだ分かってない->スピンしながらコーンを探索中
+      motor.spinRight(verySlowSpeed);
       Serial.print(":searching");
     }
-    else { //コーンの方を向く
-      if (forwardCount > forward_iteration) {
+    else { //ゴール探索時(ゴールの方向が分かって動いている時)
+      if (forwardCount > forwardIteration) {//back to searching status after moving for a while 
         roverStatus.search = 1;
         forwardCount = 0;
         Serial.print(":restart searching");
       }
       else {
-        motor_angle_spin();
+        if (spinmoveCount < spinmoveIteration) { //設定回数まで連続スピンできる
+          motor_angle_spin();
+        }
+        else { //設定回数までスピンしたら少し停止する
+          motor.stop();
+          waitCount += 1;
+          if (waitCount > waitIteration) {//reset counter after wait time
+            waitCount = 0;
+            spinmoveCount = 0;
+            emergencyStopFlag = 0;
+          }
+        }
       }
     }
   }
-  else if (stopFlag == 0 && roverStatus.calibration == 0 && roverStatus.near == 0 ) { //通常走行時
-    motor_angle_go();
+  else if (emergencyStopFlag == 0 && roverStatus.calibration == 0 && roverStatus.near == 0 ) { //通常走行時
+    motor.angleGo(x,degRtoA,nominalSpeed);
   }
-
+  roverData.motorControl = motor.controlStatus;
 
   //---------------------Logger------------------------------------------------------
-  //  LogToSDCard();
+  roverData.overallTime = millis();//it's good if time is synchronized with GPStime
+  LogToSDCard();
   if (memoryFlag > 5) {
     eeprom.log();
     memoryFlag = 0;
@@ -418,7 +358,7 @@ void loop()
   Serial.print(":timer");
   Serial.println(timer);
 
-  if ( timer > 10000) {
+  if (timer > 10000) {
     Serial.println(":Communication start!");
     commToGS();
     stopi = millis();
@@ -477,8 +417,8 @@ void successManagement() {
 
     int next = goalRoute[roverStatus.toGoal];//set next goal to the destination
     roverStatus.toGoal += 1;
-    LatA = receiveData.rxData.gpsData.latA[next];
-    LngA = receiveData.rxData.gpsData.lngA[next];
+    roverData.latA = receiveData.rxData.gpsData.latA[next];
+    roverData.lngA = receiveData.rxData.gpsData.lngA[next];
 
     roverStatus.near = 0;
     roverStatus.search = 0;
@@ -527,42 +467,101 @@ int goal_angle_search() { //探索時、最も測距値が近い角度をゴー�
   return minindex;
 }
 
-//=========GPS and position function============================================================================//
-float deg2rad(float deg)
-{
-  return (float)(deg * PI / 180.0);
+void calibLoop(){
+  Serial.print(":xMag:");
+  Serial.print(imu.xMag);
+  Serial.print(":yMag:");
+  Serial.print(imu.yMag);
+  Serial.print(":calIndex:");
+  Serial.print(calIndex);
+  bufx[calIndex] = imu.xMag;
+  bufy[calIndex] = imu.yMag;
+  if (calIndex == CAL_BUF_LEN - 1) { //バッファに値がたまったら
+    imu.calibx = xcenter_calculation();
+    imu.caliby = ycenter_calculation();
+    roverStatus.calibration = 0 ;
+    Serial.print(":calib_x:");
+    Serial.print(imu.calibx);
+    Serial.print(":calib_y:");
+    Serial.print(imu.caliby);
+    x = imu.angle_calculation();//このループ後半のためだけ
+  }
+  else {
+    calIndex = (calIndex + 1) % CAL_BUF_LEN;
+  }
+  return;
+}
+
+void searchLoop(){
+  if (spinsearchCount < spinsearchIteration) { //スピン段階
+    emergencyStopFlag = 0;
+    spinsearchCount += 1;
+  }
+  else {
+    emergencyStopFlag = 1;//測距中は停止する
+    bufcm[measureIndex] = roverData.cmLidar;
+    measureIndex = (measureIndex + 1) % MEAS_BUF_LEN;
+    //バッファに値がたまったら
+    if (measureIndex == 0) {
+      //filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
+      listcm[searchIndex] = roverData.cmLidar;//一番最後の角度がもっともらしい。
+      listdeg[searchIndex] = roverData.x;//一番最後の角度がもっともらしい。
+      Serial.print(":measure deg:");
+      Serial.print(listdeg[searchIndex]);
+      //バッファ番号初期化(中身は放置)
+      measureIndex = 0;
+      spinsearchCount = 0;
+      searchIndex = (searchIndex + 1) % SEAR_BUF_LEN;
+      //測距リストに値がたまったら
+      if (searchIndex == 0) {
+        int listIndex = goal_angle_search();//リストから測距値の最小値と対応するリスト番号を探す。
+        roverData.degRtoA = listdeg[listIndex];//目的地の方向を決定
+        Serial.print(":searching_completed!");
+        //リスト番号初期化(中身は放置)
+        searchIndex = 0;
+        roverStatus.search = 0;//探索終了
+        emergencyStopFlag = 0;//モーター解放
+      }
+    }
+  }
 }
 
 
-// void updateRange_deg(){
-//   degRtoA = atan2((lngR - LngA) * 1.23, (latR - LatA)) * 57.3 + 180;
-//   rangeRtoA = gps.distanceBetween(latR,lngR,LatA,LngA);
-// }
-// Hubenyの式
+//=========LIDAR sensor function============================================================================//
+unsigned int getLIDAR() {
+  int bytenum = 0;
+  while (Serial2.available() > 0)//near_flagは一時的なもの
+  {
+    byte c = Serial2.read();
+    lidar.encode(c);
+    if (lidar.distanceUpdated())
+    {
+      return lidar.distance();  // roverの緯度を計算
+      break;
+    }
+  }
+}
 
-float calculateDistance(float latitude1, float longitude1, float latitude2, float longitude2)
-{
-  // 先に計算しておいた定数
-  float e2 = 0.00669437999019758;   // WGS84における「離心率e」の2乗
-  float Rx = 6378137.0;             // WGS84における「赤道半径Rx」
-  float m_numer = 6335439.32729246; // WGS84における「子午線曲率半径M」の分子(Rx(1-e^2))
+//=========GPS and position function============================================================================//
 
-  float rad_lat1 = deg2rad(latitude1);
-  float rad_lon1 = deg2rad(longitude1);
-  float rad_lat2 = deg2rad(latitude2);
-  float rad_lon2 = deg2rad(longitude2);
-
-  float dp = (float)(rad_lon1 - rad_lon2);        // 2点の緯度差
-  float dr = (float)(rad_lat1 - rad_lat2);        // 2点の経度差
-  float p = (float)((rad_lon1 + rad_lon2) * 0.5); // 2点の平均緯度
-
-  float w = (float)sqrt(1.0 - e2 * pow(sin(p), 2));
-  float m = (float)(m_numer / pow(w, 3)); // 子午線曲率半径
-  float n = (float)(Rx / w);              // 卯酉(ぼうゆう)線曲率半径
-
-  // 2点間の距離(単位m)
-  float d = (float)sqrt(pow((m * dp), 2) + pow((n * cos(p) * dr), 2));
-  return d;
+void updateGPSlocation(float* lat,float* lng) {
+  while (Serial1.available() > 0)
+  {
+    //    Serial.print("YES");
+    char c = Serial1.read();
+    //    Serial.print(c);
+    gps.encode(c);
+    if (gps.location.isUpdated())
+    {
+      Serial.println("");
+      Serial.println("I got new GPS!");
+      *lat = gps.location.lat();  // roverの緯度を計算
+      *lng = gps.location.lng(); // roverの経度を計算
+      break;
+    }
+    //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
+    delay(1);
+  }
 }
 
 //=========9axis function============================================================================//
@@ -624,159 +623,41 @@ int ycenter_calculation() {
 
 //=========Motor Control function============================================================================//
 
-void motor_angle_go()
-{
-  digitalWrite(ENABLE, HIGH); // enable
-  digitalWrite(CH2, LOW);
-  digitalWrite(CH4, LOW);
-  if (x < degRtoA) {
-    deltaTheta = degRtoA - x;
-    Serial.print(":x < degRtoA:");
-    Serial.print(deltaTheta);
-
-    //閾値内にあるときは真っ直ぐ
-    if ((0 <= deltaTheta && deltaTheta <= threshold / 2) || (360 - threshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
-      speedR = nominalSpeed;
-      speedL = nominalSpeed;
-      analogWrite( CH1, speedR );
-      analogWrite( CH3, speedL );
-      Serial.print(":Go straight");
-      controlStatus = 1;//"Go straight"
-    }
-    //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-    else if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
-      speedR = nominalSpeed - (deltaTheta * nominalSpeed / 180);
-      speedL = nominalSpeed;
-      analogWrite( CH1, speedR );
-      analogWrite( CH3, speedL );
-      Serial.print(":turn right");
-      controlStatus = 3;//"turn right"
-    }
-
-    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-    else {
-      speedR = nominalSpeed;
-      speedL = nominalSpeed - ((360 - deltaTheta) * nominalSpeed / 180);
-      analogWrite( CH1, speedR );
-      analogWrite( CH3, speedL );
-      Serial.print(":turn left");
-      controlStatus = 2;//"turn left"
-    }
-  }
-
-  else {
-    deltaTheta = x - degRtoA;
-    Serial.print(":degRtoA < x:");
-    Serial.print(deltaTheta);
-
-    //閾値内にあるときは真っ直ぐ
-    if ((0 <= deltaTheta && deltaTheta <= threshold / 2) || (360 - threshold / 2 <= deltaTheta && deltaTheta <= 360)) {
-      speedR = nominalSpeed;
-      speedL = nominalSpeed;
-      analogWrite( CH1, speedR );
-      analogWrite( CH3, speedL );
-      Serial.print(":Go straight");
-      controlStatus = 1;//"Go straight"
-    }
-    //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-    else if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
-      speedR = nominalSpeed;
-      speedL = nominalSpeed - (deltaTheta * nominalSpeed / 180);
-      analogWrite( CH1, speedR );
-      analogWrite( CH3, speedL );
-      Serial.print(":turn left");
-      controlStatus = 2;//"turn left"
-    }
-
-    //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-    else {
-      speedR = nominalSpeed - ((360 - deltaTheta) * nominalSpeed / 180);
-      speedL = nominalSpeed;
-      analogWrite( CH1, speedR );
-      analogWrite( CH3, speedL );
-      Serial.print(":turn right");
-      controlStatus = 3;//"turn right"
-
-    }
-  }
-  Serial.print(":speedL:");
-  Serial.print(speedL);
-  Serial.print(":speedR:");
-  Serial.print(speedR);
-}
-
-
 void motor_angle_spin()
-{
+{ 
+  int deltaTheta;
   if (x < degRtoA) {
     deltaTheta = degRtoA - x;
     Serial.print(":x < degRtoA:");
     Serial.print(deltaTheta);
 
-    if ((0 <= deltaTheta && deltaTheta <= spinThreshold / 2) || (360 - spinThreshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
+    if ((0 <= deltaTheta && deltaTheta <= motor.spinThreshold / 2) || (360 - motor.spinThreshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
       //閾値内にあるときは真っ直ぐ
-      if ((0 <= deltaTheta && deltaTheta <= threshold / 2) || (360 - threshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
-        speedR = slowSpeed;
-        speedL = slowSpeed;
-        //スロー前進
-        digitalWrite(ENABLE, HIGH); // enable
-        analogWrite( CH1, speedR );
-        analogWrite( CH2, 0);
-        analogWrite( CH3, speedL );
-        analogWrite( CH4, 0);
-        Serial.print(":Go straight");
-        controlStatus = 1;//"Go straight"
+      if ((0 <= deltaTheta && deltaTheta <= motor.threshold / 2) || (360 - motor.threshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
+        motor.goStraight(slowSpeed);
         forwardCount += 1;
       }
       //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      else if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
-        speedR = slowSpeed - (deltaTheta * slowSpeed / 180);
-        speedL = slowSpeed;
-        digitalWrite(ENABLE, HIGH); // enable
-        analogWrite( CH1, speedR );
-        analogWrite( CH2, 0 );
-        analogWrite( CH3, speedL );
-        analogWrite( CH4, 0 );
-        Serial.print(":turn right");
-        controlStatus = 3;//"turn right"
+      else if (motor.threshold / 2 < deltaTheta && deltaTheta <= 180) {
+        motor.turn(slowSpeed,slowSpeed - (deltaTheta * slowSpeed / 180))//"turn right"
       }
 
       //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
       else {
-        speedR = slowSpeed;
-        speedL = slowSpeed - ((360 - deltaTheta) * slowSpeed / 180);
-        analogWrite( CH1, speedR );
-        analogWrite( CH2, 0 );
-        analogWrite( CH3, speedL );
-        analogWrite( CH4, 0 );
-        Serial.print(":turn left");
-        controlStatus = 2;//"turn left"
-        spinCount += 1;
+        motor.turn(slowSpeed - ((360 - deltaTheta) * slowSpeed / 180),slowSpeed)//"turn left"
       }
     }
     else {
       //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
-      if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
-        digitalWrite(ENABLE, HIGH); // enable
-        analogWrite(CH1, 0);
-        analogWrite(CH2, verySlowSpeed);
-        analogWrite(CH3, verySlowSpeed);
-        analogWrite(CH4, 0);
-        Serial.print(":spin to right");
-        controlStatus = 4;//"spin to right"
-        spinCount += 1;
+      if (motor.threshold / 2 < deltaTheta && deltaTheta <= 180) {
+        motor.spinRight(verySlowSpeed);
+        spinmoveCount += 1;
       }
 
       //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
       else {
-        digitalWrite(ENABLE, HIGH); // enable
-        analogWrite(CH1, verySlowSpeed);
-        analogWrite(CH2, 0);
-        analogWrite(CH3, 0);
-        analogWrite(CH4, verySlowSpeed);
-        Serial.print(":spin to left");
-        controlStatus = 5;//"spin to left
-        spinCount += 1;
+        motor.spinLeft(verySlowSpeed);
+        spinmoveCount += 1;
       }
     }
   }
@@ -785,72 +666,38 @@ void motor_angle_spin()
     deltaTheta = x - degRtoA;
     Serial.print(":degRtoA < x:");
     Serial.print(deltaTheta);
-    if ((0 <= deltaTheta && deltaTheta <= spinThreshold / 2) || (360 - spinThreshold / 2 <= deltaTheta && deltaTheta <= 360)) {
+    if ((0 <= deltaTheta && deltaTheta <= motor.spinThreshold / 2) || (360 - motor.spinThreshold / 2 <= deltaTheta && deltaTheta <= 360)) {
       //閾値内にあるときは真っ直ぐ
-      if ((0 <= deltaTheta && deltaTheta <= threshold / 2) || (360 - threshold / 2 <= deltaTheta && deltaTheta <= 360)) {
-        speedR = slowSpeed;
-        speedL = slowSpeed;
-        digitalWrite(ENABLE, HIGH); // enable
-        analogWrite( CH1, speedR );
-        analogWrite( CH2, 0);
-        analogWrite( CH3, speedL );
-        analogWrite( CH4, 0);
-        Serial.print(":Go straight");
-        controlStatus = 1;//"Go straight"
+      if ((0 <= deltaTheta && deltaTheta <= motor.threshold / 2) || (360 - motor.threshold / 2 <= deltaTheta && deltaTheta <= 360)) {
+        motor.goStraight(slowSpeed);
         forwardCount += 1;
       }
       //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
-      else if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
-        speedR = slowSpeed;
-        speedL = slowSpeed - (deltaTheta * slowSpeed / 180);
-        analogWrite( CH1, speedR );
-        analogWrite( CH2, 0 );
-        analogWrite( CH3, speedL );
-        analogWrite( CH4, 0 );
-        Serial.print(":turn left");
-        controlStatus = 2;//"turn left"
+      else if (motor.threshold / 2 < deltaTheta && deltaTheta <= 180) {
+        motor.turn(slowSpeed - (deltaTheta * slowSpeed / 180),slowSpeed)//"turn left"
       }
 
       //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
       else {
-        speedR = slowSpeed - ((360 - deltaTheta) * slowSpeed / 180);
-        speedL = slowSpeed;
-        analogWrite( CH1, speedR );
-        analogWrite( CH2, 0 );
-        analogWrite( CH3, speedL );
-        analogWrite( CH4, 0 );
-        Serial.print(":turn right");
-        controlStatus = 3;//"turn right"
+        motor.turn(slowSpeed,slowSpeed - ((360 - deltaTheta) * slowSpeed / 180))//"turn right"
       }
     }
     else {
-      if (threshold / 2 < deltaTheta && deltaTheta <= 180) {
-        digitalWrite(ENABLE, HIGH); // enable
-        analogWrite(CH1, verySlowSpeed);
-        analogWrite(CH2, 0);
-        analogWrite(CH3, 0);
-        analogWrite(CH4, verySlowSpeed);
-        Serial.print(":spin to left");
-        controlStatus = 5;//"spin to left
-        spinCount += 1;
+      if (motor.threshold / 2 < deltaTheta && deltaTheta <= 180) {
+        motor.spinLeft(verySlowSpeed);
+        spinmoveCount += 1;
       }
       //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
       else {
-        digitalWrite(ENABLE, HIGH); // enable
-        analogWrite(CH1, 0);
-        analogWrite(CH2, verySlowSpeed);
-        analogWrite(CH3, verySlowSpeed);
-        analogWrite(CH4, 0);
-        Serial.print(":spin to right");
-        controlStatus = 4;//"spin to right"
-        spinCount += 1;
+        motor.spinRight(verySlowSpeed);
+        spinmoveCount += 1;
       }
     }
   }
   Serial.print(":speedL:");
-  Serial.print(speedL);
+  Serial.print(motor.speedL);
   Serial.print(":speedR:");
-  Serial.print(speedR);
+  Serial.print(motor.speedR);
   Serial.print(":forwardCount:");
   Serial.print(forwardCount);
 }
@@ -859,7 +706,7 @@ void motor_angle_spin()
 void LogToSDCard() {
   File dataFile = SD.open("datalog.txt", FILE_WRITE);
   if (dataFile) {
-    dataFile.print(overallTime);
+    dataFile.print(roverData.overallTime);
     dataFile.print(",");
     dataFile.print(imu.xMag);
     dataFile.print(",");
@@ -869,17 +716,25 @@ void LogToSDCard() {
     dataFile.print(",");
     dataFile.print(imu.caliby);
     dataFile.print(",");
-    dataFile.print(x);
+    dataFile.print(roverData.x);
     dataFile.print(",");
-    dataFile.print(cm_long);
+    dataFile.print(roverData.cmHead);
     dataFile.print(",");
-    dataFile.print(latR);
+    dataFile.print(roverData.cmLong);
     dataFile.print(",");
-    dataFile.print(lngR);
+    dataFile.print(roverData.cmLidar);
     dataFile.print(",");
-    dataFile.print(degRtoA);
+    dataFile.print(roverData.latA);
     dataFile.print(",");
-    dataFile.print(controlStatus);
+    dataFile.print(roverData.lngA);
+    dataFile.print(",");
+    dataFile.print(roverData.latR);
+    dataFile.print(",");
+    dataFile.print(roverData.lngR);
+    dataFile.print(",");
+    dataFile.print(roverData.degRtoA);
+    dataFile.print(",");
+    dataFile.print(roverData.motorControl);
     dataFile.println("");
     dataFile.close();
   }
@@ -891,18 +746,18 @@ void LogToSDCard() {
 }
 
 //---------------------Communication--------------------------
-  void commToGS() {
+void commToGS() {
   unsigned long commStart;
   unsigned long commStop;
 
-  sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,controlStatus,overallTime);//send HK firstly
+  sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,motor.controlStatus,overallTime);//send HK firstly
   Serial.println("Data transmission");
 
   commStop = millis();
   while (1) { //then go into waiting loop for ACK or NACK
     commStart = millis();
     if (commStart > commStop + 100) { //if 20ms passes, then send HK again
-      sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
+      sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,motor.controlStatus,overallTime);
       Serial.println("timeout:100ms");
       break;
     }
@@ -920,7 +775,7 @@ void LogToSDCard() {
           //Serial.println(Buffer);
           if (receiveData.buffRx[6] == '2') { //NACK
             Serial.print("NACK: Resending packet...");
-            sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,controlStatus,overallTime);
+            sendData.writeToTwelite(imu,x,distanceByLIDAR,latR,lngR,degRtoA,motor.controlStatus,overallTime);
           } else if (receiveData.buffRx[6] == '1') { //ACK
             Serial.print("ACK Received!");
             break;

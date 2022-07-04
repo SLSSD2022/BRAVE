@@ -148,7 +148,7 @@ void IMU::getMag()
     zMag -= 32768;
 }
 
-int IMU::angle_calculation()
+int IMU::angleCalculation()
 {
   int x = atan2(this->yMag - this->caliby, this->xMag - this->calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
   x += this->calib;
@@ -202,4 +202,17 @@ int IMU::medianFilter()
 int quicksortFunc(const void *a, const void *b)
 {
   return *(int *)a - *(int *)b;
+}
+
+
+int IMU::printAll()
+{ 
+  Serial.print(":xMag:");
+  Serial.print(this->xMag);
+  Serial.print(":yMag:");
+  Serial.print(this->yMag);
+  Serial.print(":calibx:");
+  Serial.print(this->calibx);
+  Serial.print(":caliby:");
+  Serial.print(this->caliby);
 }

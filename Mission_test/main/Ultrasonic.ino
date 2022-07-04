@@ -18,12 +18,12 @@ Ultrasonic::Ultrasonic(const uint8_t read)
 {
 }
 
-void Ultrasonic::getDistance() {
+unsigned int Ultrasonic::getDistance() {
   if(mode == 1)
   {
     unsigned int anVolt = analogRead(readPin);
     this->distance = anVolt / 2;
-    return;
+    return this->distance;
   }
   else if(mode == 2)
   {
@@ -34,7 +34,7 @@ void Ultrasonic::getDistance() {
     delayMicroseconds(10);
     duration = pulseIn(echoPin, HIGH);
     this->distance = (unsigned int) duration / 29 / 2;
-    return;
+    return this->distance;
   }
 }
 

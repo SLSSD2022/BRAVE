@@ -4,56 +4,27 @@
 #include "./IMU.h"
 #include "./GPS.h"
 #include "./EEPROM.h"
-#include "./UltrasonicSensor.h"
+#include "./Ultrasonic.h"
 
-typedef struct _roverDataPacket {
+typedef struct _dataStruct {
   uint8_t roverComsStat;
-  int xMag;
-  int yMag;
-  uint16_t calibx;
-  uint16_t caliby;
   float x;
+  uint16_t cmBottom;
+  uint16_t cmHead;
   uint16_t cmLong;
+  uint16_t cmLidar;
+  float latA;
+  float lngA;
   float latR;
   float lngR;
   float degRtoA;
-  byte statusControl;
-  unsigned long int time;
-} roverDataPacket;
+  float rangeRtoA;
+  byte motorControl;
+  unsigned long int overallTime;
+  void printAll();
+} dataStruct;
 
-typedef union _packetData {
-  roverDataPacket message;
-  unsigned char packetData[sizeof(roverDataPacket)];
-} packetData;
 
-class RoverData{
-  public:
-    packetData roverPacketData;
-    void initializeRoverComsStat();
-    void updateRoverComsStat(byte statusUpdate);
-    void updateGoalStat();
-    void printRoverComsStat();
-    void setMag(bmx055 imu);
-    void printMag();
-    void setCalib(bmx055 imu);
-    void printCalib();
-    void setAttitude(float x);
-    void printAttitude();
-    void setDistByLIDAR(uint16_t cm_LIDAR);
-    void printDistByLIDAR();
-    void setPosition(float latR, float lngR);
-    void printPosition();
-    void setDegRtoA(float degRtoA);
-    void printDegRtoA();
-    void setControlStatus(byte controlStatus);
-    void printControlStatus();
-    void setTime(unsigned long int overallTime);
-    void printTime();
-    void setAllData(bmx055 imu, float x, uint16_t cm_LIDAR, float latR, float lngR, float degRtoA, byte controlStatus, unsigned long int overallTime);
-    void printAllData();
-};
-
-///-----------------------------Control Status, HK-----------------------------
 typedef struct _modeStruct {
   unsigned char manual : 1;
   unsigned char autoGpsOnly : 1;
@@ -62,8 +33,7 @@ typedef struct _modeStruct {
 } modeStruct;
 
 
-//Status using bit field
-typedef struct _statusStruct {
+typedef struct _statusStruct {//Status using bit field
   unsigned char initial : 1;
   unsigned char calibration : 1;
   unsigned int toGoal;
@@ -79,9 +49,5 @@ typedef struct _successStruct {
   unsigned int goalArrived;
   unsigned char full : 1;
 } successStruct;
-
-modeStruct roverMode = {0, 1, 0, 0};
-statusStruct roverStatus = {1, 1, 0, 0, 0, 0};
-successStruct roverSuccess = {0, 0, 0, 0};
 
 #endif
