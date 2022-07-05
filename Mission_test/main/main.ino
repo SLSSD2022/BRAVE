@@ -55,6 +55,8 @@ Communication comm(&Serial2,2,3);//HardwareSerialPort,BPS pin,RST pin
 unsigned long start;
 unsigned long stopi;
 
+//------------------------------Separation detection------------------------------
+const int DETECTION_PIN = 4;
 
 //------------------------------Control Status----------------------------
 Rover rover;
@@ -134,6 +136,7 @@ void setup()
   //    while (1);
   //  }
   //  Serial.println("card initialized.");
+  pinMode(DETECTION_PIN,INPUT_PULLUP);
 
 
   //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
@@ -169,24 +172,40 @@ void loop()
 
   //==================================wait for landing status================================
   while (rover.status.waitLanding) {
-    
+    start = millis();
+    if (start > (stopi + 1000)) {
+      Serial.println("wait for landing...");
+      stopi = millis();
+    }
+    if(comm.waitLanding()){
+      rover.status.waitLanding = 0;
+      rover.status.waitSeparation = 1;
+    }
   }
 
   //==================================wait for separation status================================
   while (rover.status.waitSeparation) {
-    
+    start = millis();
+    if (start > (stopi + 1000)) {
+      Serial.println("wait for separation...");
+      comm.sendStatus("waitSeparation");
+      stopi = millis();
+    }
+    if(digitalRead(DETECTION_PIN) == 1){
+      rover.status.waitSeparation = 0;
+      comm.sendStatus("separationConfirmed");
+      motor.goStraight(nominalSpeed);
+      delay(10000);
+    }
   }
 
-  //==================================evacuation status================================
-  while (rover.status.evacuation) {
-
-  }
 
   //=================================wait for GPS status=================================
   while (rover.status.waitGPS) {
     start = millis();
     if (start > (stopi + 1000)) {
       Serial.println("initial Mode: waiting for GPS...");
+      comm.sendStatus("waitGPS");
       stopi = millis();
     }
     if(comm.receiveGPS()){
@@ -358,7 +377,7 @@ void goalCalculation() {
   unsigned int range[3];
   updateGPSlocation();
   for (int i = 0; i < 3 ; i++) {
-    range[i] = gps.distanceBetween(latR, lngR, comm.gpsPacket.gpsData.latA[i], gpsPacket.gpsPacket.gpsData.lngA[i]);
+    range[i] = gps.distanceBetween(latR, lngR, comm.gpsPacket.gpsData.latA[i], comm.gpsPacket.gpsData.lngA[i]);
     goalRoute[i] = i + 1;
   }
   sortRange(range, goalRoute); //root = [1,2,3]
