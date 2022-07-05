@@ -177,9 +177,11 @@ void loop()
       Serial.println("wait for landing...");
       stopi = millis();
     }
-    if(comm.waitLanding()){
+    if(comm.waitLanding() && checkLanding()){
       rover.status.waitLanding = 0;
       rover.status.waitSeparation = 1;
+      comm.sendStatus("waitSeparation");//"GroundLanding" in Comms Headers is 1 
+      stopi = millis();
     }
   }
 
@@ -188,14 +190,17 @@ void loop()
     start = millis();
     if (start > (stopi + 1000)) {
       Serial.println("wait for separation...");
-      comm.sendStatus("waitSeparation");
+      comm.sendStatus("waitSeparation");//"GroundLanding" in Comms Headers is 1 
       stopi = millis();
     }
     if(digitalRead(DETECTION_PIN) == 1){
-      rover.status.waitSeparation = 0;
-      comm.sendStatus("separationConfirmed");
+      //evacuation
       motor.goStraight(nominalSpeed);
       delay(10000);
+      motor.stop();
+      rover.status.waitSeparation = 0;
+      comm.sendStatus("waitGPS");//"Separation Detection" in Comms Headers is 1 
+      stopi = millis();
     }
   }
 
@@ -205,7 +210,7 @@ void loop()
     start = millis();
     if (start > (stopi + 1000)) {
       Serial.println("initial Mode: waiting for GPS...");
-      comm.sendStatus("waitGPS");
+      comm.sendStatus("waitGPS");//"Separation Detection" in Comms Headers is 1 
       stopi = millis();
     }
     if(comm.receiveGPS()){
