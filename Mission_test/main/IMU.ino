@@ -29,6 +29,9 @@ IMU::IMU(float xG,float yG,float zG,int xM,int yM,int zM,float ca,float cax,floa
 
 void IMU::init()
 {
+  
+  //マスタとしてI2Cバスに接続する
+  Wire.begin();
   //------------------------------------------------------------//
   Wire.beginTransmission(Addr_Gyro);
   Wire.write(0x0F); // Select Range register

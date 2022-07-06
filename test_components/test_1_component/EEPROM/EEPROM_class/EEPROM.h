@@ -4,19 +4,21 @@
 //------------------------------EEPROM------------------------------
 //デバイスアドレス(スレーブ)
 class EEPROM {
-  public:
-    uint8_t addrEEPROM;
-    unsigned int addrData;
-    void init();
-    void setAddr(uint8_t addr);
-    void write(unsigned int addr_res, byte data );
-    void writeInt(unsigned int addr_res, int data);
-    void writeLong(unsigned int addr_res, unsigned long data);
-    void writeFloat(unsigned int addr_res, float data);
-    byte read(int addr_device, unsigned int addr_res );
-    float readFloat(int addr_device, unsigned int addr_res);
-    //void log();
-    //void logGPSdata();
+public:
+  uint8_t addrEEPROM;
+  uint8_t addrData;
+
+  EEPROM();
+  EEPROM(uint8_t addr);
+  void init(uint8_t addr);
+  void write(uint8_t addr_res, byte data );
+  void writeInt(uint8_t addr_res, int data);
+  void writeLong(uint8_t addr_res, unsigned long data);
+  void writeFloat(uint8_t addr_res, float data);
+  byte read(uint8_t addr_res );
+  float readFloat(uint8_t addr_res);
+  //void log();
+  //void logGPSdata();
 };
 
 #endif

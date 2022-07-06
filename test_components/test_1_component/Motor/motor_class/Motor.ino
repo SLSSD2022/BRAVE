@@ -48,6 +48,29 @@ void Motor::stop()
     return;
 }
 
+
+void Motor::right(int speed)
+{
+    digitalWrite(ENABLE, HIGH); // enable
+    analogWrite(CH1, speed);
+    digitalWrite(CH2, LOW);
+    this->speedR = speed;
+    this->speedL = 0;
+    Serial.print(":right");
+    return;
+}
+
+void Motor::left(int speed)
+{
+    digitalWrite(ENABLE, HIGH); // enable
+    analogWrite(CH3, speed);
+    digitalWrite(CH4, LOW);
+    this->speedR = 0;
+    this->speedL = speed;
+    Serial.print(":left");
+    return;
+}
+
 void Motor::goStraight(int speed)
 {
     digitalWrite(ENABLE, HIGH); // enable

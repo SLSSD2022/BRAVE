@@ -22,7 +22,7 @@ const int emergencyStopDist = 10;
 LIDAR lidar(&Serial1);
 
 //------------------------------Motor------------------------------
-Motor motor(8,9,11,10,12);
+Motor motor(3,4,5,6,7);
 const int Threshold = 10;
 const int spinThreshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
 const int nominalSpeed = 250;
@@ -42,7 +42,7 @@ int bufy[CAL_BUF_LEN];
 int calIndex = 0;
 
 //------------------------------EEPROM------------------------------
-EEPROM eeprom;
+EEPROM eeprom(0x50);;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
 
 //------------------------------SD card------------------------------
 const int chipSelect = 53;
@@ -110,12 +110,11 @@ void setup()
   ultrasonicHead.init();
   ultrasonicBottom.init();
   motor.init();motor.setThreshold(Threshold,spinThreshold);
-  Wire.begin();
   imu.init();
   gps.init();
   comm.init();comm.initializeRoverComsStat();
   lidar.init();
-  eeprom.init();
+  eeprom.init(30);
   
   
   //SDcard Initialization

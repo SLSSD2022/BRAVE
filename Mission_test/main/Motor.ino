@@ -1,11 +1,17 @@
 #include "./Motor.h"
 
-void Motor::Motor(uint8_t enable,uint8_t ch1,uint8_t ch2,uint8_t ch3,uint8_t ch4)
+Motor::Motor(uint8_t enable,uint8_t ch1,uint8_t ch2,uint8_t ch3,uint8_t ch4)
     :ENABLE(enable)
     ,CH1(ch1)
     ,CH2(ch2)
     ,CH3(ch3)
     ,CH4(ch4)
+    ,controlStatus(0)
+    ,speedL(0)
+    ,speedR(0)
+    ,threshold(10) //角度の差分の閾値
+    ,spinThreshold(10) //角度の差分の閾値
+    ,deltaTheta(0)//目的方向と姿勢の相対角度差
 {
 }
 
@@ -42,12 +48,35 @@ void Motor::stop()
     return;
 }
 
+
+void Motor::right(int speed)
+{
+    digitalWrite(ENABLE, HIGH); // enable
+    analogWrite(CH1, speed);
+    digitalWrite(CH2, LOW);
+    this->speedR = speed;
+    this->speedL = 0;
+    Serial.print(":right");
+    return;
+}
+
+void Motor::left(int speed)
+{
+    digitalWrite(ENABLE, HIGH); // enable
+    analogWrite(CH3, speed);
+    digitalWrite(CH4, LOW);
+    this->speedR = 0;
+    this->speedL = speed;
+    Serial.print(":left");
+    return;
+}
+
 void Motor::goStraight(int speed)
 {
     digitalWrite(ENABLE, HIGH); // enable
-    analogWrite( CH1, speedR );
+    analogWrite(CH1, speed);
     digitalWrite(CH2, LOW);
-    analogWrite( CH3, speedL );
+    analogWrite(CH3, speed);
     digitalWrite(CH4, LOW);
     this->controlStatus = 1;//"Go straight"
     this->speedR = speed;
@@ -116,7 +145,7 @@ void Motor::angleGo(float bodyDeg,float goalDeg,int speed)
 
     //閾値内にあるときは真っ直ぐ
     if ((0 <= deltaTheta && deltaTheta <= this->threshold / 2) || (360 - this->threshold / 2 <= deltaTheta && deltaTheta <= goalDeg)) {
-      motor.gostraight(speed);
+      motor.goStraight(speed);
     }
     //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
     else if (this->threshold / 2 < deltaTheta && deltaTheta <= 180) {

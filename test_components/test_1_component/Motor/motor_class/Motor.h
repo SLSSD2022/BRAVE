@@ -6,8 +6,8 @@ private:
     const uint8_t ENABLE = 3;
     const uint8_t CH1 = 4;
     const uint8_t CH2 = 5;
-    const uint8_t CH3 = 7;
-    const uint8_t CH4 = 6;
+    const uint8_t CH3 = 6;
+    const uint8_t CH4 = 7;
 public:
     int controlStatus;
     int speedL;
@@ -20,6 +20,8 @@ public:
     void init();
     void setThreshold(int threshold,int spinthreshold);
     void stop();
+    void right(int speed);
+    void left(int speed);
     void goStraight(int speed);
     void turn(int speedl,int speedr);
     void spinLeft(int speed);
