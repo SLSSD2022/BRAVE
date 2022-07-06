@@ -33,7 +33,6 @@ public:
 //  boolean calibration();
   void getAngle();
   int angleCalculation();
-  int medianFilter();
   void printAll();
 private: 
   int buf[BUF_LEN];
@@ -42,8 +41,10 @@ private:
   int bufx[CAL_BUF_LEN];
   int bufy[CAL_BUF_LEN];
   int calIndex = 0;
+  
+  int medianFilter();
+  int quicksortFunc(const void *a, const void *b);
 };
 
-int quicksortFunc(const void *a, const void *b);
 
 #endif

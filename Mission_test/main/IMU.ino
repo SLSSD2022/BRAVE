@@ -1,5 +1,5 @@
 #include "./IMU.h"
-#include <wire.h>
+#include <Wire.h>
 //===========9axis sensor function==========================================================================//
 IMU::IMU()
   :xGyro(0)
@@ -107,14 +107,17 @@ void IMU::getGyro()
   }
   // Convert the data
   xGyro = (data[1] * 256) + data[0];
-  if (xGyro > 32767)
+  if (xGyro > 32767){
     xGyro -= 65536;
+  }
   yGyro = (data[3] * 256) + data[2];
-  if (yGyro > 32767)
+  if (yGyro > 32767){
     yGyro -= 65536;
+  }
   zGyro = (data[5] * 256) + data[4];
-  if (zGyro > 32767)
+  if (zGyro > 32767){
     zGyro -= 65536;
+  }
 
   xGyro = xGyro * 0.0038; //  Full scale = +/- 125 degree/s
   yGyro = yGyro * 0.0038; //  Full scale = +/- 125 degree/s
@@ -138,19 +141,43 @@ void IMU::getMag()
   }
   // Convert the data
   xMag = ((data[1] << 5) | (data[0] >> 3));
-  if (xMag > 4095)
+  if (xMag > 4095){
     xMag -= 8192;
+  }
   yMag = ((data[3] << 5) | (data[2] >> 3));
-  if (yMag > 4095)
+  if (yMag > 4095){
     yMag -= 8192;
+  }
   zMag = ((data[5] << 7) | (data[4] >> 1));
-  if (zMag > 16383)
+  if (zMag > 16383){
     zMag -= 32768;
+  }
 }
+//
+//boolean IMU::calibration()
+//{
+//  bufx[calIndex] = imu.xMag;
+//  bufy[calIndex] = imu.yMag;
+//  if (calIndex == CAL_BUF_LEN - 1) { //バッファに値がたまったら
+//    imu.calibx = xcenter_calculation();
+//    imu.caliby = ycenter_calculation();
+//    rover.status.calibration = 0 ;
+//    Serial.print(":calib_x:");
+//    Serial.print(imu.calibx);
+//    Serial.print(":calib_y:");
+//    Serial.print(imu.caliby);
+//    calIndex = 0;
+//    return true;
+//  }
+//  else {
+//    calIndex = (calIndex + 1) % CAL_BUF_LEN;
+//    return false;
+//  }
+//}
 
-int IMU::angleCalculation()
+void IMU::getAngle()
 {
-  int x = atan2(this->yMag - this->caliby, this->xMag - this->calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
+  this->x = atan2(this->yMag - this->caliby, this->xMag - this->calibx) / 3.14 * 180 + 180; //磁北を0°(or360°)として出力
   x += this->calib;
   x -= 7; //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
 
@@ -165,14 +192,14 @@ int IMU::angleCalculation()
   {
     x += 360;
   }
+}
 
-  else
-  {
-    //x = x;
-  }
+int IMU::angleCalculation()
+{
+  this->getAngle();
 
   // バッファに取り込んで、インデックスを更新する。
-  this->buf[this->index] = x;
+  this->buf[this->index] = this->x;
   this->index = (this->index + 1) % BUF_LEN;
   //フィルタ後の値を計算
   int filterVal = this->medianFilter();
@@ -205,7 +232,7 @@ int quicksortFunc(const void *a, const void *b)
 }
 
 
-int IMU::printAll()
+void IMU::printAll()
 { 
   Serial.print(":xMag:");
   Serial.print(this->xMag);
@@ -215,4 +242,6 @@ int IMU::printAll()
   Serial.print(this->calibx);
   Serial.print(":caliby:");
   Serial.print(this->caliby);
+  Serial.print(":x:");
+  Serial.print(this->x);
 }

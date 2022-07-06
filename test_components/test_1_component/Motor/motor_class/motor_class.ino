@@ -1,20 +1,13 @@
-const int ENABLE = 3;
-const int CH1 = 4;
-const int CH2 = 5;
-const int CH3 = 6;
-const int CH4 = 7;
+#include "./Motor.h"
+Motor motor(3,4,5,7,6);
+const int nominalSpeed = 250;
+const int slowSpeed = 200;
+const int verySlowSpeed = 150;
 
 void setup() {
   // put your setup fcode here, to run once:
   Serial.begin(9600);
-  pinMode(ENABLE,OUTPUT);  // 7番ピンをOUTPUT指定
-  pinMode(CH1,OUTPUT);    // 10番ピンをOUTPUT指定
-  pinMode(CH2,OUTPUT);    // 11版ピンをOUTPUT指定
-  pinMode(CH3,OUTPUT);    // 12番ピンをOUTPUT指定
-  pinMode(CH4,OUTPUT);    // 13版ピンをOUTPUT指定
-
-  // 初期化 DCモータが突然動きださないように
-  digitalWrite(ENABLE,LOW); // disable
+  motor.init();
   delay(500);
 }
 
@@ -46,15 +39,8 @@ void loop() {
 //    digitalWrite(ENABLE,LOW); // disable
 //    delay(1000);
 
-    Serial.println("3:Twin rotation");
-    digitalWrite(ENABLE,HIGH); // enable on
-    analogWrite(CH1,0.5*255);    
-    digitalWrite(CH2,LOW); 
-    analogWrite(CH4,0.5*255);    
-    digitalWrite(CH3,LOW); 
+    motor.goStraight(100);
     delay(4000);
-    
-    Serial.println("0:STOP");
-    digitalWrite(ENABLE,LOW); // disable
+    motor.stop();
     delay(1000);
 }

@@ -107,14 +107,17 @@ void IMU::getGyro()
   }
   // Convert the data
   xGyro = (data[1] * 256) + data[0];
-  if (xGyro > 32767)
+  if (xGyro > 32767){
     xGyro -= 65536;
+  }
   yGyro = (data[3] * 256) + data[2];
-  if (yGyro > 32767)
+  if (yGyro > 32767){
     yGyro -= 65536;
+  }
   zGyro = (data[5] * 256) + data[4];
-  if (zGyro > 32767)
+  if (zGyro > 32767){
     zGyro -= 65536;
+  }
 
   xGyro = xGyro * 0.0038; //  Full scale = +/- 125 degree/s
   yGyro = yGyro * 0.0038; //  Full scale = +/- 125 degree/s
@@ -138,14 +141,17 @@ void IMU::getMag()
   }
   // Convert the data
   xMag = ((data[1] << 5) | (data[0] >> 3));
-  if (xMag > 4095)
+  if (xMag > 4095){
     xMag -= 8192;
+  }
   yMag = ((data[3] << 5) | (data[2] >> 3));
-  if (yMag > 4095)
+  if (yMag > 4095){
     yMag -= 8192;
+  }
   zMag = ((data[5] << 7) | (data[4] >> 1));
-  if (zMag > 16383)
+  if (zMag > 16383){
     zMag -= 32768;
+  }
 }
 //
 //boolean IMU::calibration()

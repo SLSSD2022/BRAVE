@@ -7,6 +7,8 @@
 // I2C address for BMX055 Magnetic
 #define Addr_Mag 0x13 // (JP1,JP2,JP3 = Openの時)
 #define BUF_LEN 10
+#define CAL_BUF_LEN 100
+
 
 class IMU {
 public:
@@ -16,6 +18,7 @@ public:
   int xMag;
   int yMag;
   int zMag;
+  int x;
 
   //Constant for calibration(最初はセンサに書いてある矢印に対して微妙に0°がずれてるので、ローバーの進行方向と並行な向きの矢印が磁北（0°）になるよう調整）
   float calib;
@@ -27,14 +30,21 @@ public:
   void init();
   void getGyro();
   void getMag();
+//  boolean calibration();
+  void getAngle();
   int angleCalculation();
-  int medianFilter();
-  void printall();
+  void printAll();
 private: 
   int buf[BUF_LEN];
   int index;
+  //キャリブレーション用バッファの長さ
+  int bufx[CAL_BUF_LEN];
+  int bufy[CAL_BUF_LEN];
+  int calIndex = 0;
+  
+  int medianFilter();
+  int quicksortFunc(const void *a, const void *b);
 };
 
-int quicksortFunc(const void *a, const void *b);
 
 #endif
