@@ -57,6 +57,21 @@ void Communication::encodeCyclic() {
   }
 }
 
+void Communication::encodeCyclicStatus() {
+  uint8_t ctr = 0;
+  uint8_t m;
+  // While not necessary, only one byte, check with Charleston
+
+  m = this->roverPacketData.packetData[0] >> 4;
+  statusTx[2 * ctr] = ((m & 1) * this->generator[3]) ^ (((m >> 1) & 1) * this->generator[2]) ^
+                        (((m >> 2) & 1) *this->generator[1]) ^ (((m >> 3) & 1) * this->generator[0]);
+  
+  m = this->roverPacketData.packetData[0];
+  statusTx[2 * ctr + 1] = ((m & 1) * this->generator[3]) ^ (((m >> 1) & 1) * this->generator[2]) ^
+                            (((m >> 2) & 1) * this->generator[1]) ^ (((m >> 3) & 1) * this->generator[0]);
+
+}
+
 void  Communication::writeToTwelite (IMU* imu_p,dataStruct* roverData_p) 
 {
   int ctr1 = 0;
@@ -122,6 +137,24 @@ void Communication::HKtoGS(IMU* imu_p,dataStruct* roverData_p)
   bufferPos = 0;
 }
 
+void Communication::sendStatus()
+{
+  this->encodeCyclicStatus();
+  HWSerial->print(":000100");
+  //Serial.print(":000100");
+  while (ctr1 < 2 * sizeof(messageStruct.roverComsStat)) {
+    if ((uint8_t)(this->statusTx[ctr1]) < 16) {
+      HWSerial->print("0");
+      //Serial.print("0");
+    }
+    HWSerial->print(this->statusTx[ctr1], HEX);
+    //Serial.print(this->encodedTx[ctr1],HEX);
+    ctr1++;
+  }
+  HWSerial->print("X\r\n");
+  //Serial.print("X\r\n");
+}
+
 //=========update function============================================================================//
 
 void Communication::initializeRoverComsStat()
@@ -136,8 +169,8 @@ void Communication::updateRoverComsStat(byte statusUpdate)
 
 void Communication::updateGoalStat()
 {
-  this->roverPacketData.message.roverComsStat += 4;
-  if (((byte)(this->roverPacketData.message.roverComsStat) >> 2 & 0b111) == 0b110)
+  this->roverPacketData.message.roverComsStat += 2;
+  if (((byte)(this->roverPacketData.message.roverComsStat) >> 1 & 0b111) == 0b110)
   {
     this->roverPacketData.message.roverComsStat += 1;
   }
@@ -245,7 +278,7 @@ void Communication::printTime()
 
 void Communication::setAllData(IMU* imu_p, dataStruct* roverData_p)
 {
-  this->roverPacketData.message.roverComsStat = 4;
+  //this->roverPacketData.message.roverComsStat = 0; -> if we have updateComStat and updateGoalStat functions this is not necessary
   this->setMag(imu_p);
   this->setCalib(imu_p);
   this->setAttitude(roverData_p->x);

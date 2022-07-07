@@ -15,7 +15,8 @@ public:
     LIDAR();
     LIDAR(HardwareSerial *serialport);
     unsigned int getDistance();
+    void init();
     void encode(byte c);
-}
+};
 
 #endif

@@ -25,7 +25,7 @@ public:
     void spinLeft(int speed);
     void spinRight(int speed);
     void angleGo(float bodyDeg,float goalDeg,int speed);
-}
+};
 
 
 #endif

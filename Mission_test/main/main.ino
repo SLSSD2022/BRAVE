@@ -75,10 +75,6 @@ int forwardCount = 0;
 const int forwardIteration = 20;//探索後、方向に向かって進むループ数
 
 
-//測距用バッファの長さ
-int bufdeg[MEAS_BUF_LEN];
-int listdeg[SEAR_BUF_LEN];
-
 //Buffer for one range measurement near goal
 #define MEAS_BUF_LEN  10//it should be more than 10, length of 9axis basic buffer
 int bufcm[MEAS_BUF_LEN];
@@ -88,6 +84,13 @@ int measureIndex = 0;
 #define SEAR_BUF_LEN 20
 int listcm[SEAR_BUF_LEN];
 int searchIndex = 0;
+
+//測距用バッファの長さ
+int bufdeg[MEAS_BUF_LEN];
+int listdeg[SEAR_BUF_LEN];
+
+
+
 
 unsigned int goalRoute[3];
 
@@ -180,7 +183,8 @@ void loop()
     if(comm.waitLanding() && checkLanding()){
       rover.status.waitLanding = 0;
       rover.status.waitSeparation = 1;
-      comm.sendStatus("waitSeparation");//"GroundLanding" in Comms Headers is 1 
+      comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
+      comm.sendStatus();
       stopi = millis();
     }
   }
@@ -190,16 +194,20 @@ void loop()
     start = millis();
     if (start > (stopi + 1000)) {
       Serial.println("wait for separation...");
-      comm.sendStatus("waitSeparation");//"GroundLanding" in Comms Headers is 1 
+      comm.sendStatus();//No updateRoverComsStat before send status -> still waiting for separation 
       stopi = millis();
     }
     if(digitalRead(DETECTION_PIN) == 1){
+      comm.updateRoverComsStat(0b11000000);//"Separation Detection" in Comms Status is 1 -> waiting for distancing from MC
+      comm.sendStatus(); 
+      Serial.println("wait for distancing...");
       //evacuation
       motor.goStraight(nominalSpeed);
       delay(10000);
       motor.stop();
       rover.status.waitSeparation = 0;
-      comm.sendStatus("waitGPS");//"Separation Detection" in Comms Headers is 1 
+      comm.updateRoverComsStat(0b11100000);//"Moved away/ Evacuation / Distancing" in Comms Status is 1 -> waiting for GPS
+      comm.sendStatus(); 
       stopi = millis();
     }
   }
@@ -210,10 +218,12 @@ void loop()
     start = millis();
     if (start > (stopi + 1000)) {
       Serial.println("initial Mode: waiting for GPS...");
-      comm.sendStatus("waitGPS");//"Separation Detection" in Comms Headers is 1 
+      comm.sendStatus();//No updateRoverComsStat before send status -> still waiting for GPS
       stopi = millis();
     }
     if(comm.receiveGPS()){
+      comm.updateRoverComsStat(0b11110000); //"GPS Received" in Comms Status is 1
+      comm.sendStatus();
       eeprom.logGPSdata();//log the gps data of destination to EEPROM
       goalCalculation();//calculate distance to goals and decide root
 

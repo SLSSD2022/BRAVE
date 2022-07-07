@@ -11,5 +11,5 @@ public:
     GPS(HardwareSerial *serialport);
     void init();
     void updateGPSlocation(float* lat,float* lng);
-}
+};
 #endif 

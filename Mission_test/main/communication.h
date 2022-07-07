@@ -56,6 +56,7 @@ private:
 
     //encode
     uint8_t encodedTx[2 * sizeof(messageStruct)]; //Encoded message to be sent
+    uint8_t statusTx[2];
     const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};
 
     //decode
@@ -74,8 +75,10 @@ public:
     //transmission
     messageUnion roverPacketData;
     void encodeCyclic();
+    void encodeCyclicStatus();
     void writeToTwelite (IMU*, dataStruct*);
     void HKtoGS(IMU*, dataStruct*);
+    void sendStatus();
     
     //update
     void initializeRoverComsStat();
@@ -110,7 +113,7 @@ public:
     bool checkError(uint8_t dataByte);
     boolean decodeCyclic();
     boolean receiveGPS();
-}
+};
 
 void Parse();
 
