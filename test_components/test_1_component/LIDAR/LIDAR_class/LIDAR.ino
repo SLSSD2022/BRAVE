@@ -33,6 +33,10 @@ void LIDAR::encode(byte c)
   this->distanceUpdated = 0;
   switch (bytenum) {
     case 0://frame header must be 0x59
+      if (c == 0x59) {
+        bytenum += 1;
+      }
+      break;
     case 1://frame header must be 0x59
       if (c == 0x59) {
         bytenum += 1;
@@ -59,25 +63,36 @@ void LIDAR::encode(byte c)
         this->distanceUpdated = 1;
       }
       break;
-    // case 4://strength value low 8 bits
-    // case 5://strength value high 8 bits
-    // case 6://Temp_L low 8 bits
-    // case 7://Temp_H high 8 bits
-    // case 8://checksum
-    //   bytenum += 1;
-    //   break;
+    case 4://strength value low 8 bits
+      bytenum += 1;
+      break;
+    case 5://strength value high 8 bits
+      bytenum += 1;
+      break;
+    case 6://Temp_L low 8 bits
+      bytenum += 1;
+      break;
+    case 7://Temp_H high 8 bits
+      bytenum += 1;
+      break;
+    case 8://checksum
+      bytenum = 0;
+      break;
   }
 }
 
 unsigned int LIDAR::getDistance(){
-  while (HWSerial->available() > 0)//near_flagは一時的なもの
-  {
-    byte c = HWSerial->read();
-    this->encode(c);
-    if (this->distanceUpdated)
+  this->distanceUpdated = 0;
+  while(this->distanceUpdated == 0){
+    while (HWSerial->available() > 0)//near_flagは一時的なもの
     {
-      return this->distance;  // roverの緯度を計算
-      break;
+      byte c = HWSerial->read();
+      this->encode(c);
+      if (this->distanceUpdated)
+      {
+        return this->distance;  // roverの緯度を計算
+        break;
+      }
     }
   }
 }

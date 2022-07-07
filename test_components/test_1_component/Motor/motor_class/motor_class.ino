@@ -40,8 +40,6 @@ void loop() {
 //    delay(1000);
 
     //motor.goStraight(100);
-    motor.left(200);
+    motor.goStraight(250);
     delay(4000);
-    motor.stop();
-    delay(1000);
 }
