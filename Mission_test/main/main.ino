@@ -172,7 +172,7 @@ void loop()
       Serial.println("wait for landing...");
       stopi = millis();
     }
-    if(comm.waitLanding() && checkLanding()){
+    if(comm.waitLanding() /*&& checkLanding()*/){
       rover.status.waitLanding = 0;
       rover.status.waitSeparation = 1;
       comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
@@ -244,7 +244,7 @@ void loop()
   }
 
   //---------------------LIDARセンサ取得--------------------------------------------------
-  rover.data.cmLIDAR = lidar.getDistance();
+  rover.data.cmLidar = lidar.getDistance();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
   rover.data.cmHead = ultrasonicHead.getDistance();
@@ -361,7 +361,7 @@ void loop()
 
   if (timer > 10000) {
     Serial.println(":Communication start!");
-    comm.HKtoGS();
+    comm.HKtoGS(&imu,&rover.data);
     stopi = millis();
     Serial.println(":Communication end!");
   }
@@ -418,8 +418,8 @@ void successManagement() {
 
     int next = goalRoute[rover.status.toGoal];//set next goal to the destination
     rover.status.toGoal += 1;
-    rover.data.latA = gpsPacket.gpsPacket.gpsData.latA[next];
-    rover.data.lngA = gpsPacket.gpsPacket.gpsData.lngA[next];
+    rover.data.latA = comm.gpsPacket.gpsData.latA[next];
+    rover.data.lngA = comm.gpsPacket.gpsData.lngA[next];
 
     rover.status.near = 0;
     rover.status.search = 0;

@@ -1,8 +1,6 @@
 #ifndef _COMM_HEAD_
 #define _COMM_HEAD_
 
-#include "./IMU.h"
-#include "./Rover.h"
 #include <HardwareSerial.h>
 //------------------------------Communication--------------------------------------------
 
@@ -58,6 +56,7 @@ private:
 
     //encode
     uint8_t encodedTx[2 * sizeof(messageStruct)]; //Encoded message to be sent
+    uint8_t statusTx[2]; //Encoded Communication status to be sent (only) in inital stages
     const uint8_t generator[4] = {0x46, 0x23, 0x17, 0x0D};
 
     //decode
@@ -76,8 +75,10 @@ public:
     //transmission
     messageUnion roverPacketData;
     void encodeCyclic();
+    void encodeCyclicStatus();
     void writeToTwelite (IMU*, dataStruct*);
     void HKtoGS(IMU*, dataStruct*);
+    void sendStatus();
     
     //update
     void initializeRoverComsStat();

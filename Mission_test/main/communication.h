@@ -68,7 +68,7 @@ private:
 public:
     //setup    
     Communication();
-    Communication(HardwareSerial *serialPort);
+    Communication(uint8_t BPS,uint8_t RST);
     Communication(HardwareSerial *serialPort,uint8_t BPS,uint8_t RST);
     void init();
 
@@ -113,6 +113,7 @@ public:
     bool checkError(uint8_t dataByte);
     boolean decodeCyclic();
     boolean receiveGPS();
+    boolean waitLanding();
 };
 
 void Parse();

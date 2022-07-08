@@ -139,17 +139,18 @@ void Communication::HKtoGS(IMU* imu_p,dataStruct* roverData_p)
 
 void Communication::sendStatus()
 {
+  int ctr2 = 0;
   this->encodeCyclicStatus();
   HWSerial->print(":000100");
   //Serial.print(":000100");
-  while (ctr1 < 2 * sizeof(messageStruct.roverComsStat)) {
-    if ((uint8_t)(this->statusTx[ctr1]) < 16) {
+  while (ctr2 < 2 * sizeof(messageStruct::roverComsStat)) {
+    if ((uint8_t)(this->statusTx[ctr2]) < 16) {
       HWSerial->print("0");
       //Serial.print("0");
     }
-    HWSerial->print(this->statusTx[ctr1], HEX);
-    //Serial.print(this->encodedTx[ctr1],HEX);
-    ctr1++;
+    HWSerial->print(this->statusTx[ctr2], HEX);
+    //Serial.print(this->encodedTx[ctr2],HEX);
+    ctr2++;
   }
   HWSerial->print("X\r\n");
   //Serial.print("X\r\n");
@@ -411,6 +412,38 @@ boolean Communication::receiveGPS(){
           Serial.print(",");
           Serial.println(this->gpsPacket.gpsData.lngA[2]);
           Serial.println("---------------------------------------------------------------------");
+
+          HWSerial->print(":000101X\r\n"); //Send ACK to MC
+          return true;
+        }
+      }
+      //Serial.println(buff);
+      this->bufferPos = 0;
+    }
+  }
+  return false;
+}
+
+boolean Communication::waitLanding(){
+  if (HWSerial->available() > 0) {
+    char c = HWSerial->read();
+    //HWSerial->print(c);
+    if ( c != '\n' && (this->bufferPos < MaxBufferSize - 1) ) { //read as data in one packet before it receives "\n"
+      buff[this->bufferPos] = c;
+      this->bufferPos++;
+      buff[this->bufferPos] = '\0';
+    }
+    else //Check the buffa if it reads the last character in one packet
+    {
+      if (buff[3] == '0' && buff[4] == '1' && buff[5] == '0') { //Arbitrary packet for Rover
+        if (buff[6] == '2') { //NACK
+          //do nothing
+        }
+        else if (buff[6] == '1') { //ACK
+          //do nothing
+        }
+        else if (buff[6] == '3') { //DATARECEIVE
+          Serial.println("------------------------Multicopter Landing Signal Received!------------------------");
 
           HWSerial->print(":000101X\r\n"); //Send ACK to MC
           return true;
