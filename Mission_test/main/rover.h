@@ -63,6 +63,6 @@ public:
   statusStruct status = {1, 1, 0, 0, 0, 0};
   successStruct success = {0, 0, 0, 0};
   void printAll();
-}
+};
 
 #endif

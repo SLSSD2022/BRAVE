@@ -113,7 +113,7 @@ public:
     bool checkError(uint8_t dataByte);
     boolean decodeCyclic();
     boolean receiveGPS();
-}
+};
 
 void Parse();
 
