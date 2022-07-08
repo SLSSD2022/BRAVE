@@ -10,6 +10,7 @@ private:
     const uint8_t CH4 = 7;
 public:
     int controlStatus;
+    float difference;
     int speedL;
     int speedR;
     int threshold = 10; //角度の差分の閾値

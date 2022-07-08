@@ -1,5 +1,5 @@
 #include "./Motor.h"
-Motor motor(3,4,5,6,7);
+Motor motor(3,5,4,6,7);
 const int nominalSpeed = 250;
 const int slowSpeed = 200;
 const int verySlowSpeed = 150;
@@ -38,8 +38,9 @@ void loop() {
 //    Serial.println("0:STOP");
 //    digitalWrite(ENABLE,LOW); // disable
 //    delay(1000);
-
-    //motor.goStraight(100);
-    motor.goStraight(250);
-    delay(4000);
+//  motor.goStraight(250);
+  motor.spinRight(250);
+//  motor.right(115);
+//  motor.left(100);
+  delay(4000);
 }
