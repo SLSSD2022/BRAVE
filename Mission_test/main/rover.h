@@ -58,7 +58,7 @@ typedef struct _successStruct {
 
 class Rover{
 public:
-  dataStruct data = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  dataStruct data = {0,0,0,0,0,0,0,0,0,0,0,0};
   modeStruct mode = {0, 1, 0, 0};
   statusStruct status = {1, 1, 0, 0, 0, 0};
   successStruct success = {0, 0, 0, 0};
