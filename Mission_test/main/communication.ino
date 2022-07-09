@@ -4,8 +4,8 @@
 //=========Communication Class============================================================================//
 Communication::Communication()
   :HWSerial(&Serial2)
-  ,BPS(2)
-  ,RST(3)
+  ,BPS(8)
+  ,RST(9)
 {
 }
 
@@ -26,7 +26,7 @@ Communication::Communication(HardwareSerial *serialPort,uint8_t bps,uint8_t rst)
 void Communication::init()
 {
   //TWElite uses Hardware Serial 2
-  HWSerial->begin(115200);
+  HWSerial->begin(38400);
   while (!HWSerial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
@@ -425,33 +425,36 @@ boolean Communication::receiveGPS(){
 }
 
 boolean Communication::waitLanding(){
-  if (HWSerial->available() > 0) {
-    char c = HWSerial->read();
-    //HWSerial->print(c);
-    if ( c != '\n' && (this->bufferPos < MaxBufferSize - 1) ) { //read as data in one packet before it receives "\n"
-      buff[this->bufferPos] = c;
-      this->bufferPos++;
-      buff[this->bufferPos] = '\0';
-    }
-    else //Check the buffa if it reads the last character in one packet
-    {
-      if (buff[3] == '0' && buff[4] == '1' && buff[5] == '0') { //Arbitrary packet for Rover
-        if (buff[6] == '2') { //NACK
-          //do nothing
-        }
-        else if (buff[6] == '1') { //ACK
-          //do nothing
-        }
-        else if (buff[6] == '3') { //DATARECEIVE
-          Serial.println("------------------------Multicopter Landing Signal Received!------------------------");
-
-          HWSerial->print(":000101X\r\n"); //Send ACK to MC
-          return true;
-        }
+  while (1){
+    if (HWSerial->available() > 0) {
+      char c = HWSerial->read();
+      if ( c != '\n' && (this->bufferPos < MaxBufferSize - 1) ) { //read as data in one packet before it receives "\n"
+        buff[this->bufferPos] = c;
+        this->bufferPos++;
+        buff[this->bufferPos] = '\0';
       }
-      //Serial.println(buff);
-      this->bufferPos = 0;
+      else //Check the buffa if it reads the last character in one packet
+      {
+        if (buff[3] == '0' && buff[4] == '1' && buff[5] == '0') { //Arbitrary packet for Rover
+          if (buff[6] == '2') { //NACK
+            //do nothing
+          }
+          else if (buff[6] == '1') { //ACK
+            //do nothing
+          }
+          else if (buff[6] == '3') { //DATARECEIVE
+            Serial.println("------------------------Multicopter Landing Signal Received!------------------------");
+  
+            HWSerial->print(":000101X\r\n"); //Send ACK to MC
+            Serial.println(buff);
+            Serial.println("ACK sent");
+            return true;
+          }
+        }
+        //Serial.println(buff);
+        this->bufferPos = 0;
+        return false;
+      }
     }
   }
-  return false;
 }

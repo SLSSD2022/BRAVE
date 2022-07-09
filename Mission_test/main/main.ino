@@ -22,7 +22,7 @@ const int emergencyStopDist = 10;
 LIDAR lidar(&Serial3);
 
 //------------------------------Motor------------------------------
-Motor motor(3,4,5,6,7);
+Motor motor(3,5,4,6,7);
 const int Threshold = 10;
 const int spinThreshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
 const int nominalSpeed = 250;
@@ -51,7 +51,7 @@ const int SDSW = 49;
 //------------------------------Onboard Camera------------------------------
 
 //------------------------------TWElite------------------------------
-Communication comm(&Serial2,2,3);//HardwareSerialPort,BPS pin,RST pin
+Communication comm(&Serial2,8,9);//HardwareSerialPort,BPS pin,RST pin
 unsigned long start;
 unsigned long stopi;
 
@@ -168,18 +168,21 @@ void loop()
 
   //==================================wait for landing status================================
   while (rover.status.waitLanding) {
+    Serial.println("Rover  Initialized...");
     start = millis();
     if (start > (stopi + 1000)) {
       Serial.println("wait for landing...");
       stopi = millis();
     }
-    if(comm.waitLanding() /*&& checkLanding()*/){
-      rover.status.waitLanding = 0;
-      rover.status.waitSeparation = 1;
-      comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
-      comm.sendStatus();
-      stopi = millis();
-    }
+        if(comm.waitLanding() == 1/*&& checkLanding()*/){
+          rover.status.waitLanding = 0;
+          rover.status.waitSeparation = 1;
+          comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
+          comm.sendStatus();
+          stopi = millis();
+      }else if (comm.waitLanding() ==0){
+        Serial.println("Communication Confirmation not received yet");
+      }
   }
 
   //==================================wait for separation status================================
@@ -193,7 +196,7 @@ void loop()
     if(digitalRead(DETECTION_PIN) == 0){
       comm.updateRoverComsStat(0b11000000);//"Separation Detection" in Comms Status is 1 -> waiting for distancing from MC
       comm.sendStatus(); 
-      Serial.println("wait for distancing...");
+      Serial.println("Pin disconnected..Start distancing...");
       //evacuation
       motor.goStraight(nominalSpeed);
       delay(10000);
@@ -202,6 +205,8 @@ void loop()
       comm.updateRoverComsStat(0b11100000);//"Moved away/ Evacuation / Distancing" in Comms Status is 1 -> waiting for GPS
       comm.sendStatus(); 
       stopi = millis();
+    } else if (digitalRead(DETECTION_PIN) == 1){
+      Serial.println("Pin still connected");
     }
   }
 
@@ -210,7 +215,7 @@ void loop()
   while (rover.status.waitGPS) {
     start = millis();
     if (start > (stopi + 1000)) {
-      Serial.println("initial Mode: waiting for GPS...");
+      Serial.println("Waiting for GPS coordinates...");
       comm.sendStatus();//No updateRoverComsStat before send status -> still waiting for GPS
       stopi = millis();
     }
