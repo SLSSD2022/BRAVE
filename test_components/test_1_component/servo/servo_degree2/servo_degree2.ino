@@ -1,8 +1,8 @@
 #include <Servo.h>
 Servo myservo;
-const int SV_PIN = 25;       // サーボモーターをデジタルピン7に
+const int SV_PIN = 23;       // サーボモーターをデジタルピン7に
 int degree = 28;     // PWMパルス幅を1450マイクロ秒(2.4ms)に設定
-boolean reverse =0;
+boolean reverse = 0;
 
 void setup(){
  
@@ -15,16 +15,16 @@ void loop(){
   
    myservo.write(degree);    // サーボモーターを0度の位置まで動かす
    if(reverse == 0){
-    degree += 1;
+    degree += 5;
    }
    else{
-    degree -= 1;
+    degree -= 5;
    }
    delay(200);
-   if(degree > 10){
+   if(degree > 90){
     reverse = 1;
    }
-   if(degree < 1){
+   if(degree < 10){
     reverse = 0;
    }
 }

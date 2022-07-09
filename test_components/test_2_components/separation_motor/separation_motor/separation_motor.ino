@@ -1,15 +1,15 @@
-const int DETECTION_PIN = 4;
+int DETECTION_PIN = 2;
 
 //モーター
-const int ENABLE = 8;
-const int CH1 = 9;
-const int CH2 = 11;
-const int CH3 = 10;
-const int CH4 = 12;
+const int ENABLE = 3;
+const int CH1 = 5;
+const int CH2 = 4;
+const int CH3 = 6;
+const int CH4 = 7;
 
 void setup(){
   Serial.begin(9600);
-  pinMode(DETECTION_PIN,INPUT_PULLUP);
+  pinMode(2,INPUT_PULLUP);
   
   //モーター
   pinMode(CH1, OUTPUT);
@@ -20,7 +20,7 @@ void setup(){
 }
 
 void loop(){
-  if(digitalRead(DETECTION_PIN) == 1)
+  if(digitalRead(2) == 1)
   {
     digitalWrite(ENABLE,HIGH);
     digitalWrite(CH1,HIGH);
@@ -29,7 +29,7 @@ void loop(){
     digitalWrite(CH4,LOW);
     Serial.println("separated!");
   }
-  else{
+  else if(digitalRead(2) == 0 ){
     digitalWrite(ENABLE,LOW);
     digitalWrite(CH1,HIGH);
     digitalWrite(CH2,HIGH);

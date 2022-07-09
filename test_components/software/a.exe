@@ -1,0 +1,11 @@
+# 1 "C:\\Users\\kaz60\\Documents\\project\\SLSSD2022\\Software\\test_components\\software\\main.cpp"
+# 1 "C:\\Users\\kaz60\\Documents\\project\\SLSSD2022\\Software\\test_components\\software//"
+# 1 "<built-in>"
+# 1 "<command-line>"
+# 1 "C:\\Users\\kaz60\\Documents\\project\\SLSSD2022\\Software\\test_components\\software\\main.cpp"
+
+
+int main(){
+    int a = 2;
+    return 0;
+}

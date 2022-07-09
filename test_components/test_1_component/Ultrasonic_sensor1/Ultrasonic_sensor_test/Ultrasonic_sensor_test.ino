@@ -1,5 +1,5 @@
-#define HEADpin A15
-
+//#define HEADpin A15
+uint8_t HEADpin = A15;
 long anVolt, cm;
 
 
