@@ -9,7 +9,7 @@ const int CH4 = 7;
 
 void setup(){
   Serial.begin(9600);
-  pinMode(2,INPUT_PULLUP);
+  pinMode(DETECTION_PIN,INPUT_PULLUP);
   
   //モーター
   pinMode(CH1, OUTPUT);
@@ -20,7 +20,7 @@ void setup(){
 }
 
 void loop(){
-  if(digitalRead(2) == 1)
+  if(digitalRead(DETECTION_PIN) == 0)
   {
     digitalWrite(ENABLE,HIGH);
     digitalWrite(CH1,HIGH);
@@ -29,7 +29,7 @@ void loop(){
     digitalWrite(CH4,LOW);
     Serial.println("separated!");
   }
-  else if(digitalRead(2) == 0 ){
+  else if(digitalRead(DETECTION_PIN) == 1){
     digitalWrite(ENABLE,LOW);
     digitalWrite(CH1,HIGH);
     digitalWrite(CH2,HIGH);

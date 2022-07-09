@@ -1,4 +1,4 @@
-const int DETECTION_PIN = 4;
+const int DETECTION_PIN = 2;
 
 void setup(){
   Serial.begin(9600);
@@ -6,7 +6,7 @@ void setup(){
 }
 
 void loop(){
-  if(digitalRead(DETECTION_PIN) == 1)
+  if(digitalRead(DETECTION_PIN) == 0)
   {
     Serial.println("separated!");
   }
