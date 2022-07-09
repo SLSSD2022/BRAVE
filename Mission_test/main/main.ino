@@ -56,7 +56,7 @@ unsigned long start;
 unsigned long stopi;
 
 //------------------------------Separation detection------------------------------
-const int DETECTION_PIN = 4;
+const int DETECTION_PIN = 2;
 
 //------------------------------Control Status----------------------------
 Rover rover;
@@ -190,7 +190,7 @@ void loop()
       comm.sendStatus();//No updateRoverComsStat before send status -> still waiting for separation 
       stopi = millis();
     }
-    if(digitalRead(DETECTION_PIN) == 1){
+    if(digitalRead(DETECTION_PIN) == 0){
       comm.updateRoverComsStat(0b11000000);//"Separation Detection" in Comms Status is 1 -> waiting for distancing from MC
       comm.sendStatus(); 
       Serial.println("wait for distancing...");
