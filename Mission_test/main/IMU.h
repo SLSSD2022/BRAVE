@@ -43,8 +43,8 @@ private:
   int calIndex = 0;
   
   int medianFilter();
-  int quicksortFunc(const void *a, const void *b);
 };
 
+int quicksortFunc(const void *a, const void *b);
 
 #endif

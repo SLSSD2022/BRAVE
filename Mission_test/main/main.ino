@@ -19,7 +19,7 @@ Ultrasonic ultrasonicLong(A15);
 const int emergencyStopDist = 10;
 
 //------------------------------LIDAR sensor------------------------------
-LIDAR lidar(&Serial1);
+LIDAR lidar(&Serial3);
 
 //------------------------------Motor------------------------------
 Motor motor(3,4,5,6,7);
@@ -30,7 +30,7 @@ const int slowSpeed = 200;
 const int verySlowSpeed = 150;
 
 //------------------------------GPS---------------------------------
-GPS gps(&Serial3);
+GPS gps(&Serial1);
 
 //9axis filter
 //------------------------------9axis sensor------------------------------
@@ -83,6 +83,7 @@ int measureIndex = 0;
 //Buffer for all range measurement near goal
 #define SEAR_BUF_LEN 20
 int listcm[SEAR_BUF_LEN];
+int listdeg[SEAR_BUF_LEN];
 int searchIndex = 0;
 
 unsigned int goalRoute[3];
@@ -253,7 +254,7 @@ void loop()
   rover.data.cmLong = ultrasonicLong.getDistance();
 
   //---------------------GPS acquisition--------------------------------------------------
-  updateGPSlocation(&rover.data.latR,&rover.data.lngR);
+  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
   rover.data.degRtoA = atan2((rover.data.lngR - rover.data.lngA) * 1.23, (rover.data.latR - rover.data.latA)) * 57.3 + 180;
   rover.data.rangeRtoA = gps.distanceBetween(rover.data.latR, rover.data.lngR, rover.data.latA, rover.data.lngA);
 
@@ -332,7 +333,7 @@ void loop()
     }
   }
   else if (emergencyStopFlag == 0 && rover.status.calibration == 0 && rover.status.near == 0 ) { //通常走行時
-    motor.angleGo(x,degRtoA,nominalSpeed);
+    motor.angleGo(rover.data.x,rover.data.degRtoA,nominalSpeed);
   }
   rover.data.motorControl = motor.controlStatus;
 
@@ -384,9 +385,9 @@ void loop()
 void goalCalculation() {
   //基本方針:最初の時点でどう巡るかを決定する。
   unsigned int range[3];
-  updateGPSlocation();
+  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
   for (int i = 0; i < 3 ; i++) {
-    range[i] = gps.distanceBetween(latR, lngR, comm.gpsPacket.gpsData.latA[i], comm.gpsPacket.gpsData.lngA[i]);
+    range[i] = gps.distanceBetween(rover.data.latR, rover.data.lngR, comm.gpsPacket.gpsData.latA[i], comm.gpsPacket.gpsData.lngA[i]);
     goalRoute[i] = i + 1;
   }
   sortRange(range, goalRoute); //root = [1,2,3]
@@ -486,7 +487,7 @@ void calibLoop(){
     Serial.print(imu.calibx);
     Serial.print(":calib_y:");
     Serial.print(imu.caliby);
-    x = imu.angle_calculation();//このループ後半のためだけ
+    rover.data.x = imu.angleCalculation();//このループ後半のためだけ
   }
   else {
     calIndex = (calIndex + 1) % CAL_BUF_LEN;
@@ -591,25 +592,25 @@ int ycenter_calculation() {
 void motor_angle_spin()
 { 
   int deltaTheta;
-  if (x < degRtoA) {
-    deltaTheta = degRtoA - x;
+  if (rover.data.x < rover.data.degRtoA) {
+    deltaTheta = rover.data.degRtoA - rover.data.x;
     Serial.print(":x < degRtoA:");
     Serial.print(deltaTheta);
 
-    if ((0 <= deltaTheta && deltaTheta <= motor.spinThreshold / 2) || (360 - motor.spinThreshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
+    if ((0 <= deltaTheta && deltaTheta <= motor.spinThreshold / 2) || (360 - motor.spinThreshold / 2 <= deltaTheta && deltaTheta <= rover.data.degRtoA)) {
       //閾値内にあるときは真っ直ぐ
-      if ((0 <= deltaTheta && deltaTheta <= motor.threshold / 2) || (360 - motor.threshold / 2 <= deltaTheta && deltaTheta <= degRtoA)) {
+      if ((0 <= deltaTheta && deltaTheta <= motor.threshold / 2) || (360 - motor.threshold / 2 <= deltaTheta && deltaTheta <= rover.data.degRtoA)) {
         motor.goStraight(slowSpeed);
         forwardCount += 1;
       }
       //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
       else if (motor.threshold / 2 < deltaTheta && deltaTheta <= 180) {
-        motor.turn(slowSpeed,slowSpeed - (deltaTheta * slowSpeed / 180))//"turn right"
+        motor.turn(slowSpeed,slowSpeed - (deltaTheta * slowSpeed / 180));//"turn right"
       }
 
       //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
       else {
-        motor.turn(slowSpeed - ((360 - deltaTheta) * slowSpeed / 180),slowSpeed)//"turn left"
+        motor.turn(slowSpeed - ((360 - deltaTheta) * slowSpeed / 180),slowSpeed);//"turn left"
       }
     }
     else {
@@ -628,7 +629,7 @@ void motor_angle_spin()
   }
 
   else {
-    deltaTheta = x - degRtoA;
+    deltaTheta = rover.data.x - rover.data.degRtoA;
     Serial.print(":degRtoA < x:");
     Serial.print(deltaTheta);
     if ((0 <= deltaTheta && deltaTheta <= motor.spinThreshold / 2) || (360 - motor.spinThreshold / 2 <= deltaTheta && deltaTheta <= 360)) {
@@ -639,12 +640,12 @@ void motor_angle_spin()
       }
       //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
       else if (motor.threshold / 2 < deltaTheta && deltaTheta <= 180) {
-        motor.turn(slowSpeed - (deltaTheta * slowSpeed / 180),slowSpeed)//"turn left"
+        motor.turn(slowSpeed - (deltaTheta * slowSpeed / 180),slowSpeed);//"turn left"
       }
 
       //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
       else {
-        motor.turn(slowSpeed,slowSpeed - ((360 - deltaTheta) * slowSpeed / 180))//"turn right"
+        motor.turn(slowSpeed,slowSpeed - ((360 - deltaTheta) * slowSpeed / 180));//"turn right"
       }
     }
     else {

@@ -283,7 +283,7 @@ void Communication::setAllData(IMU* imu_p, dataStruct* roverData_p)
   this->setMag(imu_p);
   this->setCalib(imu_p);
   this->setAttitude(roverData_p->x);
-  this->setDistByLIDAR(roverData_p->cm_LIDAR);
+  this->setDistByLIDAR(roverData_p->cmLidar);
   this->setPosition(roverData_p->latR, roverData_p->lngR);
   this->setDegRtoA(roverData_p->degRtoA);
   this->setControlStatus(roverData_p->motorControl);
@@ -455,4 +455,3 @@ boolean Communication::waitLanding(){
   }
   return false;
 }
-
