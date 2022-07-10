@@ -23,11 +23,11 @@ void setup() {
   }
   
 }
-
+//35.7200431823730,139.7362060546875
 void loop() { // run over and over
   while (Serial1.available() > 0) {
     char c = Serial1.read();
-//    Serial.print(c);
+    Serial.print(c);
     gps.encode(c);
     if (gps.location.isUpdated()) {
       LatA = gps.location.lat();
@@ -38,7 +38,6 @@ void loop() { // run over and over
       Serial.print(",");
       Serial.print(gps.distanceBetween(LatR,LngR,LatA,LngA));
       Serial.println("");
-  
     }
   }
 }

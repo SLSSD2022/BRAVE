@@ -46,10 +46,10 @@ GPS::GPS(HardwareSerial *serialport)
 }
 
 void GPS::init(){
-    HWSerial->begin(115200);
-    while (!HWSerial) {
-        // wait for serial port to connect. Needed for native USB port only
-    }
+  HWSerial->begin(9600);
+  while (!HWSerial) {
+      // wait for serial port to connect. Needed for native USB port only
+  }
 }
 
 void GPS::updateGPSlocation(float* lat,float* lng) {
@@ -60,13 +60,13 @@ void GPS::updateGPSlocation(float* lat,float* lng) {
       //    Serial.print("YES");
       char c = HWSerial->read();
       //    Serial.print(c);
-      gps.encode(c);
-      if (gps.location.isUpdated())
+      this->encode(c);
+      if (this->location.isUpdated())
       {
         Serial.println("");
         Serial.println("I got new GPS!");
-        *lat = gps.location.lat();  // roverの緯度を計算
-        *lng = gps.location.lng(); // roverの経度を計算
+        *lat = this->location.lat();  // roverの緯度を計算
+        *lng = this->location.lng(); // roverの経度を計算
         updateFlag = 1;
         break;
       }
@@ -74,7 +74,6 @@ void GPS::updateGPSlocation(float* lat,float* lng) {
       delay(1);
     }
   }
-  
 }
 
 float GPS::deg2rad(float deg)

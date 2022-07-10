@@ -13,9 +13,9 @@
 
 
 //-----------------------------Ultrasonic sensor--------------------------------
-Ultrasonic ultrasonicHead(22,24);
-Ultrasonic ultrasonicBottom(6,7);
-Ultrasonic ultrasonicLong(A15);
+Ultrasonic ultrasonicHead(22,24);//(trigpin,echopin)
+Ultrasonic ultrasonicBottom(11,10);//(trigpin,echopin)
+Ultrasonic ultrasonicLong(A15);//(readpin)
 const int emergencyStopDist = 10;
 
 //------------------------------LIDAR sensor------------------------------
@@ -25,9 +25,9 @@ LIDAR lidar(&Serial3);
 Motor motor(3,5,4,6,7);
 const int Threshold = 10;
 const int spinThreshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
-const int nominalSpeed = 250;
-const int slowSpeed = 200;
-const int verySlowSpeed = 150;
+const int nominalSpeed = 150;
+const int slowSpeed = 100;
+const int verySlowSpeed = 70;
 
 //------------------------------GPS---------------------------------
 GPS gps(&Serial1);
@@ -53,7 +53,7 @@ const int SDSW = 49;
 //------------------------------TWElite------------------------------
 Communication comm(&Serial2,8,9);//HardwareSerialPort,BPS pin,RST pin
 unsigned long start;
-unsigned long stopi;
+unsigned long stop;
 
 //------------------------------Separation detection------------------------------
 const int DETECTION_PIN = 2;
@@ -97,13 +97,30 @@ int memoryFlag = 0;
 
 void setup()
 {
+  Serial.begin(115200);// デバッグ用シリアル通信は9600bps
+  Serial.println("");
+  Serial.println("===========================================================");
+  Serial.println("==Hello! This is 'R2D', Relaying Rover to Destination!!!===");
+  Serial.println("===========================================================");
   //setting status&environment
-  rover.status.calibration = 1;
+  rover.status.landed = 1;
+  rover.status.separated = 1;
+  rover.status.evacuated = 1;
+  rover.status.GPSreceived = 1;
+  rover.status.calibrated = 0;
+  rover.status.landed = 1;
+  rover.status.toGoal = 1;
   rover.status.near = 0;//ゴール5m付近のとき
   rover.status.search = 0;//ゴール5m付近で測距するとき
+  rover.data.latA = 35.7108078002929;
+  rover.data.lngA = 139.7615966796875; //目的地Aの緯度経度((教育の森公園)
+  rover.data.latR = 35.715328;
+  rover.data.lngR = 139.761138;  //現在地の初期想定値(7号館屋上)
+  rover.printAll();
 
   //initialization
-  Serial.begin(115200);// デバッグ用シリアル通信は9600bps
+  Serial.println("");
+  Serial.println("------------------ Initialization!!! ------------------");
   ultrasonicHead.init();
   ultrasonicBottom.init();
   motor.init();motor.setThreshold(Threshold,spinThreshold);
@@ -112,26 +129,7 @@ void setup()
   comm.init();comm.initializeRoverComsStat();
   lidar.init();
   eeprom.init(30);
-  
-  
-  //SDcard Initialization
-  pinMode(SDSW, INPUT_PULLUP);
-  //  while (1) {
-  //    if (digitalRead(SDSW) == 0) {
-  //      Serial.println("Card inserted!");
-  //      break;
-  //    }
-  //    else {
-  //      Serial.println("Card not inserted!");
-  //    }
-  //    delay(1000);
-  //  }
-  //  if (!SD.begin(chipSelect)) {
-  //    Serial.println("Card failed, or not present");
-  //    // don't do anything more:
-  //    while (1);
-  //  }
-  //  Serial.println("card initialized.");
+  SDinit();
   pinMode(DETECTION_PIN,INPUT_PULLUP);
 
 
@@ -149,7 +147,17 @@ void setup()
     bufx[i] = 0;
     bufy[i] = 0;
   }
-  stopi = millis();
+  Serial.println("------------------ Mission Start!!! ------------------");
+  start = millis();
+  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+  if (dataFile) {
+    dataFile.println("");
+    dataFile.println("2022/7/10 18:45 simulation");
+  }
+  // if the file isn't open, pop up an error:
+  else {
+    Serial.println("error opening datalog.txt");
+  }
 }
 
 
@@ -167,31 +175,31 @@ void loop()
   }
 
   //==================================wait for landing status================================
-  while (rover.status.waitLanding) {
+  while (!rover.status.landed) {
     Serial.println("Rover  Initialized...");
-    start = millis();
-    if (start > (stopi + 1000)) {
+    stop = millis();
+    if (stop > (start + 1000)) {
       Serial.println("wait for landing...");
-      stopi = millis();
+      start = millis();
     }
         if(comm.waitLanding() == 1/*&& checkLanding()*/){
-          rover.status.waitLanding = 0;
-          rover.status.waitSeparation = 1;
+          rover.status.landed = 0;
+          rover.status.separated = 1;
           comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
           comm.sendStatus();
-          stopi = millis();
+          start = millis();
       }else if (comm.waitLanding() ==0){
         Serial.println("Communication Confirmation not received yet");
       }
   }
 
   //==================================wait for separation status================================
-  while (rover.status.waitSeparation) {
-    start = millis();
-    if (start > (stopi + 1000)) {
+  while (!rover.status.separated) {
+    stop = millis();
+    if (stop > (start + 1000)) {
       Serial.println("wait for separation...");
       comm.sendStatus();//No updateRoverComsStat before send status -> still waiting for separation 
-      stopi = millis();
+      start = millis();
     }
     if(digitalRead(DETECTION_PIN) == 0){
       comm.updateRoverComsStat(0b11000000);//"Separation Detection" in Comms Status is 1 -> waiting for distancing from MC
@@ -201,10 +209,10 @@ void loop()
       motor.goStraight(nominalSpeed);
       delay(10000);
       motor.stop();
-      rover.status.waitSeparation = 0;
+      rover.status.separated = 0;
       comm.updateRoverComsStat(0b11100000);//"Moved away/ Evacuation / Distancing" in Comms Status is 1 -> waiting for GPS
       comm.sendStatus(); 
-      stopi = millis();
+      start = millis();
     } else if (digitalRead(DETECTION_PIN) == 1){
       Serial.println("Pin still connected");
     }
@@ -212,12 +220,12 @@ void loop()
 
 
   //=================================wait for GPS status=================================
-  while (rover.status.waitGPS) {
-    start = millis();
-    if (start > (stopi + 1000)) {
+  while (!rover.status.GPSreceived) {
+    stop = millis();
+    if (stop > (start + 1000)) {
       Serial.println("Waiting for GPS coordinates...");
       comm.sendStatus();//No updateRoverComsStat before send status -> still waiting for GPS
-      stopi = millis();
+      start = millis();
     }
     if(comm.receiveGPS()){
       comm.updateRoverComsStat(0b11110000); //"GPS Received" in Comms Status is 1
@@ -230,7 +238,7 @@ void loop()
       rover.data.latA = comm.gpsPacket.gpsData.latA[first];
       rover.data.lngA = comm.gpsPacket.gpsData.lngA[first];
 
-      rover.status.waitGPS = 0;
+      rover.status.GPSreceived = 1;
       rover.status.toGoal = 1;
     }
   }
@@ -245,12 +253,13 @@ void loop()
   imu.getMag();
 
   //キャリブレーションが終了しているなら
-  if (rover.status.calibration == 0) {
+  if (rover.status.calibrated == 1) {
     rover.data.x = imu.angleCalculation();
   }
 
   //---------------------LIDARセンサ取得--------------------------------------------------
-  rover.data.cmLidar = lidar.getDistance();
+  Serial.println ("hi");
+//  rover.data.cmLidar = lidar.getDistance();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
   rover.data.cmHead = ultrasonicHead.getDistance();
@@ -264,13 +273,15 @@ void loop()
   rover.data.rangeRtoA = gps.distanceBetween(rover.data.latR, rover.data.lngR, rover.data.latA, rover.data.lngA);
 
   //---------------------Check parameter & update Status--------------------------------------------------
+  
+  Serial.println ("hi2");
   imu.printAll();
   rover.data.printAll();
 
   if (rover.data.rangeRtoA < 1.0) {
     comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
     if (rover.mode.autoGpsOnly) {
-      successManagement();
+//      successManagement();
     }
     else if (rover.mode.autoAggressive) {
       rover.status.near = 1;
@@ -287,12 +298,12 @@ void loop()
 
 
   //calibration
-  if (rover.status.calibration == 1) {
+  if (rover.status.calibrated == 0) {
     calibLoop();
   }
 
   //ゴール探索時
-  if (rover.status.calibration == 0 && rover.status.near == 1) {
+  if (rover.status.calibrated == 1 && rover.status.near == 1) {
     if (rover.status.search == 1) { //ゴールの方向がまだ分かってない
       searchLoop();
     }
@@ -306,11 +317,11 @@ void loop()
     //ブレーキ
     motor.stop();
   }
-  else if (emergencyStopFlag == 0 && rover.status.calibration == 1) { //キャリブレーション時
+  else if (emergencyStopFlag == 0 && rover.status.calibrated == 0) { //キャリブレーション時
     motor.spinLeft(slowSpeed);
     Serial.print(":calibration");
   }
-  else if (emergencyStopFlag == 0 && rover.status.calibration == 0 && rover.status.near == 1) { //ゴール5m付近時
+  else if (emergencyStopFlag == 0 && rover.status.calibrated == 1 && rover.status.near == 1) { //ゴール5m付近時
     if (rover.status.search == 1) {  //ゴールの方向がまだ分かってない->スピンしながらコーンを探索中
       motor.spinRight(verySlowSpeed);
       Serial.print(":searching");
@@ -337,7 +348,7 @@ void loop()
       }
     }
   }
-  else if (emergencyStopFlag == 0 && rover.status.calibration == 0 && rover.status.near == 0 ) { //通常走行時
+  else if (emergencyStopFlag == 0 && rover.status.calibrated == 1 && rover.status.near == 0 ) { //通常走行時
     motor.angleGo(rover.data.x,rover.data.degRtoA,nominalSpeed);
   }
   rover.data.motorControl = motor.controlStatus;
@@ -355,20 +366,20 @@ void loop()
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
 
-  start = millis();
-  int timer = start - stopi;
-
-  Serial.print(":start");
-  Serial.print(start);
-  Serial.print(":stopi");
-  Serial.print(stopi);
-  Serial.print(":timer");
-  Serial.println(timer);
+  stop = millis();
+  int timer = stop - start;
+//
+//  Serial.print(":stop");
+//  Serial.print(stop);
+//  Serial.print(":start");
+//  Serial.print(start);
+//  Serial.print(":timer");
+//  Serial.println(timer);
 
   if (timer > 10000) {
     Serial.println(":Communication start!");
     comm.HKtoGS(&imu,&rover.data);
-    stopi = millis();
+    start = millis();
     Serial.println(":Communication end!");
   }
 
@@ -476,10 +487,6 @@ int goal_angle_search() { //探索時、最も測距値が近い角度をゴー�
 }
 
 void calibLoop(){
-  Serial.print(":xMag:");
-  Serial.print(imu.xMag);
-  Serial.print(":yMag:");
-  Serial.print(imu.yMag);
   Serial.print(":calIndex:");
   Serial.print(calIndex);
   bufx[calIndex] = imu.xMag;
@@ -487,7 +494,7 @@ void calibLoop(){
   if (calIndex == CAL_BUF_LEN - 1) { //バッファに値がたまったら
     imu.calibx = xcenter_calculation();
     imu.caliby = ycenter_calculation();
-    rover.status.calibration = 0 ;
+    rover.status.calibrated = 1 ;
     Serial.print(":calib_x:");
     Serial.print(imu.calibx);
     Serial.print(":calib_y:");
@@ -674,6 +681,30 @@ void motor_angle_spin()
 }
 
 //============SDCard function=========================================================================//
+void SDinit(){
+  //SDcard Initialization
+  pinMode(SDSW, INPUT_PULLUP);
+  while (1) {
+    if (digitalRead(SDSW) == 0) {
+      Serial.println("Card inserted!");
+      if (SD.begin(chipSelect)) {
+        Serial.println("card initialized.");
+      }
+      else {
+        Serial.println("Card failed, or not present");
+      }
+      break;
+    }
+    else {
+      Serial.println("Card not inserted!");
+      break;
+    }
+    delay(1000);
+  }
+  
+}
+
+
 void LogToSDCard() {
   File dataFile = SD.open("datalog.txt", FILE_WRITE);
   if (dataFile) {
@@ -695,15 +726,17 @@ void LogToSDCard() {
     dataFile.print(",");
     dataFile.print(rover.data.cmLidar);
     dataFile.print(",");
-    dataFile.print(rover.data.latA);
+    dataFile.print(rover.data.latA,10);
     dataFile.print(",");
-    dataFile.print(rover.data.lngA);
+    dataFile.print(rover.data.lngA,10);
     dataFile.print(",");
-    dataFile.print(rover.data.latR);
+    dataFile.print(rover.data.latR,10);
     dataFile.print(",");
-    dataFile.print(rover.data.lngR);
+    dataFile.print(rover.data.lngR,10);
     dataFile.print(",");
     dataFile.print(rover.data.degRtoA);
+    dataFile.print(",");
+    dataFile.print(rover.data.rangeRtoA);
     dataFile.print(",");
     dataFile.print(rover.data.motorControl);
     dataFile.println("");

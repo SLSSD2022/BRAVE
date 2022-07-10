@@ -8,7 +8,7 @@ IMU::IMU()
   ,xMag(0)
   ,yMag(0)
   ,zMag(0)
-  ,calib(175)
+  ,calib(265)
   ,calibx(20)
   ,caliby(132)
 {

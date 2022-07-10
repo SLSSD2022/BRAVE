@@ -6,6 +6,7 @@ Motor::Motor(uint8_t enable,uint8_t ch1,uint8_t ch2,uint8_t ch3,uint8_t ch4)
     ,CH2(ch2)
     ,CH3(ch3)
     ,CH4(ch4)
+    //,//difference(82/70)
     ,controlStatus(0)
     ,speedL(0)
     ,speedR(0)
@@ -23,7 +24,6 @@ void Motor::init()
     pinMode(CH3, OUTPUT);
     pinMode(CH4, OUTPUT);
     digitalWrite(ENABLE, LOW); // disable
-    Serial.println("Motor driver initailized!");
     return;
 }
 
@@ -77,11 +77,11 @@ void Motor::goStraight(int speed)
     digitalWrite(ENABLE, HIGH); // enable
     analogWrite(CH1, speed);
     digitalWrite(CH2, LOW);
-    analogWrite(CH3, (int)speed/1.2);
+    analogWrite(CH3, speed);
     digitalWrite(CH4, LOW);
     this->controlStatus = 1;//"Go straight"
     this->speedR = speed;
-    this->speedL = (int)speed/1.2;
+    this->speedL = speed;
     Serial.print(":Go straight");
     return;
 }
@@ -91,9 +91,9 @@ void Motor::turn(int speedl,int speedr)
     digitalWrite(ENABLE, HIGH); // enable
     analogWrite(CH1, speedR);
     digitalWrite(CH2, LOW);
-    analogWrite(CH3, (int)speedL/1.2);
+    analogWrite(CH3, speedL);
     digitalWrite(CH4, LOW);
-    this->speedL = (int)speedL/1.2;
+    this->speedL = speedl;
     this->speedR = speedr;
     if(speedl > speedr){
         this->controlStatus = 3;//"turn right"
@@ -108,30 +108,30 @@ void Motor::turn(int speedl,int speedr)
     }
 }
 
-void Motor::spinRight(int speed)
-{
-    digitalWrite(ENABLE, HIGH); // enable
-    analogWrite(CH1, 0);
-    analogWrite(CH2, speed);
-    analogWrite(CH3, (int)speed/1.2);
-    analogWrite(CH4, 0);
-    this->controlStatus = 4;//"spin to right"
-    this->speedR = speed;
-    this->speedL = -(int)speed/1.2;
-    Serial.print(":spin to right!");
-    return;
-}
-
 void Motor::spinLeft(int speed)
 {
     digitalWrite(ENABLE, HIGH); // enable
     analogWrite(CH1, speed);
     analogWrite(CH2, 0);
     analogWrite(CH3, 0);
-    analogWrite(CH4, (int)speed/1.2);
+    analogWrite(CH4, speed);
     this->controlStatus = 5;//"spin to left"
     this->speedR = speed;
-    this->speedL = -(int)speed/1.2;
+    this->speedL = -speed;
+    Serial.print(":spin to left!");
+    return;
+}
+
+void Motor::spinRight(int speed)
+{
+    digitalWrite(ENABLE, HIGH); // enable
+    analogWrite(CH1, 0);
+    analogWrite(CH2, speed);
+    analogWrite(CH3, speed);
+    analogWrite(CH4, 0);
+    this->controlStatus = 4;//"spin to left"
+    this->speedR = speed;
+    this->speedL = -speed;
     Serial.print(":spin to left!");
     return;
 }
