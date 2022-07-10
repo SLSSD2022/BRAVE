@@ -2,6 +2,8 @@
 
 void _dataStruct::printAll()
 {
+  Serial.print(":cm_LIDAR:");
+  Serial.print(cmLidar);
   Serial.print(":latA:");
   Serial.print(latA);
   Serial.print(":lngA:");
@@ -10,14 +12,12 @@ void _dataStruct::printAll()
   Serial.print(latR);
   Serial.print(":lngR:");
   Serial.print(lngR);
+  Serial.print(":rangeRtoA:");
+  Serial.print(rangeRtoA);
   Serial.print(":degRtoA:");
   Serial.print(degRtoA);
   Serial.print(":x:");
   Serial.print(x);
-  Serial.print(":rangeRtoA:");
-  Serial.print(rangeRtoA);
-  Serial.print(":cm_LIDAR:");
-  Serial.print(cmLidar);
 }
 
 void _modeStruct::printAll()

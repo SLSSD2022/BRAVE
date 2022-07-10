@@ -34,14 +34,57 @@ void Motor::setThreshold(int threshold,int spinthreshold)
     return;
 }
 
+void Motor::right(int speed)
+{
+    if(speed > 0){
+      digitalWrite(ENABLE, HIGH); // enable
+      analogWrite(CH1, speed);
+      digitalWrite(CH2, LOW);
+    }
+    else if(speed < 0){
+      digitalWrite(ENABLE, HIGH); // enable
+      digitalWrite(CH1, LOW);
+      analogWrite(CH2, speed);
+    }
+    else{//speed == 0
+      digitalWrite(ENABLE, HIGH);
+      digitalWrite(CH1, HIGH);
+      digitalWrite(CH2, HIGH);
+    }
+    this->speedR = speed;
+    Serial.print(":speedR:");
+    Serial.print(speed);
+    return;
+}
+
+void Motor::left(int speed)
+{
+  if(speed > 0){
+    digitalWrite(ENABLE, HIGH); // enable
+    analogWrite(CH3, speed);
+    digitalWrite(CH4, LOW);
+  }
+  else if(speed < 0){
+    digitalWrite(ENABLE, HIGH); // enable
+    digitalWrite(CH3, LOW);
+    analogWrite(CH4, speed);
+  }
+  else{//speed == 0
+    digitalWrite(ENABLE, HIGH);
+    digitalWrite(CH3, HIGH);
+    digitalWrite(CH4, HIGH);
+  }
+  this->speedL = speed;
+  Serial.print(":speedL:");
+  Serial.print(speed);
+  return;
+}
+
 
 void Motor::stop()
 {
-    digitalWrite(ENABLE, HIGH);
-    digitalWrite(CH1, HIGH);
-    digitalWrite(CH2, HIGH);
-    digitalWrite(CH3, HIGH);
-    digitalWrite(CH4, HIGH);
+    this->right(0);
+    this->left(0);
     this->controlStatus = 0;//"stop"
     this->speedR = 0;
     this->speedL = 0;
@@ -50,51 +93,19 @@ void Motor::stop()
 }
 
 
-void Motor::right(int speed)
-{
-    digitalWrite(ENABLE, HIGH); // enable
-    analogWrite(CH1, speed);
-    digitalWrite(CH2, LOW);
-    this->speedR = speed;
-    this->speedL = 0;
-    Serial.print(":right");
-    return;
-}
-
-void Motor::left(int speed)
-{
-    digitalWrite(ENABLE, HIGH); // enable
-    analogWrite(CH3, speed);
-    digitalWrite(CH4, LOW);
-    this->speedR = 0;
-    this->speedL = speed;
-    Serial.print(":left");
-    return;
-}
-
 void Motor::goStraight(int speed)
 {
-    digitalWrite(ENABLE, HIGH); // enable
-    analogWrite(CH1, speed);
-    digitalWrite(CH2, LOW);
-    analogWrite(CH3, (int)speed/1.2);
-    digitalWrite(CH4, LOW);
+    this->right(speed);
+    this->left(speed);
     this->controlStatus = 1;//"Go straight"
-    this->speedR = speed;
-    this->speedL = (int)speed/1.2;
     Serial.print(":Go straight");
     return;
 }
 
 void Motor::turn(int speedl,int speedr)
 {
-    digitalWrite(ENABLE, HIGH); // enable
-    analogWrite(CH1, speedR);
-    digitalWrite(CH2, LOW);
-    analogWrite(CH3, (int)speedL/1.2);
-    digitalWrite(CH4, LOW);
-    this->speedL = (int)speedL/1.2;
-    this->speedR = speedr;
+    this->right(speedr);
+    this->left(speedl);
     if(speedl > speedr){
         this->controlStatus = 3;//"turn right"
         Serial.print(":turn right");
@@ -110,28 +121,18 @@ void Motor::turn(int speedl,int speedr)
 
 void Motor::spinRight(int speed)
 {
-    digitalWrite(ENABLE, HIGH); // enable
-    analogWrite(CH1, 0);
-    analogWrite(CH2, speed);
-    analogWrite(CH3, (int)speed/1.2);
-    analogWrite(CH4, 0);
+    this->right(-speed);
+    this->left(speed);
     this->controlStatus = 4;//"spin to right"
-    this->speedR = speed;
-    this->speedL = -(int)speed/1.2;
     Serial.print(":spin to right!");
     return;
 }
 
 void Motor::spinLeft(int speed)
 {
-    digitalWrite(ENABLE, HIGH); // enable
-    analogWrite(CH1, speed);
-    analogWrite(CH2, 0);
-    analogWrite(CH3, 0);
-    analogWrite(CH4, (int)speed/1.2);
-    this->controlStatus = 5;//"spin to left"
-    this->speedR = speed;
-    this->speedL = -(int)speed/1.2;
+    this->right(speed);
+    this->left(-speed);
+    this->controlStatus = 5;//"spin to right"
     Serial.print(":spin to left!");
     return;
 }
@@ -178,9 +179,5 @@ void Motor::angleGo(float bodyDeg,float goalDeg,int speed)
 
     }
   }
-  Serial.print(":speedL:");
-  Serial.print(this->speedL);
-  Serial.print(":speedR:");
-  Serial.print(this->speedR);
   return;
 }

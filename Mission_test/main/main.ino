@@ -34,7 +34,7 @@ GPS gps(&Serial1);
 
 //9axis filter
 //------------------------------9axis sensor------------------------------
-IMU imu(0.00, 0.00, 0.00, 0, 0, 0, 175, 20, 132);
+IMU imu(0.00, 0.00, 0.00, 0, 0, 0, 265, 20, 132);
 //キャリブレーション用バッファの長さ
 #define CAL_BUF_LEN 100
 int bufx[CAL_BUF_LEN];
@@ -103,16 +103,21 @@ void setup()
   Serial.println("==Hello! This is 'R2D', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
-  rover.status.landed = 0;
-  rover.status.separated = 0;
-  rover.status.evacuated = 0;
-  rover.status.GPSreceived = 0;
+  rover.status.landed = 1;
+  rover.status.separated = 1;
+  rover.status.evacuated = 1;
+  rover.status.GPSreceived = 1;
   rover.status.calibrated = 0;
-  rover.status.toGoal = 0;
+  rover.status.toGoal = 1;
   rover.status.near = 0;//ゴール5m付近のとき
   rover.status.search = 0;//ゴール5m付近で測距するとき
-  rover.data.latA = 35.7108078002929;
-  rover.data.lngA = 139.7615966796875; //目的地Aの緯度経度((教育の森公園)
+// double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
+//double LatA = 35.7142738, LngA = 139.76185488809645; //目的地Aの緯度経度(2号館)
+//double LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
+//double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
+//double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
+  rover.data.latA = 35.7100069;
+  rover.data.lngA = 139.8108103; //目的地Aの緯度経度(スカイツリー)
   rover.data.latR = 35.715328;
   rover.data.lngR = 139.761138;  //現在地の初期想定値(7号館屋上)
   rover.printAll();
@@ -257,23 +262,21 @@ void loop()
   }
 
   //---------------------LIDARセンサ取得--------------------------------------------------
-  Serial.println ("hi");
 //  rover.data.cmLidar = lidar.getDistance();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
-  rover.data.cmHead = ultrasonicHead.getDistance();
+  //rover.data.cmHead = ultrasonicHead.getDistance();
 
   //---------------------超音波(長・前面)取得--------------------------------------------------
-  rover.data.cmLong = ultrasonicLong.getDistance();
+  //rover.data.cmLong = ultrasonicLong.getDistance();
 
   //---------------------GPS acquisition--------------------------------------------------
-  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
+  //gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
   rover.data.degRtoA = atan2((rover.data.lngR - rover.data.lngA) * 1.23, (rover.data.latR - rover.data.latA)) * 57.3 + 180;
   rover.data.rangeRtoA = gps.distanceBetween(rover.data.latR, rover.data.lngR, rover.data.latA, rover.data.lngA);
 
   //---------------------Check parameter & update Status--------------------------------------------------
-  
-  Serial.println ("hi2");
+ 
   imu.printAll();
   rover.data.printAll();
 
@@ -288,7 +291,7 @@ void loop()
     }
   }
   if (rover.data.cmHead < emergencyStopDist) {
-    emergencyStopFlag = 1;
+    //emergencyStopFlag = 1;
   } else {
     emergencyStopFlag = 0;
   }
@@ -355,13 +358,13 @@ void loop()
   //---------------------Logger------------------------------------------------------
   rover.data.overallTime = millis();//it's good if time is synchronized with GPStime
   LogToSDCard();
-  if (memoryFlag > 5) {
-    eeprom.log();
-    memoryFlag = 0;
-  }
-  else {
-    memoryFlag += 1;
-  }
+//  if (memoryFlag > 5) {
+//    eeprom.log();
+//    memoryFlag = 0;
+//  }
+//  else {
+//    memoryFlag += 1;
+//  }
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
 
@@ -377,7 +380,7 @@ void loop()
 
   if (timer > 10000) {
     Serial.println(":Communication start!");
-    comm.HKtoGS(&imu,&rover.data);
+    //comm.HKtoGS(&imu,&rover.data);
     start = millis();
     Serial.println(":Communication end!");
   }
