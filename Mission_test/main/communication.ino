@@ -36,7 +36,7 @@ void Communication::init()
   digitalWrite(RST, LOW);
   delay(10);
   digitalWrite(RST, HIGH);
-
+  Serial.println("TWElite 38400bps initialized!");
 }
 
 //=========TxPacketData function============================================================================//

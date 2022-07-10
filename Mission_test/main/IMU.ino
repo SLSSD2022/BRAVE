@@ -91,6 +91,7 @@ void IMU::init()
   Wire.write(0x52); // Select Mag register
   Wire.write(0x16); // No. of Repetitions for Z-Axis = 15
   Wire.endTransmission();
+  Serial.println("IMU module initialized!");
 }
 
 

@@ -39,16 +39,20 @@ unsigned int Ultrasonic::getDistance() {
 }
 
 void Ultrasonic::init() {
-    if(mode == 1)
-    {
-      //do nothing
-      return;
-    }
-    else if(mode == 2)
-    {
-      pinMode(trigPin, OUTPUT);
-      pinMode(echoPin, INPUT);
-      return;
-    }
+  if(mode == 1)
+  {
+    //do nothing
+    Serial.println("Ultrasonic Sensor(Long) initialized!");
+    return;
+  }
+  else if(mode == 2)
+  {
+    pinMode(trigPin, OUTPUT);
+    pinMode(echoPin, INPUT);
+    Serial.print("Ultrasonic Sensor(short) Trig:");
+    Serial.print(trigPin);
+    Serial.println(" initialized!");
+    return;
+  }
 }
   

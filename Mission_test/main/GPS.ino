@@ -50,11 +50,13 @@ void GPS::init(){
     while (!HWSerial) {
         // wait for serial port to connect. Needed for native USB port only
     }
+    Serial.println("GPS module initialized!");
 }
 
 void GPS::updateGPSlocation(float* lat,float* lng) {
   int updateFlag = 0;
   while(updateFlag == 0){
+    Serial.println("try to catch GPS...");
     while (HWSerial->available() > 0)
     {
       //    Serial.print("YES");

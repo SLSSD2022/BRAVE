@@ -23,6 +23,7 @@ void Motor::init()
     pinMode(CH3, OUTPUT);
     pinMode(CH4, OUTPUT);
     digitalWrite(ENABLE, LOW); // disable
+    Serial.println("Motor driver initailized!");
     return;
 }
 

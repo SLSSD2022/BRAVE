@@ -3,7 +3,6 @@
 
 #include "./IMU.h"
 #include "./GPS.h"
-#include "./EEPROM.h"
 #include "./Ultrasonic.h"
 
 typedef struct _dataStruct {
@@ -34,11 +33,11 @@ typedef struct _modeStruct {
 
 
 typedef struct _statusStruct {//Status using bit field
-  unsigned char waitLanding : 1;
-  unsigned char waitSeparation : 1;
-  unsigned char evacuation : 1;
-  unsigned char waitGPS : 1;
-  unsigned char calibration : 1;
+  unsigned char landed : 1;
+  unsigned char separated : 1;
+  unsigned char evacuated : 1;
+  unsigned char GPSreceived : 1;
+  unsigned char calibrated : 1;
   unsigned int toGoal;
   unsigned char near : 1;
   unsigned char search : 1;
@@ -60,7 +59,7 @@ class Rover{
 public:
   dataStruct data = {0,0,0,0,0,0,0,0,0,0,0,0};
   modeStruct mode = {0, 1, 0, 0};
-  statusStruct status = {1, 1, 1, 1, 1, 0, 0, 0, 0};
+  statusStruct status = {0};
   successStruct success = {0, 0, 0, 0};
   void printAll();
 };
