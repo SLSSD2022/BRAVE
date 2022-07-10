@@ -103,13 +103,12 @@ void setup()
   Serial.println("==Hello! This is 'R2D', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
-  rover.status.landed = 1;
-  rover.status.separated = 1;
-  rover.status.evacuated = 1;
-  rover.status.GPSreceived = 1;
+  rover.status.landed = 0;
+  rover.status.separated = 0;
+  rover.status.evacuated = 0;
+  rover.status.GPSreceived = 0;
   rover.status.calibrated = 0;
-  rover.status.landed = 1;
-  rover.status.toGoal = 1;
+  rover.status.toGoal = 0;
   rover.status.near = 0;//ゴール5m付近のとき
   rover.status.search = 0;//ゴール5m付近で測距するとき
   rover.data.latA = 35.7108078002929;
@@ -182,15 +181,14 @@ void loop()
       Serial.println("wait for landing...");
       start = millis();
     }
-        if(comm.waitLanding() == 1/*&& checkLanding()*/){
-          rover.status.landed = 0;
-          rover.status.separated = 1;
-          comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
-          comm.sendStatus();
-          start = millis();
-      }else if (comm.waitLanding() ==0){
-        Serial.println("Communication Confirmation not received yet");
-      }
+    if(comm.waitLanding() == 1/*&& checkLanding()*/){
+      rover.status.landed = 1;
+      comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
+      comm.sendStatus();
+      start = millis();
+    }else if (comm.waitLanding() ==0){
+      Serial.println("Communication Confirmation not received yet");
+    }
   }
 
   //==================================wait for separation status================================
@@ -209,7 +207,8 @@ void loop()
       motor.goStraight(nominalSpeed);
       delay(10000);
       motor.stop();
-      rover.status.separated = 0;
+      rover.status.separated = 1;
+      rover.status.evacuated =1;
       comm.updateRoverComsStat(0b11100000);//"Moved away/ Evacuation / Distancing" in Comms Status is 1 -> waiting for GPS
       comm.sendStatus(); 
       start = millis();
