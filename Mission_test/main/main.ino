@@ -130,7 +130,7 @@ void setup()
   File dataFile = SD.open("datalog.txt", FILE_WRITE);
   if (dataFile) {
     dataFile.println("");
-    dataFile.println("2022/7/11 16:45 simulation");
+    dataFile.println("2022/7/11 18:11 simulation");
     dataFile.close();
   }
   // if the file isn't open, pop up an error:
@@ -166,14 +166,7 @@ void loop()
       comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
       comm.sendStatus();
       start = millis();
-      File dataFile1 = SD.open("datalog.txt", FILE_WRITE);
-      if (dataFile1) {
-        dataFile1.println("");
-        dataFile1.println("Landing Confirmed");
-        dataFile1.close();
-      }else {
-      Serial.println("error opening initiallog.txt");
-      }
+      SDprintln("datalog.txt","Landing Confirmed");
     }
     else{
       Serial.println("Communication Confirmation not received yet");
@@ -192,31 +185,17 @@ void loop()
       comm.updateRoverComsStat(0b11000000);//"Separation Detection" in Comms Status is 1 -> waiting for distancing from MC
       comm.sendStatus(); 
       Serial.println("Pin disconnected..Start distancing...");
-      File dataFile2 = SD.open("datalog.txt", FILE_WRITE);
-      if (dataFile2) {
-        dataFile2.println("");
-        dataFile2.println("Separation Confirmed");
-        dataFile2.close();
-      }else {
-      Serial.println("error opening initiallog.txt");
-      }
+      SDprintln("datalog.txt","Separation Confirmed");
       //evacuation
       motor.goStraight(nominalSpeed);
-      delay(10000);
+      delay(4000);
       motor.stop();
       rover.status.separated = 1;
       rover.status.evacuated =1;
       comm.updateRoverComsStat(0b11100000);//"Moved away/ Evacuation / Distancing" in Comms Status is 1 -> waiting for GPS
       comm.sendStatus(); 
       start = millis();
-      File dataFile1 = SD.open("datalog.txt", FILE_WRITE);
-      if (dataFile1) {
-        dataFile1.println("");
-        dataFile1.println("Distancing from MC Confirmed");
-        dataFile1.close();
-      }else {
-      Serial.println("error opening datalog.txt");
-      }
+      SDprintln("datalog.txt","Distancing from MC Confirmed");
     } else if (digitalRead(DETECTION_PIN) == 1){
       Serial.println("Pin still connected");
     }
@@ -313,6 +292,16 @@ void SDlogGPSdata(){
     dataFile.print(",");
     dataFile.println(comm.gpsPacket.gpsData.lngA[2]);
     dataFile.println("Goal GPS Coordinates Reception Confirmed");
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprintln(String textfile,String printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.println(printdata);
     dataFile.close();
   }else {
   Serial.println("error opening datalog.txt");

@@ -12,7 +12,7 @@ Motor::Motor(uint8_t enable,uint8_t ch1,uint8_t ch2,uint8_t ch3,uint8_t ch4)
     ,threshold(10) //角度の差分の閾値
     ,spinThreshold(10) //角度の差分の閾値
     ,deltaTheta(0)//目的方向と姿勢の相対角度差
-    ,deltaLR(0.85)
+    ,deltaLR(1.0)
 {
 }
 
