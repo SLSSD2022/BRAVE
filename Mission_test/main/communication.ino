@@ -376,6 +376,7 @@ boolean Communication::decodeCyclic() {
 
 
 boolean Communication::receiveGPS(){
+  while (1){
   if (HWSerial->available() > 0) {
     char c = HWSerial->read();
     //HWSerial->print(c);
@@ -419,9 +420,10 @@ boolean Communication::receiveGPS(){
       }
       //Serial.println(buff);
       this->bufferPos = 0;
+      return false;
     }
   }
-  return false;
+ }
 }
 
 boolean Communication::waitLanding(){

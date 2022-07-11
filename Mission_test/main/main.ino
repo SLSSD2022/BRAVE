@@ -77,12 +77,12 @@ void setup()
   Serial.println("==Hello! This is 'R2D', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
-  rover.status.landed = 1;
-  rover.status.separated = 1;
-  rover.status.evacuated = 1;
-  rover.status.GPSreceived = 1;
+  rover.status.landed = 0;
+  rover.status.separated = 0;
+  rover.status.evacuated = 0;
+  rover.status.GPSreceived = 0;
   rover.status.calibrated = 0;
-  rover.status.toGoal = 1;
+  rover.status.toGoal = 0;
   rover.status.near = 0;//ゴール5m付近のとき
   rover.status.search = 0;//ゴール5m付近で測距するとき
 // double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
@@ -130,7 +130,8 @@ void setup()
   File dataFile = SD.open("datalog.txt", FILE_WRITE);
   if (dataFile) {
     dataFile.println("");
-    dataFile.println("2022/7/10 18:45 simulation");
+    dataFile.println("2022/7/11 16:45 simulation");
+    dataFile.close();
   }
   // if the file isn't open, pop up an error:
   else {
@@ -153,7 +154,7 @@ void loop()
   }
 
   //==================================wait for landing status================================
-  if (!rover.status.landed) {
+  while (!rover.status.landed) {
     Serial.println("Rover  Initialized...");
     stop = millis();
     if (stop > (start + 1000)) {
@@ -165,13 +166,22 @@ void loop()
       comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
       comm.sendStatus();
       start = millis();
-    }else{
+      File dataFile1 = SD.open("datalog.txt", FILE_WRITE);
+      if (dataFile1) {
+        dataFile1.println("");
+        dataFile1.println("Landing Confirmed");
+        dataFile1.close();
+      }else {
+      Serial.println("error opening initiallog.txt");
+      }
+    }
+    else{
       Serial.println("Communication Confirmation not received yet");
     }
   }
-
+  
   //==================================wait for separation status================================
-  if (!rover.status.separated) {
+  while (!rover.status.separated) {
     stop = millis();
     if (stop > (start + 1000)) {
       Serial.println("wait for separation...");
@@ -182,6 +192,14 @@ void loop()
       comm.updateRoverComsStat(0b11000000);//"Separation Detection" in Comms Status is 1 -> waiting for distancing from MC
       comm.sendStatus(); 
       Serial.println("Pin disconnected..Start distancing...");
+      File dataFile2 = SD.open("datalog.txt", FILE_WRITE);
+      if (dataFile2) {
+        dataFile2.println("");
+        dataFile2.println("Separation Confirmed");
+        dataFile2.close();
+      }else {
+      Serial.println("error opening initiallog.txt");
+      }
       //evacuation
       motor.goStraight(nominalSpeed);
       delay(10000);
@@ -191,6 +209,14 @@ void loop()
       comm.updateRoverComsStat(0b11100000);//"Moved away/ Evacuation / Distancing" in Comms Status is 1 -> waiting for GPS
       comm.sendStatus(); 
       start = millis();
+      File dataFile1 = SD.open("datalog.txt", FILE_WRITE);
+      if (dataFile1) {
+        dataFile1.println("");
+        dataFile1.println("Distancing from MC Confirmed");
+        dataFile1.close();
+      }else {
+      Serial.println("error opening datalog.txt");
+      }
     } else if (digitalRead(DETECTION_PIN) == 1){
       Serial.println("Pin still connected");
     }
@@ -198,7 +224,7 @@ void loop()
 
 
   //=================================wait for GPS status=================================
-  if (!rover.status.GPSreceived) {
+  while (!rover.status.GPSreceived) {
     stop = millis();
     if (stop > (start + 1000)) {
       Serial.println("Waiting for GPS coordinates...");
@@ -208,6 +234,7 @@ void loop()
     if(comm.receiveGPS()){
       comm.updateRoverComsStat(0b11110000); //"GPS Received" in Comms Status is 1
       comm.sendStatus();
+      SDlogGPSdata();
       eeprom.logGPSdata();//log the gps data of destination to EEPROM
       goalCalculation();//calculate distance to goals and decide root
 
@@ -220,14 +247,15 @@ void loop()
       rover.status.toGoal = 1;
     }
     else{
-      Serial.println("Communication Confirmation not received yet");
+      Serial.println("GPS Coordinates not received yet");
     }
   }
 
   //=================================toGoal Status=================================
 
-  if(rover.status.toGoal > 0 && rover.success.full == 0)
+  if(rover.status.toGoal == 1/* && rover.success.full == 0*/)
   {
+    Serial.println("Going to Main loop...");
     toGoalLoop();
   }
 }
@@ -244,7 +272,7 @@ void loop()
 void goalCalculation() {
   //基本方針:最初の時点でどう巡るかを決定する。
   unsigned int range[3];
-  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
+  //gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
   for (int i = 0; i < 3 ; i++) {
     range[i] = gps.distanceBetween(rover.data.latR, rover.data.lngR, comm.gpsPacket.gpsData.latA[i], comm.gpsPacket.gpsData.lngA[i]);
     goalRoute[i] = i + 1;
@@ -269,4 +297,24 @@ void sortRange(unsigned int* data, unsigned int* array) {
   if (data[0] < data[2]) swap(&array[0], &array[2]);
   if (data[1] < data[2]) swap(&array[1], &array[2]);
   return;
+}
+
+void SDlogGPSdata(){
+  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+  if (dataFile) {
+    dataFile.println("");
+    dataFile.print(comm.gpsPacket.gpsData.latA[0]);
+    dataFile.print(",");
+    dataFile.println(comm.gpsPacket.gpsData.lngA[0]);
+    dataFile.print(comm.gpsPacket.gpsData.latA[1]);
+    dataFile.print(",");
+    dataFile.println(comm.gpsPacket.gpsData.lngA[1]);
+    dataFile.print(comm.gpsPacket.gpsData.latA[2]);
+    dataFile.print(",");
+    dataFile.println(comm.gpsPacket.gpsData.lngA[2]);
+    dataFile.println("Goal GPS Coordinates Reception Confirmed");
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
 }
