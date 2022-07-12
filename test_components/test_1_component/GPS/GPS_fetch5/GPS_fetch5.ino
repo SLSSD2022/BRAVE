@@ -27,7 +27,7 @@ void setup() {
 void loop() { // run over and over
   while (Serial1.available() > 0) {
     char c = Serial1.read();
-    Serial.print(c);
+//    Serial.print(c);
     gps.encode(c);
     if (gps.location.isUpdated()) {
       LatA = gps.location.lat();

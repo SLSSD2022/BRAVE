@@ -40,6 +40,7 @@ public:
     GPS(HardwareSerial *serialport);
     void init();
     void updateGPSlocation(float* lat,float* lng);
+    void trycatchGPSlocation(float* lat,float* lng);
 
     float deg2rad(float deg);
     float atanh(float x);

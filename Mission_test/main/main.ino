@@ -74,7 +74,7 @@ void setup()
   Serial.begin(115200);// デバッグ用シリアル通信は9600bps
   Serial.println("");
   Serial.println("===========================================================");
-  Serial.println("==Hello! This is 'R2D', Relaying Rover to Destination!!!===");
+  Serial.println("==Hello! This is 'BRAVE', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
   rover.status.landed = 0;
@@ -127,16 +127,7 @@ void setup()
   }
   Serial.println("------------------ Mission Start!!! ------------------");
   start = millis();
-  File dataFile = SD.open("datalog.txt", FILE_WRITE);
-  if (dataFile) {
-    dataFile.println("");
-    dataFile.println("2022/7/11 18:11 simulation");
-    dataFile.close();
-  }
-  // if the file isn't open, pop up an error:
-  else {
-    Serial.println("error opening datalog.txt");
-  }
+  SDprintln("datalog.txt","2022/7/12 7:30 simulation");
 }
 
 
@@ -151,6 +142,7 @@ void loop()
   //=================================Sleep Mode=================================
   while(rover.mode.sleep){
     //do nothing
+    motor.stop();
   }
 
   //==================================wait for landing status================================
@@ -211,16 +203,20 @@ void loop()
       start = millis();
     }
     if(comm.receiveGPS()){
+      SDprintln("datalog.txt","Landing Confirmed");
       comm.updateRoverComsStat(0b11110000); //"GPS Received" in Comms Status is 1
       comm.sendStatus();
+      
       SDlogGPSdata();
       eeprom.logGPSdata();//log the gps data of destination to EEPROM
+      
       goalCalculation();//calculate distance to goals and decide root
 
       int first = goalRoute[0];//set first goal to the destination
       comm.updateGoalStat(); //Move to next Goal
       rover.data.latA = comm.gpsPacket.gpsData.latA[first];
       rover.data.lngA = comm.gpsPacket.gpsData.lngA[first];
+      
 
       rover.status.GPSreceived = 1;
       rover.status.toGoal = 1;
@@ -232,7 +228,7 @@ void loop()
 
   //=================================toGoal Status=================================
 
-  if(rover.status.toGoal == 1/* && rover.success.full == 0*/)
+  if((rover.status.toGoal > 0)  && rover.success.full == 0)
   {
     Serial.println("Going to Main loop...");
     toGoalLoop();
@@ -251,15 +247,48 @@ void loop()
 void goalCalculation() {
   //基本方針:最初の時点でどう巡るかを決定する。
   unsigned int range[3];
-  //gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
+  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
+  SDprint("datalog.txt","recentGPS");
+  SDprint("datalog.txt",rover.data.latR);
+  SDprint("datalog.txt",",");
+  SDprintln("datalog.txt",rover.data.lngR);
+  
   for (int i = 0; i < 3 ; i++) {
     range[i] = gps.distanceBetween(rover.data.latR, rover.data.lngR, comm.gpsPacket.gpsData.latA[i], comm.gpsPacket.gpsData.lngA[i]);
-    goalRoute[i] = i + 1;
+    
+    goalRoute[i] = i;
   }
+  
+  SDprintln("datalog.txt","--------path calculated!--------");
+  SDprint("datalog.txt",goalRoute[0]);
+  SDprint("datalog.txt",":");SDprintln("datalog.txt",range[0]);
+  
+  SDprint("datalog.txt",goalRoute[1]);
+  SDprint("datalog.txt",":");SDprintln("datalog.txt",range[1]);
+  
+  SDprint("datalog.txt",goalRoute[2]);
+  SDprint("datalog.txt",":");SDprintln("datalog.txt",range[2]);
   sortRange(range, goalRoute); //root = [1,2,3]
   eeprom.write(24, (byte)goalRoute[0]);
   eeprom.write(25, (byte)goalRoute[1]);
   eeprom.write(26, (byte)goalRoute[2]);
+  
+  SDprintln("datalog.txt","--------shortest path calculated!--------");
+  SDprint("datalog.txt",goalRoute[0]);
+  SDprint("datalog.txt",":");
+  SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[0]]);
+  SDprint("datalog.txt",",");
+  SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[0]]);
+  SDprint("datalog.txt",goalRoute[1]);
+  SDprint("datalog.txt",":");
+  SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[1]]);
+  SDprint("datalog.txt",",");
+  SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[1]]);
+  SDprint("datalog.txt",goalRoute[2]);
+  SDprint("datalog.txt",":");
+  SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[2]]);
+  SDprint("datalog.txt",",");
+  SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[2]]);
   return;
 }
 
@@ -272,9 +301,9 @@ void swap(unsigned int* a, unsigned int* b) {
 }
 
 void sortRange(unsigned int* data, unsigned int* array) {
-  if (data[0] < data[1]) swap(&array[0], &array[1]);
-  if (data[0] < data[2]) swap(&array[0], &array[2]);
-  if (data[1] < data[2]) swap(&array[1], &array[2]);
+  if (data[0] > data[1]) swap(&array[0], &array[1]);
+  if (data[0] > data[2]) swap(&array[0], &array[2]);
+  if (data[1] > data[2]) swap(&array[1], &array[2]);
   return;
 }
 
@@ -282,15 +311,15 @@ void SDlogGPSdata(){
   File dataFile = SD.open("datalog.txt", FILE_WRITE);
   if (dataFile) {
     dataFile.println("");
-    dataFile.print(comm.gpsPacket.gpsData.latA[0]);
+    dataFile.print(comm.gpsPacket.gpsData.latA[0],5);
     dataFile.print(",");
-    dataFile.println(comm.gpsPacket.gpsData.lngA[0]);
-    dataFile.print(comm.gpsPacket.gpsData.latA[1]);
+    dataFile.println(comm.gpsPacket.gpsData.lngA[0],5);
+    dataFile.print(comm.gpsPacket.gpsData.latA[1],5);
     dataFile.print(",");
-    dataFile.println(comm.gpsPacket.gpsData.lngA[1]);
-    dataFile.print(comm.gpsPacket.gpsData.latA[2]);
+    dataFile.println(comm.gpsPacket.gpsData.lngA[1],5);
+    dataFile.print(comm.gpsPacket.gpsData.latA[2],5);
     dataFile.print(",");
-    dataFile.println(comm.gpsPacket.gpsData.lngA[2]);
+    dataFile.println(comm.gpsPacket.gpsData.lngA[2],5);
     dataFile.println("Goal GPS Coordinates Reception Confirmed");
     dataFile.close();
   }else {
@@ -298,10 +327,82 @@ void SDlogGPSdata(){
   }
 }
 
+
+void SDprint(String textfile,String printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+
 void SDprintln(String textfile,String printdata){
   File dataFile = SD.open(textfile, FILE_WRITE);
   if (dataFile) {
     dataFile.println(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprint(String textfile,int printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprintln(String textfile,int printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.println(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprint(String textfile,unsigned int printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprintln(String textfile,unsigned int printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.println(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprint(String textfile,float printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(printdata,5);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprintln(String textfile,float printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.println(printdata,5);
     dataFile.close();
   }else {
   Serial.println("error opening datalog.txt");

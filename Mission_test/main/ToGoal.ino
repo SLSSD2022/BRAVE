@@ -53,7 +53,7 @@ void toGoalLoop(){
   //rover.data.cmLong = ultrasonicLong.getDistance();
 
   //---------------------GPS acquisition--------------------------------------------------
-  //gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
+  gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);
   rover.data.degRtoA = atan2((rover.data.lngR - rover.data.lngA) * 1.23, (rover.data.latR - rover.data.latA)) * 57.3 + 180;
   rover.data.rangeRtoA = gps.distanceBetween(rover.data.latR, rover.data.lngR, rover.data.latA, rover.data.lngA);
 
@@ -65,7 +65,7 @@ void toGoalLoop(){
   if (rover.data.rangeRtoA < 1.0) {
     comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
     if (rover.mode.autoGpsOnly) {
-//      successManagement();
+      successManagement();
     }
     else if (rover.mode.autoAggressive) {
       rover.status.near = 1;
@@ -162,7 +162,7 @@ void toGoalLoop(){
 
   if (timer > 10000) {
     Serial.println(":Communication start!");
-    //comm.HKtoGS(&imu,&rover.data);
+    comm.HKtoGS(&imu,&rover.data);
     start = millis();
     Serial.println(":Communication end!");
   }
@@ -183,10 +183,14 @@ void toGoalLoop(){
 
 //=========Status control function============================================================================//
 void successManagement() {
+  motor.stop();
   if (rover.status.toGoal < 3) {
     rover.success.goalGPS = rover.status.toGoal;
     eeprom.write(27, (byte)rover.success.goalGPS); //logger
+    SDprintln("datalog.txt","Achieved one goal!");
+    SDprintln("datalog.txt",rover.status.toGoal);
 
+    
     int next = goalRoute[rover.status.toGoal];//set next goal to the destination
     rover.status.toGoal += 1;
     rover.data.latA = comm.gpsPacket.gpsData.latA[next];
@@ -200,11 +204,14 @@ void successManagement() {
     rover.success.goalGPS = rover.status.toGoal;
     rover.success.full = 1;
     eeprom.write(27, (byte)rover.success.goalGPS); //logger//logger
+    SDprintln("datalog.txt","Achieved all goal!");
+    SDprintln("datalog.txt",rover.status.toGoal);
 
     rover.status.near = 0;
     rover.status.search = 0;
     rover.mode.sleep = 1;
   }
+  delay(3000);
   return;
 }
 
