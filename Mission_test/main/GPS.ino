@@ -57,7 +57,7 @@ void GPS::updateGPSlocation(float* lat,float* lng) {
 //  int start = millis();
   int updateFlag = 0;
   while(updateFlag == 0){
-//    Serial.println("try to catch GPS...");
+    Serial.println("try to catch GPS...");
     while (HWSerial->available() > 0)
     {
       //    Serial.print("YES");
@@ -82,6 +82,38 @@ void GPS::updateGPSlocation(float* lat,float* lng) {
 //      break;
 //    }
   }
+  
+}
+
+void GPS::trycatchGPSlocation(float* lat,float* lng) {
+//  int start = millis();
+//  int updateFlag = 0;
+//  while(updateFlag == 0){
+//    Serial.println("try to catch GPS...");
+    while (HWSerial->available() > 0)
+    {
+      //    Serial.print("YES");
+      char c = HWSerial->read();
+//      Serial.print(c);
+      this->encode(c);
+      if (this->location.isUpdated())
+      {
+        Serial.println("");
+        Serial.println("I got new GPS!");
+        *lat = this->location.lat();  // roverの緯度を計算
+        *lng = this->location.lng(); // roverの経度を計算
+//        updateFlag = 1;
+        break;
+      }
+      //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
+      delay(1);
+    }
+//    int stop = millis();
+//    if(stop > (start - 1000)){
+//      Serial.println("cannot catch GPS...");
+//      break;
+//    }
+//  }
   
 }
 
