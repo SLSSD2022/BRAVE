@@ -69,12 +69,12 @@ void setup() {
   MWSerial.begin(38400);
 
   // store GPS coordinates
-  gpsTx.gpsData.latR[0] = 14.0;
-  gpsTx.gpsData.longR[0] = 121.0;
-  gpsTx.gpsData.latR[1] = 15.0;
-  gpsTx.gpsData.longR[1] = 121.0;
-  gpsTx.gpsData.latR[2] = 16.0;
-  gpsTx.gpsData.longR[2] = 121.0;
+  gpsTx.gpsData.latR[0] = 35.720033;
+  gpsTx.gpsData.longR[0] = 139.736089;
+  gpsTx.gpsData.latR[1] = 35.7199481;
+  gpsTx.gpsData.longR[1] = 139.7359838;
+  gpsTx.gpsData.latR[2] = 35.7199134;
+  gpsTx.gpsData.longR[2] = 139.7362514;
   encodeCyclic();
 }
 boolean gps_flag = 1;
