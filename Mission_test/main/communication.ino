@@ -79,18 +79,18 @@ void  Communication::writeToTwelite (IMU* imu_p,dataStruct* roverData_p)
   this->printAllData();
   this->encodeCyclic();
   HWSerial->print(":000100");
-  //Serial.print(":000100");
+  Serial.print(":000100");
   while (ctr1 < 2 * sizeof(messageStruct)) {
     if ((uint8_t)(this->encodedTx[ctr1]) < 16) {
       HWSerial->print("0");
-      //Serial.print("0");
+      Serial.print("0");
     }
     HWSerial->print(this->encodedTx[ctr1], HEX);
-    //Serial.print(this->encodedTx[ctr1],HEX);
+    Serial.print(this->encodedTx[ctr1],HEX);
     ctr1++;
   }
   HWSerial->print("X\r\n");
-  //Serial.print("X\r\n");
+  Serial.print("X\r\n");
 }
 
 void Communication::HKtoGS(IMU* imu_p,dataStruct* roverData_p)
