@@ -89,8 +89,8 @@ public:
     void setMag(IMU*);
     void setCalib(IMU*);
     void setAttitude(float x);
-    void setDistBottom(uint16_t cm_Bottom);
-    void setDistHead(uint16_t cm_Head);
+    void setDistBottom(uint8_t cm_Bottom);
+    void setDistHead(uint8_t cm_Head);
     void setDistLong(uint16_t cm_Long);
     void setDistLIDAR(uint16_t cm_LIDAR);
     void setGoalPosition(float latA, float lngA);

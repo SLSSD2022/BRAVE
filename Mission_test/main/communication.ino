@@ -222,12 +222,12 @@ void Communication::printAttitude()
   Serial.println(this->roverPacketData.message.x);
 }
 
-void Communication::setDistBottom(uint16_t cm_Bottom)
+void Communication::setDistBottom(uint8_t cm_Bottom)
 {
   this->roverPacketData.message.cmBottom = cm_Bottom;
 }
 
-void Communication::setDistHead(uint16_t cm_Head)
+void Communication::setDistHead(uint8_t cm_Head)
 {
   this->roverPacketData.message.cmHead = cm_Head;
 }
