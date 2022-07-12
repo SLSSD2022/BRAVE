@@ -79,18 +79,18 @@ void  Communication::writeToTwelite (IMU* imu_p,dataStruct* roverData_p)
   this->printAllData();
   this->encodeCyclic();
   HWSerial->print(":000100");
-  Serial.print(":000100");
+  //Serial.print(":000100");
   while (ctr1 < 2 * sizeof(messageStruct)) {
     if ((uint8_t)(this->encodedTx[ctr1]) < 16) {
       HWSerial->print("0");
-      Serial.print("0");
+      //Serial.print("0");
     }
     HWSerial->print(this->encodedTx[ctr1], HEX);
-    Serial.print(this->encodedTx[ctr1],HEX);
+    //Serial.print(this->encodedTx[ctr1],HEX);
     ctr1++;
   }
   HWSerial->print("X\r\n");
-  Serial.print("X\r\n");
+  //Serial.print("X\r\n");
 }
 
 void Communication::HKtoGS(IMU* imu_p,dataStruct* roverData_p)
@@ -221,9 +221,25 @@ void Communication::printAttitude()
   Serial.print("x:");
   Serial.println(this->roverPacketData.message.x);
 }
-void Communication::setDistByLIDAR(uint16_t cm_LIDAR)
+
+void Communication::setDistBottom(uint16_t cm_Bottom)
 {
-  this->roverPacketData.message.cmLong = cm_LIDAR;
+  this->roverPacketData.message.cmBottom = cm_Bottom;
+}
+
+void Communication::setDistHead(uint16_t cm_Head)
+{
+  this->roverPacketData.message.cmHead = cm_Head;
+}
+
+void Communication::setDistLong(uint16_t cm_Long)
+{
+  this->roverPacketData.message.cmLong = cm_Long;
+}
+
+void Communication::setDistLIDAR(uint16_t cm_Lidar)
+{
+  this->roverPacketData.message.cmLidar = cm_Lidar;
 }
 
 void Communication::printDistByLIDAR()
@@ -232,11 +248,18 @@ void Communication::printDistByLIDAR()
   Serial.println(this->roverPacketData.message.cmLong);
 }
 
+void Communication::setGoalPosition(float latA, float lngA)
+{
+  this->roverPacketData.message.latA = latA;
+  this->roverPacketData.message.lngA = lngA;
+}
+
 void Communication::setPosition(float latR, float lngR)
 {
   this->roverPacketData.message.latR = latR;
   this->roverPacketData.message.lngR = lngR;
 }
+
 void Communication::printPosition()
 {
   Serial.print("latR:");
@@ -253,6 +276,11 @@ void Communication::printDegRtoA()
 {
   Serial.print("degRtoA:");
   Serial.println(this->roverPacketData.message.degRtoA);
+}
+
+void Communication::setRangeRtoA(float rangeRtoA)
+{
+  this->roverPacketData.message.rangeRtoA = rangeRtoA;
 }
 
 void Communication::setControlStatus(byte controlStatus)
@@ -283,9 +311,14 @@ void Communication::setAllData(IMU* imu_p, dataStruct* roverData_p)
   this->setMag(imu_p);
   this->setCalib(imu_p);
   this->setAttitude(roverData_p->x);
-  this->setDistByLIDAR(roverData_p->cmLidar);
+  this->setDistBottom(roverData_p->cmBottom);
+  this->setDistHead(roverData_p->cmHead);
+  this->setDistLong(roverData_p->cmLong);
+  this->setDistLIDAR(roverData_p->cmLidar);
+  this->setGoalPosition(roverData_p->latA, roverData_p->lngA);
   this->setPosition(roverData_p->latR, roverData_p->lngR);
   this->setDegRtoA(roverData_p->degRtoA);
+  this->setRangeRtoA(roverData_p->rangeRtoA);
   this->setControlStatus(roverData_p->motorControl);
   this->setTime(roverData_p->overallTime);
 }

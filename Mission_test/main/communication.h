@@ -9,11 +9,11 @@ typedef struct _messageStruct {
   uint8_t roverComsStat;
   int xMag;
   int yMag;
-  uint16_t calibx;
-  uint16_t caliby;
+  float calibx;
+  float caliby;
   float x;
-  uint16_t cmBottom;
-  uint16_t cmHead;
+  uint8_t cmBottom;
+  uint8_t cmHead;
   uint16_t cmLong;
   uint16_t cmLidar;
   float latA;
@@ -89,9 +89,14 @@ public:
     void setMag(IMU*);
     void setCalib(IMU*);
     void setAttitude(float x);
-    void setDistByLIDAR(uint16_t cm_LIDAR);
+    void setDistBottom(uint16_t cm_Bottom);
+    void setDistHead(uint16_t cm_Head);
+    void setDistLong(uint16_t cm_Long);
+    void setDistLIDAR(uint16_t cm_LIDAR);
+    void setGoalPosition(float latA, float lngA);
     void setPosition(float latR, float lngR);
     void setDegRtoA(float degRtoA);
+    void setRangeRtoA(float rangeRtoA);
     void setControlStatus(byte controlStatus);
     void setTime(unsigned long int overallTime);
 

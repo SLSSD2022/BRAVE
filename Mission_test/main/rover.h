@@ -5,8 +5,8 @@
 
 typedef struct _dataStruct {
   float x;
-  uint16_t cmBottom;
-  uint16_t cmHead;
+  uint8_t cmBottom;
+  uint8_t cmHead;
   uint16_t cmLong;
   uint16_t cmLidar;
   float latA;

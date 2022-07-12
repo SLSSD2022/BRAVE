@@ -7,15 +7,21 @@ const int RST = 4;
 typedef struct dataPacketStruct {       // incoming data packet structure
   uint8_t multiCommsStat;
   uint8_t roverCommsStat;
-  uint16_t xMag;
-  uint16_t yMag;
-  uint16_t calibX;
-  uint16_t calibY;
+  int16_t xMag;
+  int16_t yMag;
+  float calibX;
+  float calibY;
   float x;
+  uint8_t cmBottom;
+  uint8_t cmHead;
   uint16_t cmLong;
+  uint16_t cmLidar;
+  float latA;
+  float lngA;
   float latR;
-  float longR;
+  float lngR;
   float degRtoA;
+  float rangeRtoA;
   byte statusControl;
   unsigned long int time;
 };
@@ -38,7 +44,7 @@ typedef union gpsPacketUnion {
 SoftwareSerial MWSerial(2, 3);
 
 // GLOBAL VARIABLE DECLARATIONS
-char buffRx[200];
+char buffRx[250];
 uint8_t encodedRx[2*sizeof(dataPacketStruct)];
 uint8_t encodedTx[2 * sizeof(gpsPacketStruct)];
 uint8_t lenCtr = 0;
@@ -92,8 +98,8 @@ void loop() {
   {
     buffRx[lenCtr] = '\0';
     if (buffRx[3] == '0' && buffRx[4] == '1' && buffRx[5] == '1') {
-      Serial.println("------GS Packet ------");
-      Serial.println(buffRx);
+      //Serial.println("------GS Packet ------");
+      //Serial.println(buffRx);
       if (buffRx[6] == '2') {
         // NACK received, resend GPS
         Serial.println("------NACK ------");
@@ -131,7 +137,7 @@ void processData() {
   int i = 7;
   int d, e;
   int checker;
-  Serial.print("lenCtr;" );
+  Serial.print("lenCtr: " );
   Serial.println(lenCtr);
 
   while (i < lenCtr - 4) {
@@ -227,37 +233,36 @@ void encodeCyclic() {
 void checkRoverStatus() {
   // check if rover has received GPS data
   // store all data received
-  byte stat = dataRx.message.roverCommsStat&0b11110000;
-  
+  byte stat = dataRx.message.roverCommsStat;
   if (stat == 0b11111101){
-    Serial.println("----------------------Mission Success!----------------------");
-    Serial.println("----------------------Rover Mission End----------------------");
+    Serial.println("Mission Success!");
+    Serial.println("Rover Mission End");
     return;
   }  else if (stat == 0b11111100) {
-    Serial.println("----------------------Final Goal Reached!----------------------");
+    Serial.println("Final Goal Reached!");
     return;
     }  else if (stat == 0b11111010) {
-    Serial.println("----------------------Moving to Final Goal----------------------");
+    Serial.println("Moving to Final Goal");
     return;
     }  else if (stat == 0b11111000) {
-    Serial.println("----------------------Second Goal Reached!----------------------");
+    Serial.println("Second Goal Reached!");
     return;
     }  else if (stat == 0b11110110) {
-    Serial.println("----------------------Moving to Second Goal!----------------------");
+    Serial.println("Moving to Second Goal!");
     return;
     }  else if (stat == 0b11110100) {
-    Serial.println("----------------------First Goal Reached!----------------------");
+    Serial.println("First Goal Reached!");
     return;
     }  else if (stat == 0b11110010) {
-    Serial.println("----------------------Calculation Finished----------------------");
-    Serial.println("----------------------Moving to First Goal!----------------------");
+    Serial.println("Calculation Finished");
+    Serial.println("Moving to First Goal!");
     return;
     }      else if (stat == 0b11110000) {
-    Serial.println("----------------------GPS Coordinates Successfully received by Rover----------------------");
+    Serial.println("GPS Coordinates Successfully received by Rover");
     return;
   } else if (stat==0b11100000) {
     int ctr = 0;
-    Serial.println("----------------------Distancing detected----------------------");
+    Serial.println("Distancing detected");
     Serial.println("Sending GPS coordinates...");
     MWSerial.print(":000110");
     while(ctr<2*sizeof(gpsPacketStruct)){
@@ -270,11 +275,11 @@ void checkRoverStatus() {
     MWSerial.print("X\r\n");
     return;
   } else if (stat == 0b11000000) {
-    Serial.println("----------------------Separation between Multicopter and Rover Detected----------------------");
+    Serial.println("Separation between Multicopter and Rover Detected");
     Serial.println("Moving to distancing stage...");
     return;
   } else if (stat == 0b10000000){
-    Serial.println("----------------------Landing Detected----------------------");
+    Serial.println("Landing Detected");
     Serial.println("Moving to Separation stage...");
     return;
   }
@@ -283,9 +288,9 @@ void checkRoverStatus() {
 
 void printData() {
   Serial.print("Multicopter Comms Status: ");
-  Serial.println(dataRx.message.multiCommsStat);
+  Serial.println(dataRx.message.multiCommsStat,HEX);
   Serial.print("rover Comms Status: ");
-  Serial.println(dataRx.message.roverCommsStat);
+  Serial.println(dataRx.message.roverCommsStat,HEX);
   Serial.print("x Mag: ");
   Serial.println(dataRx.message.xMag);
   Serial.print("y Mag: ");
@@ -296,14 +301,26 @@ void printData() {
   Serial.println(dataRx.message.calibY);
   Serial.print("Body-axis Attitude: ");
   Serial.println(dataRx.message.x);
+  Serial.print("Range bottom: ");
+  Serial.println(dataRx.message.cmBottom);
+  Serial.print("Range Head: ");
+  Serial.println(dataRx.message.cmHead);    
   Serial.print("Range Sensor reading: ");
   Serial.println(dataRx.message.cmLong);
+  Serial.print("Range Lidar: ");
+  Serial.println(dataRx.message.cmLidar);  
+  Serial.print("Next Goal's Lattitude: ");
+  Serial.println(dataRx.message.latA);
+  Serial.print("Next Goal's Longitude: ");
+  Serial.println(dataRx.message.lngA);  
   Serial.print("Current Lattitude: ");
   Serial.println(dataRx.message.latR);
   Serial.print("Current Longitude: ");
-  Serial.println(dataRx.message.longR);
+  Serial.println(dataRx.message.lngR);
   Serial.print("Absolute angle to Destination: ");
   Serial.println(dataRx.message.degRtoA);
+  Serial.print("Absolute distance to Destination: ");
+  Serial.println(dataRx.message.rangeRtoA);  
   Serial.print("Motor Status Control: ");
   Serial.println(dataRx.message.statusControl);
   Serial.print("Time: ");
