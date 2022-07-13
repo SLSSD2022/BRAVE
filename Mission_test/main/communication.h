@@ -44,7 +44,7 @@ typedef union _gpsPacketUnion {
 } gpsPacketUnion;
 
 
-#define MaxBufferSize 160
+#define MaxBufferSize 250
 
 class Communication
 {
@@ -105,9 +105,14 @@ public:
     void printMag();
     void printCalib();
     void printAttitude();
+    void printDistBottom();
+    void printDistHead();
+    void printDistLong();
     void printDistByLIDAR();
+    void printGoalPosition();
     void printPosition();
     void printDegRtoA();
+    void printRangeRtoA();
     void printControlStatus();
     void printTime();
 

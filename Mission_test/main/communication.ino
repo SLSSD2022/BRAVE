@@ -227,14 +227,34 @@ void Communication::setDistBottom(uint8_t cm_Bottom)
   this->roverPacketData.message.cmBottom = cm_Bottom;
 }
 
+void Communication::printDistBottom()
+{
+  Serial.print("cmBottom:");
+  Serial.println(this->roverPacketData.message.cmBottom);
+}
+
+
 void Communication::setDistHead(uint8_t cm_Head)
 {
   this->roverPacketData.message.cmHead = cm_Head;
 }
 
+void Communication::printDistHead()
+{
+  Serial.print("cmHead:");
+  Serial.println(this->roverPacketData.message.cmHead);
+}
+
+
 void Communication::setDistLong(uint16_t cm_Long)
 {
   this->roverPacketData.message.cmLong = cm_Long;
+}
+
+void Communication::printDistLong()
+{
+  Serial.print("cmLong:");
+  Serial.println(this->roverPacketData.message.cmLong);
 }
 
 void Communication::setDistLIDAR(uint16_t cm_Lidar)
@@ -244,14 +264,22 @@ void Communication::setDistLIDAR(uint16_t cm_Lidar)
 
 void Communication::printDistByLIDAR()
 {
-  Serial.print("cm_long:");
-  Serial.println(this->roverPacketData.message.cmLong);
+  Serial.print("cmLidar:");
+  Serial.println(this->roverPacketData.message.cmLidar);
 }
 
 void Communication::setGoalPosition(float latA, float lngA)
 {
   this->roverPacketData.message.latA = latA;
   this->roverPacketData.message.lngA = lngA;
+}
+
+void Communication::printGoalPosition()
+{
+  Serial.print("latA:");
+  Serial.println(this->roverPacketData.message.latA);
+  Serial.print("lngA:");
+  Serial.println(this->roverPacketData.message.lngA);
 }
 
 void Communication::setPosition(float latR, float lngR)
@@ -281,6 +309,12 @@ void Communication::printDegRtoA()
 void Communication::setRangeRtoA(float rangeRtoA)
 {
   this->roverPacketData.message.rangeRtoA = rangeRtoA;
+}
+
+void Communication::printRangeRtoA()
+{
+  Serial.print("RangeRtoA:");
+  Serial.println(this->roverPacketData.message.rangeRtoA);
 }
 
 void Communication::setControlStatus(byte controlStatus)
@@ -329,9 +363,14 @@ void Communication::printAllData()
   this->printMag();
   this->printCalib();
   this->printAttitude();
+  this->printDistBottom();
+  this->printDistHead();
+  this->printDistLong();
   this->printDistByLIDAR();
+  this->printGoalPosition();
   this->printPosition();
   this->printDegRtoA();
+  this->printRangeRtoA();
   this->printControlStatus();
   this->printTime();
 }
