@@ -160,7 +160,7 @@ void toGoalLoop(){
 //  Serial.print(":timer");
 //  Serial.println(timer);
 
-  if (timer > 10000) {
+  if (timer > 5000) {
     Serial.println(":Communication start!");
     comm.HKtoGS(&imu,&rover.data);
     start = millis();
