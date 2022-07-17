@@ -1680,8 +1680,8 @@
 		</LineString>
 	</Placemark>
 	<Placemark>
-	<description>destination</description>
-		<name>destination</name>
+	<description>destination1</description>
+		<name>destination1</name>
 		<Style>
 			<IconStyle>
 			<Icon>
@@ -1692,7 +1692,40 @@
 		<Point>
 			<extrude>1</extrude>
 			<altitudeMode>relativeToGround</altitudeMode>
-			<coordinates>139.7361145019531, 35.719970703125, 0</coordinates>
+			<coordinates>139.7362518,35.71991348, 0</coordinates>
+		</Point>
+	</Placemark>
+	<Placemark>
+	<description>destination2</description>
+		<name>destination2</name>
+		<Style>
+			<IconStyle>
+			<Icon>
+				<href>https://maps.google.com/mapfiles/ms/micons/red-dot.png</href>
+			</Icon>
+			</IconStyle>
+		</Style>
+		<Point>
+			<extrude>1</extrude>
+			<altitudeMode>relativeToGround</altitudeMode>
+			<coordinates>139.7360839843,35.7200317382, 0</coordinates>
+		</Point>
+	</Placemark>
+	
+	<Placemark>
+	<description>destination3</description>
+		<name>destination3</name>
+		<Style>
+			<IconStyle>
+			<Icon>
+				<href>https://maps.google.com/mapfiles/ms/micons/red-dot.png</href>
+			</Icon>
+			</IconStyle>
+		</Style>
+		<Point>
+			<extrude>1</extrude>
+			<altitudeMode>relativeToGround</altitudeMode>
+			<coordinates>139.7359771728,35.7199478149, 0</coordinates>
 		</Point>
 	</Placemark>
 </Document>
