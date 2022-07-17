@@ -1,22 +1,22 @@
-#include "./EEPROM.h"
+#include "./EXPROM.h"
 #include <Wire.h>
 //#include "./rover.h"
 //#include "./IMU.h"
 //#include "./communication.h"
 
-//============EEPROM function=========================================================================//
+//============EXPROM function=========================================================================//
 
-EEPROM::EEPROM()
-  :addrEEPROM(0x50)//24lC1025の場合1010000(前半)or1010100(後半)を選べる
+EXPROM::EXPROM()
+  :addrEXPROM(0x50)//24lC1025の場合1010000(前半)or1010100(後半)を選べる
 {
 }
 
-EEPROM::EEPROM(byte addr)
-  :addrEEPROM(addr)
+EXPROM::EXPROM(byte addr)
+  :addrEXPROM(addr)
 {
 }
 
-void EEPROM::init(byte addr)
+void EXPROM::init(byte addr)
 {
   //マスタとしてI2Cバスに接続する
   Wire.begin();
@@ -24,9 +24,9 @@ void EEPROM::init(byte addr)
 }
 
 
-void EEPROM::write(uint8_t addr_res, byte data )
+void EXPROM::write(uint8_t addr_res, byte data )
 {
-  Wire.beginTransmission(this->addrEEPROM);
+  Wire.beginTransmission(this->addrEXPROM);
   Wire.write((int)(addr_res >> 8));   // MSB
   Wire.write((int)(addr_res & 0xFF)); // LSB
   Wire.write(data);
@@ -34,7 +34,7 @@ void EEPROM::write(uint8_t addr_res, byte data )
   delay(5);//この遅延はどうやら必要っぽい
 }
 
-void EEPROM::writeInt(uint8_t addr_res, int data) {
+void EXPROM::writeInt(uint8_t addr_res, int data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
   for (i = 0; i < (int)sizeof(data); i++) {
@@ -47,7 +47,7 @@ void EEPROM::writeInt(uint8_t addr_res, int data) {
 }
 
 
-void EEPROM::writeLong(uint8_t addr_res, unsigned long data) {
+void EXPROM::writeLong(uint8_t addr_res, unsigned long data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
   for (i = 0; i < (int)sizeof(data); i++) {
@@ -60,7 +60,7 @@ void EEPROM::writeLong(uint8_t addr_res, unsigned long data) {
 }
 
 
-void EEPROM::writeFloat(uint8_t addr_res, float data) {
+void EXPROM::writeFloat(uint8_t addr_res, float data) {
   unsigned char *p = (unsigned char *)&data;
   int i;
   for (i = 0; i < (int)sizeof(data); i++) {
@@ -72,22 +72,22 @@ void EEPROM::writeFloat(uint8_t addr_res, float data) {
   //  Serial.println("");
 }
 
-byte EEPROM::read(uint8_t addr_res )
+byte EXPROM::read(uint8_t addr_res )
 {
   byte rdata = 0xFF;
 
-  Wire.beginTransmission(this->addrEEPROM);
+  Wire.beginTransmission(this->addrEXPROM);
   Wire.write((int)(addr_res >> 8));   // MSB
   Wire.write((int)(addr_res & 0xFF)); // LSB
   Wire.endTransmission();
 
-  Wire.requestFrom(this->addrEEPROM,(uint8_t) 1);
+  Wire.requestFrom(this->addrEXPROM,(uint8_t) 1);
   if (Wire.available()) rdata = Wire.read();
   return rdata;
 }
 
 
-float EEPROM::readFloat(uint8_t addr_res) {
+float EXPROM::readFloat(uint8_t addr_res) {
   unsigned char p_read[4];
   for (int i = 0; i < 4; i++) {
     //    Serial.print(i+1);
@@ -101,7 +101,7 @@ float EEPROM::readFloat(uint8_t addr_res) {
   return data;
 }
 
-void EEPROM::log() {
+void EXPROM::log() {
   this->writeInt(this->addrData, imu.xMag);
   this->addrData += 2;
   this->writeInt(this->addrData, imu.yMag);
@@ -126,7 +126,7 @@ void EEPROM::log() {
   this->addrData += 4;
 }
 
-void EEPROM::logGPSdata() {
+void EXPROM::logGPSdata() {
   this->writeFloat(0, comm.gpsPacket.gpsData.latA[0]);
   this->writeFloat(4, comm.gpsPacket.gpsData.lngA[0]);
   this->writeFloat(8, comm.gpsPacket.gpsData.latA[1]);

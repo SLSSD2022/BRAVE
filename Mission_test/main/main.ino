@@ -1,5 +1,6 @@
 //Header file
 #include <Wire.h>
+#include <EEPROM.h>
 #include <SPI.h>
 #include <SD.h>
 #include "./Rover.h"
@@ -9,7 +10,7 @@
 #include "./GPS.h"
 #include "./IMU.h"
 #include "./Communication.h"
-#include "./EEPROM.h"
+#include "./EXPROM.h"
 
 
 //-----------------------------Ultrasonic sensor--------------------------------
@@ -41,12 +42,17 @@ int bufx[CAL_BUF_LEN];
 int bufy[CAL_BUF_LEN];
 int calIndex = 0;
 //------------------------------EEPROM------------------------------
-EEPROM eeprom(0x50);;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
+EXPROM eeprom(0x50);;//24lC1025の場合1010000(前半)or1010100(後半)を選べる
 
 //------------------------------SD card------------------------------
 const int chipSelect = 53;
 const int SDSW = 49;
-
+//#define SD_BUF_LEN 10
+//dataStruct sdbuf[SD_BUF_LEN];
+//int sdbufIndex = 0;
+File globalFile;
+unsigned long sdstart;
+unsigned long sdstop;
 //------------------------------Onboard Camera------------------------------
 
 //------------------------------TWElite------------------------------
@@ -63,6 +69,7 @@ Rover rover;
 unsigned int goalRoute[3];
 
 int memoryFlag = 0;
+unsigned int tic,toc;
 
 /*
   ############################################################################################################
@@ -77,12 +84,12 @@ void setup()
   Serial.println("==Hello! This is 'BRAVE', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
-  rover.status.landed = 0;
-  rover.status.separated = 0;
-  rover.status.evacuated = 0;
-  rover.status.GPSreceived = 0;
-  rover.status.calibrated = 0;
-  rover.status.toGoal = 0;
+  rover.status.landed = 1;
+  rover.status.separated = 1;
+  rover.status.evacuated = 1;
+  rover.status.GPSreceived = 1;
+  rover.status.calibrated = 1;
+  rover.status.toGoal = 1;
   rover.status.near = 0;//ゴール5m付近のとき
   rover.status.search = 0;//ゴール5m付近で測距するとき
 // double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
@@ -125,9 +132,13 @@ void setup()
     bufx[i] = 0;
     bufy[i] = 0;
   }
+  int i = EEPROM.read(0x00);
+  SDprint("datalog.txt","2022/7/17(likely) simulation No.");
+  SDprintln("datalog.txt",i);
+  EEPROM.write(0x00,i+1);
   Serial.println("------------------ Mission Start!!! ------------------");
   start = millis();
-  SDprintln("datalog.txt","2022/7/12 7:30 simulation");
+  globalFile = SD.open("datalog.txt", FILE_WRITE);
 }
 
 
@@ -230,7 +241,8 @@ void loop()
 
   if((rover.status.toGoal > 0)  && rover.success.full == 0)
   {
-    Serial.println("Going to Main loop...");
+    tic = millis();
+//    Serial.println("--------------Going to Main loop...---------------");
     toGoalLoop();
   }
 }
@@ -305,6 +317,29 @@ void sortRange(unsigned int* data, unsigned int* array) {
   if (data[0] > data[2]) swap(&array[0], &array[2]);
   if (data[1] > data[2]) swap(&array[1], &array[2]);
   return;
+}
+
+void SDinit(){
+  //SDcard Initialization
+  pinMode(SDSW, INPUT_PULLUP);
+  while (1) {
+    if (digitalRead(SDSW) == 0) {
+      Serial.println("Card inserted!");
+      if (SD.begin(chipSelect)) {
+        Serial.println("card initialized.");
+      }
+      else {
+        Serial.println("Card failed, or not present");
+      }
+      break;
+    }
+    else {
+      Serial.println("Card not inserted!");
+      break;
+    }
+    delay(1000);
+  }
+  
 }
 
 void SDlogGPSdata(){

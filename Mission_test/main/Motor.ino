@@ -37,48 +37,48 @@ void Motor::setThreshold(int threshold,int spinthreshold)
 
 void Motor::right(int power)
 {
-    if(power > 0){
+//    if(power > 0){
 //      digitalWrite(ENABLE, HIGH); // enable
 //      analogWrite(CH1, power);
 //      digitalWrite(CH2, LOW);
-    }
-    else if(power < 0){
+//    }
+//    else if(power < 0){
 //      digitalWrite(ENABLE, HIGH); // enable
 //      digitalWrite(CH1, LOW);
 //      analogWrite(CH2, power);
-    }
-    else{//power == 0
+//    }
+//    else{//power == 0
 //      digitalWrite(ENABLE, HIGH);
 //      digitalWrite(CH1, HIGH);
 //      digitalWrite(CH2, HIGH);
-    }
+//    }
     this->powerR = power;
-    Serial.print(":powerR:");
-    Serial.print(power);
+//    Serial.print(":powerR:");
+//    Serial.print(power);
     return;
 }
 
 void Motor::left(int power)
 {
   int newpower = (int)power*this->deltaLR;
-  if(power > 0){
+//  if(power > 0){
 //    digitalWrite(ENABLE, HIGH); // enable
 //    analogWrite(CH3, newpower);
 //    digitalWrite(CH4, LOW);
-  }
-  else if(power < 0){
+//  }
+//  else if(power < 0){
 //    digitalWrite(ENABLE, HIGH); // enable
 //    digitalWrite(CH3, LOW);
 //    analogWrite(CH4, newpower);
-  }
-  else{//power == 0
+//  }
+//  else{//power == 0
 //    digitalWrite(ENABLE, HIGH);
 //    digitalWrite(CH3, HIGH);
 //    digitalWrite(CH4, HIGH);
-  }
+//  }
   this->powerL = newpower;
-  Serial.print(":powerL:");
-  Serial.print(newpower);
+//  Serial.print(":powerL:");
+//  Serial.print(newpower);
   return;
 }
 
@@ -90,7 +90,7 @@ void Motor::stop()
     this->controlStatus = 0;//"stop"
     this->powerR = 0;
     this->powerL = 0;
-    Serial.print(":stop!");
+//    Serial.print(":stop!");
     return;
 }
 
@@ -100,7 +100,7 @@ void Motor::goStraight(int power)
     this->right(power);
     this->left(power);
     this->controlStatus = 1;//"Go straight"
-    Serial.print(":Go straight");
+//    Serial.print(":Go straight");
     return;
 }
 
@@ -110,13 +110,13 @@ void Motor::turn(int powerl,int powerr)
     this->left(powerl);
     if(powerl > powerr){
         this->controlStatus = 3;//"turn right"
-        Serial.print(":turn right");
+//        Serial.print(":turn right");
         return;
     }
     else
     {
         this->controlStatus = 2;//"turn left"
-        Serial.print(":turn left");
+//        Serial.print(":turn left");
         return;
     }
 }
@@ -126,7 +126,7 @@ void Motor::spinRight(int power)
     this->right(-power);
     this->left(power);
     this->controlStatus = 4;//"spin to right"
-    Serial.print(":spin to right!");
+//    Serial.print(":spin to right!");
     return;
 }
 
@@ -135,7 +135,7 @@ void Motor::spinLeft(int power)
     this->right(power);
     this->left(-power);
     this->controlStatus = 5;//"spin to right"
-    Serial.print(":spin to left!");
+//    Serial.print(":spin to left!");
     return;
 }
 
@@ -144,8 +144,8 @@ void Motor::angleGo(float bodyDeg,float goalDeg,int power)
   int deltaTheta = 0;
   if (bodyDeg < goalDeg) {
     deltaTheta = goalDeg - bodyDeg;
-    Serial.print(":bodyDeg < goalDeg:");
-    Serial.print(deltaTheta);
+//    Serial.print(":bodyDeg < goalDeg:");
+//    Serial.print(deltaTheta);
 
     //閾値内にあるときは真っ直ぐ
     if ((0 <= deltaTheta && deltaTheta <= this->threshold / 2) || (360 - this->threshold / 2 <= deltaTheta && deltaTheta <= goalDeg)) {
@@ -163,8 +163,8 @@ void Motor::angleGo(float bodyDeg,float goalDeg,int power)
   }
   else {
     deltaTheta = bodyDeg - goalDeg;
-    Serial.print(":goalDeg < bodyDeg:");
-    Serial.print(deltaTheta);
+//    Serial.print(":goalDeg < bodyDeg:");
+//    Serial.print(deltaTheta);
 
     //閾値内にあるときは真っ直ぐ
     if ((0 <= deltaTheta && deltaTheta <= this->threshold / 2) || (360 - this->threshold / 2 <= deltaTheta && deltaTheta <= 360)) {

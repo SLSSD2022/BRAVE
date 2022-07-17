@@ -55,7 +55,7 @@ void GPS::init(){
 
 void GPS::updateGPSlocation(float* lat,float* lng) {
 //  int start = millis();
-  int updateFlag = 0;
+  this->updateFlag = 0;
   while(updateFlag == 0){
     Serial.println("try to catch GPS...");
     while (HWSerial->available() > 0)
@@ -87,7 +87,7 @@ void GPS::updateGPSlocation(float* lat,float* lng) {
 
 void GPS::trycatchGPSlocation(float* lat,float* lng) {
 //  int start = millis();
-//  int updateFlag = 0;
+  this->updateFlag = 0;
 //  while(updateFlag == 0){
 //    Serial.println("try to catch GPS...");
     while (HWSerial->available() > 0)
@@ -102,11 +102,11 @@ void GPS::trycatchGPSlocation(float* lat,float* lng) {
         Serial.println("I got new GPS!");
         *lat = this->location.lat();  // roverの緯度を計算
         *lng = this->location.lng(); // roverの経度を計算
-//        updateFlag = 1;
+        this->updateFlag = 1;
         break;
       }
       //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
-      delay(1);
+//      delay(1);
     }
 //    int stop = millis();
 //    if(stop > (start - 1000)){
