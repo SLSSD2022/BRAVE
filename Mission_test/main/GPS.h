@@ -34,6 +34,7 @@ public:
     float lambda0_rad;
     float mid_S_;
     float S_;
+    boolean updateFlag;
 
     
     GPS();
