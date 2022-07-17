@@ -32,16 +32,28 @@ int searchIndex = 0;
 
 
 void toGoalLoop(){
+  int stic = millis();
   //---------------------9軸取得--------------------------------------------------
   // BMX055 ジャイロの読み取り
   imu.getGyro();
   // BMX055 磁気の読み取り
   imu.getMag();
+  rover.data.xMag = imu.xMag;
+  rover.data.yMag = imu.yMag;
+  Serial.print(imu.xMag);Serial.print(",");Serial.print(imu.yMag);
+  rover.data.calibx = imu.calibx;
+  rover.data.caliby = imu.caliby;
+  toc = millis();
+//  Serial.print(":getIMU:");Serial.print(toc - tic);
+  tic = toc;
 
   //キャリブレーションが終了しているなら
   if (rover.status.calibrated == 1) {
     rover.data.x = imu.angleCalculation();
   }
+  toc = millis();
+//  Serial.print(":getx:");Serial.print(toc - tic);
+  tic = toc;
 
   //---------------------LIDARセンサ取得--------------------------------------------------
 //  rover.data.cmLidar = lidar.getDistance();
@@ -56,11 +68,14 @@ void toGoalLoop(){
   gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);
   rover.data.degRtoA = atan2((rover.data.lngR - rover.data.lngA) * 1.23, (rover.data.latR - rover.data.latA)) * 57.3 + 180;
   rover.data.rangeRtoA = gps.distanceBetween(rover.data.latR, rover.data.lngR, rover.data.latA, rover.data.lngA);
+  toc = millis();
+//  Serial.print(":getGPS:");Serial.print(toc - tic);
+  tic = toc;
 
   //---------------------Check parameter & update Status--------------------------------------------------
  
-  imu.printAll();
-  rover.data.printAll();
+//  imu.printAll();
+//  rover.data.printAll();
 
   if (rover.data.rangeRtoA < 1.0) {
     comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
@@ -136,10 +151,16 @@ void toGoalLoop(){
     motor.angleGo(rover.data.x,rover.data.degRtoA,nominalSpeed);
   }
   rover.data.motorControl = motor.controlStatus;
+  toc = millis();
+//  Serial.print(":motorcontrol:");Serial.print(toc - tic);
+  tic = toc;
 
   //---------------------Logger------------------------------------------------------
   rover.data.overallTime = millis();//it's good if time is synchronized with GPStime
   LogToSDCard();
+  toc = millis();
+//  Serial.print(":SDcard:");Serial.print(toc - tic);
+  tic = toc;
 //  if (memoryFlag > 5) {
 //    eeprom.log();
 //    memoryFlag = 0;
@@ -147,12 +168,15 @@ void toGoalLoop(){
 //  else {
 //    memoryFlag += 1;
 //  }
+  toc = millis();
+//  Serial.print(":EEPROM:");Serial.print(toc - tic);
+  tic = toc;
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
 
   stop = millis();
   int timer = stop - start;
-//
+  
 //  Serial.print(":stop");
 //  Serial.print(stop);
 //  Serial.print(":start");
@@ -161,13 +185,18 @@ void toGoalLoop(){
 //  Serial.println(timer);
 
   if (timer > 5000) {
-    Serial.println(":Communication start!");
-    comm.HKtoGS(&imu,&rover.data);
-    start = millis();
-    Serial.println(":Communication end!");
+//    Serial.println(":Communication start!");
+//    comm.HKtoGS(&imu,&rover.data);
+//    start = millis();
+//    Serial.println(":Communication end!");
   }
-  //---------------------ステータス更新--------------------------------------------------
+  toc = millis();
+//  Serial.print(":comm(end):");Serial.print(toc - tic);
+  tic = toc;
   
+  //---------------------ステータス更新--------------------------------------------------
+  int stoc = millis();
+//  Serial.print(":looptime:");Serial.print(stoc -stic);
   //最後にシリアル通信を改行する
   Serial.println("");
 }
@@ -443,70 +472,111 @@ void motor_angle_spin()
 }
 
 //============SDCard function=========================================================================//
-void SDinit(){
-  //SDcard Initialization
-  pinMode(SDSW, INPUT_PULLUP);
-  while (1) {
-    if (digitalRead(SDSW) == 0) {
-      Serial.println("Card inserted!");
-      if (SD.begin(chipSelect)) {
-        Serial.println("card initialized.");
-      }
-      else {
-        Serial.println("Card failed, or not present");
-      }
-      break;
-    }
-    else {
-      Serial.println("Card not inserted!");
-      break;
-    }
-    delay(1000);
-  }
-  
-}
-
 
 void LogToSDCard() {
-  File dataFile = SD.open("datalog.txt", FILE_WRITE);
-  if (dataFile) {
-    dataFile.print(rover.data.overallTime);
-    dataFile.print(",");
-    dataFile.print(imu.xMag);
-    dataFile.print(",");
-    dataFile.print(imu.yMag);
-    dataFile.print(",");
-    dataFile.print(imu.calibx);
-    dataFile.print(",");
-    dataFile.print(imu.caliby);
-    dataFile.print(",");
-    dataFile.print(rover.data.x);
-    dataFile.print(",");
-    dataFile.print(rover.data.cmHead);
-    dataFile.print(",");
-    dataFile.print(rover.data.cmLong);
-    dataFile.print(",");
-    dataFile.print(rover.data.cmLidar);
-    dataFile.print(",");
-    dataFile.print(rover.data.latA,10);
-    dataFile.print(",");
-    dataFile.print(rover.data.lngA,10);
-    dataFile.print(",");
-    dataFile.print(rover.data.latR,10);
-    dataFile.print(",");
-    dataFile.print(rover.data.lngR,10);
-    dataFile.print(",");
-    dataFile.print(rover.data.degRtoA);
-    dataFile.print(",");
-    dataFile.print(rover.data.rangeRtoA);
-    dataFile.print(",");
-    dataFile.print(rover.data.motorControl);
-    dataFile.println("");
-    dataFile.close();
+  globalFile.print(rover.data.xMag);
+  globalFile.print(",");
+  globalFile.print(rover.data.yMag);
+  globalFile.print(",");
+  globalFile.print(rover.data.calibx);
+  globalFile.print(",");
+  globalFile.print(rover.data.caliby);
+  globalFile.print(",");
+  globalFile.print(rover.data.x);
+  globalFile.print(",");
+  globalFile.print(rover.data.cmHead);
+  globalFile.print(",");
+  globalFile.print(rover.data.cmLong);
+  globalFile.print(",");
+  globalFile.print(rover.data.cmLidar);
+  globalFile.print(",");
+  globalFile.print(rover.data.latA,10);
+  globalFile.print(",");
+  globalFile.print(rover.data.lngA,10);
+  globalFile.print(",");
+  globalFile.print(rover.data.latR,10);
+  globalFile.print(",");
+  globalFile.print(rover.data.lngR,10);
+  globalFile.print(",");
+  globalFile.print(rover.data.degRtoA);
+  globalFile.print(",");
+  globalFile.print(rover.data.rangeRtoA);
+  globalFile.print(",");
+  globalFile.print(rover.data.motorControl);
+  globalFile.println("");
+  sdstop = millis();
+  int timer = sdstop - sdstart;
+  if(timer > 5000)
+  {
+    globalFile.close();
+    toc = millis();
+//    Serial.print(":closeSDcard:");Serial.print(toc - tic);
+    tic = toc;
+    globalFile = SD.open("datalog.txt", FILE_WRITE);
+    toc = millis();
+//    Serial.print(":openSDcard:");Serial.print(toc - tic);
+    tic = toc;
+    if (globalFile) {
+    }
+    // if the file isn't open, pop up an error:
+    else {
+//      Serial.println("error opening datalog.txt");
+    }
+    sdstart = millis();
   }
-  // if the file isn't open, pop up an error:
-  else {
-    Serial.println("error opening datalog.txt");
-  }
-
+//  sdbuf[sdbufIndex] = rover.data;
+//  sdbufIndex += 1;
+//  if(sdbufIndex == SD_BUF_LEN)
+//  {
+//    File dataFile = SD.open("datalog.txt", FILE_WRITE);
+//    toc = millis();
+//    Serial.print(":openSDcard:");Serial.print(toc - tic);
+//    tic = toc;
+//    if (dataFile) {
+//      for(int i = 0;i < SD_BUF_LEN;i++){
+//        dataFile.print(sdbuf[i].xMag);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].yMag);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].calibx);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].caliby);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].x);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].cmHead);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].cmLong);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].cmLidar);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].latA,10);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].lngA,10);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].latR,10);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].lngR,10);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].degRtoA);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].rangeRtoA);
+//        dataFile.print(",");
+//        dataFile.print(sdbuf[i].motorControl);
+//        dataFile.println("");
+//      }
+//      toc = millis();
+//      Serial.print(":writealldata:");Serial.print(toc - tic);
+//      tic = toc;
+//      dataFile.close();
+//      toc = millis();
+//      Serial.print(":closeSDcard:");Serial.print(toc - tic);
+//      tic = toc;
+//    }
+//    // if the file isn't open, pop up an error:
+//    else {
+//      Serial.println("error opening datalog.txt");
+//    }
+//    sdbufIndex = 0;
+//  }
 }

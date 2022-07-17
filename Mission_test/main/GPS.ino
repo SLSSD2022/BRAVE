@@ -106,7 +106,7 @@ void GPS::trycatchGPSlocation(float* lat,float* lng) {
         break;
       }
       //連続した次の文字が来るときでも、間が空いてしまう可能性があるのでdelayを挟む
-      delay(1);
+//      delay(1);
     }
 //    int stop = millis();
 //    if(stop > (start - 1000)){

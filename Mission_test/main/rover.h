@@ -4,6 +4,10 @@
 #include "./IMU.h"
 
 typedef struct _dataStruct {
+  int xMag;
+  int yMag;
+  float calibx;
+  float caliby;
   float x;
   uint8_t cmBottom;
   uint8_t cmHead;
@@ -19,6 +23,7 @@ typedef struct _dataStruct {
   unsigned long int overallTime;
   void printAll();
 } dataStruct;
+
 
 
 typedef struct _modeStruct {
@@ -55,10 +60,10 @@ typedef struct _successStruct {
 
 class Rover{
 public:
-  dataStruct data = {0,0,0,0,0,0,0,0,0,0,0,0};
+  dataStruct data = {0};
   modeStruct mode = {0, 1, 0, 0};
   statusStruct status = {0};
-  successStruct success = {0, 0, 0, 0};
+  successStruct success = {0};
   void printAll();
 };
 

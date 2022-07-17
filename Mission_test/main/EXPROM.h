@@ -1,15 +1,15 @@
-#ifndef _EEPROM_HEAD_
-#define _EEPROM_HEAD_
+#ifndef _EXPROM_HEAD_
+#define _EXPROM_HEAD_
 
 //------------------------------EEPROM------------------------------
 //デバイスアドレス(スレーブ)
-class EEPROM {
+class EXPROM {
 public:
-  uint8_t addrEEPROM;
+  uint8_t addrEXPROM;
   uint8_t addrData;
 
-  EEPROM();
-  EEPROM(uint8_t addr);
+  EXPROM();
+  EXPROM(uint8_t addr);
   void init(uint8_t addr);
   void write(uint8_t addr_res, byte data );
   void writeInt(uint8_t addr_res, int data);
