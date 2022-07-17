@@ -74,7 +74,7 @@ void IMU::init()
   //------------------------------------------------------------//
   Wire.beginTransmission(Addr_Mag);
   Wire.write(0x4C); // Select Mag register
-  Wire.write(0x00); // Normal Mode, ODR = 10 Hz
+  Wire.write(0x38); // Normal Mode, ODR = 10 Hz(0x00), ODR = 20Hz(0x28), ODR = 30Hz(0x38)
   Wire.endTransmission();
   //------------------------------------------------------------//
   Wire.beginTransmission(Addr_Mag);
@@ -84,12 +84,12 @@ void IMU::init()
   //------------------------------------------------------------//
   Wire.beginTransmission(Addr_Mag);
   Wire.write(0x51); // Select Mag register
-  Wire.write(0x04); // No. of Repetitions for X-Y Axis = 9
+  Wire.write(0x17); // No. of Repetitions for X-Y Axis: Normal 9(0x04), Expand 15(0x07), Max 47(0x17)
   Wire.endTransmission();
   //------------------------------------------------------------//
   Wire.beginTransmission(Addr_Mag);
   Wire.write(0x52); // Select Mag register
-  Wire.write(0x16); // No. of Repetitions for Z-Axis = 15
+  Wire.write(0x52); // No. of Repetitions for Z-Axis: Normalmiss? 23(0x16), Normal 16(0x0E), Expand 27(0x1A), Max 83(0x52)
   Wire.endTransmission();
   Serial.println("IMU module initialized!");
 }
@@ -185,9 +185,14 @@ void IMU::getAngle()
   x += this->calib;
   x -= 7; //磁北は真北に対して西に（反時計回りに)7°ずれているため、GPSと合わせるために補正をかける
 
-  //0°~360°になるよう調整
-  x = x % 360;
-  if (x < 0)
+  // calibと7を足したことでcalib+7°~360+calib+7°で出力されてしまうので、0°~360°になるよう調整
+
+  if (x > 360)
+  {
+    x -= 360;
+  }
+
+  else if (x < 0)
   {
     x += 360;
   }
@@ -241,8 +246,6 @@ void IMU::printAll()
   Serial.print(this->calibx);
   Serial.print(":caliby:");
   Serial.print(this->caliby);
-  Serial.print(":calib:");
-  Serial.print(this->calib);
   Serial.print(":x:");
   Serial.print(this->x);
 }

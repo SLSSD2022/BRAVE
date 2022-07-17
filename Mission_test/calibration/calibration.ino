@@ -48,23 +48,7 @@ void setup()
   Serial.println("=====Today, I'm going to calibrate my 9 axis sensor!!!=====");
   Serial.println("===========================================================");
   //setting status&environment
-//  rover.status.landed = 1;
-//  rover.status.separated = 1;
-//  rover.status.evacuated = 1;
-//  rover.status.GPSreceived = 1;
   rover.status.calibrated = 0;
-//  rover.status.toGoal = 1;
-//  rover.status.near = 0;//ゴール5m付近のとき
-//  rover.status.search = 0;//ゴール5m付近で測距するとき
-// double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
-//double LatA = 35.7142738, LngA = 139.76185488809645; //目的地Aの緯度経度(2号館)
-//double LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
-//double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
-//double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
-//  rover.data.latA = 35.7100069;
-//  rover.data.lngA = 139.8108103; //目的地Aの緯度経度(スカイツリー)
-//  rover.data.latR = 35.715328;
-//  rover.data.lngR = 139.761138;  //現在地の初期想定値(7号館屋上)
   rover.printAll();
 
   //initialization
@@ -79,6 +63,7 @@ void setup()
     bufx[i] = 0;
     bufy[i] = 0;
   }
+  SDprint("datalog.txt","2022/7/17(likely) Calibration");
   Serial.println("------------------ Mission Start!!! ------------------");
 }
 
@@ -263,15 +248,15 @@ void SDinit(){
       Serial.println("Card inserted!");
       if (SD.begin(chipSelect)) {
         Serial.println("card initialized.");
+        break;
       }
       else {
         Serial.println("Card failed, or not present");
       }
-      break;
     }
     else {
       Serial.println("Card not inserted!");
-      break;
+//      break;
     }
     delay(1000);
   }
@@ -309,4 +294,87 @@ void LogToSDCard() {
     Serial.println("error opening datalog.txt");
   }
 
+}
+
+
+
+void SDprint(String textfile,String printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+
+void SDprintln(String textfile,String printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.println(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprint(String textfile,int printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprintln(String textfile,int printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.println(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprint(String textfile,unsigned int printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprintln(String textfile,unsigned int printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.println(printdata);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprint(String textfile,float printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.print(printdata,5);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
+}
+
+void SDprintln(String textfile,float printdata){
+  File dataFile = SD.open(textfile, FILE_WRITE);
+  if (dataFile) {
+    dataFile.println(printdata,5);
+    dataFile.close();
+  }else {
+  Serial.println("error opening datalog.txt");
+  }
 }
