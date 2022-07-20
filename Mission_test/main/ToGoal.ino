@@ -32,7 +32,7 @@ int searchIndex = 0;
 
 
 void toGoalLoop(){
-  int stic = millis();
+//  int stic = millis();
   //---------------------9軸取得--------------------------------------------------
   // BMX055 ジャイロの読み取り
   imu.getGyro();
@@ -43,17 +43,17 @@ void toGoalLoop(){
 //  Serial.print(imu.xMag);Serial.print(",");Serial.print(imu.yMag);//
   rover.data.calibx = imu.calibx;
   rover.data.caliby = imu.caliby;
-  toc = millis();
-  Serial.print(":getIMU:");Serial.print(toc - tic);
-  tic = toc;
+//  toc = millis();
+//  Serial.print(":getIMU:");Serial.print(toc - tic);
+//  tic = toc;
 
   //キャリブレーションが終了しているなら
   if (rover.status.calibrated == 1) {
     rover.data.x = imu.angleCalculation();
   }
-  toc = millis();
-  Serial.print(":getx:");Serial.print(toc - tic);
-  tic = toc;
+//  toc = millis();
+//  Serial.print(":getx:");Serial.print(toc - tic);
+//  tic = toc;
 
   //---------------------LIDARセンサ取得--------------------------------------------------
 //  rover.data.cmLidar = lidar.getDistance();
@@ -68,14 +68,14 @@ void toGoalLoop(){
   gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);
   rover.data.degRtoA = atan2((rover.data.lngR - rover.data.lngA) * 1.23, (rover.data.latR - rover.data.latA)) * 57.3 + 180;
   rover.data.rangeRtoA = gps.distanceBetween(rover.data.latR, rover.data.lngR, rover.data.latA, rover.data.lngA);
-  toc = millis();
-  Serial.print(":getGPS:");Serial.print(toc - tic);
-  tic = toc;
+//  toc = millis();
+//  Serial.print(":getGPS:");Serial.print(toc - tic);
+//  tic = toc;
 
   //---------------------Check parameter & update Status--------------------------------------------------
  
-//  imu.printAll();
-//  rover.data.printAll();
+  imu.printAll();
+  rover.data.printAll();
 
   if (rover.data.rangeRtoA < 1.0) {
     comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
@@ -151,16 +151,16 @@ void toGoalLoop(){
     motor.angleGo(rover.data.x,rover.data.degRtoA,nominalSpeed);
   }
   rover.data.motorControl = motor.controlStatus;
-  toc = millis();
-  Serial.print(":motorcontrol:");Serial.print(toc - tic);
-  tic = toc;
+//  toc = millis();
+//  Serial.print(":motorcontrol:");Serial.print(toc - tic);
+//  tic = toc;
 
   //---------------------Logger------------------------------------------------------
   rover.data.overallTime = millis();//it's good if time is synchronized with GPStime
   LogToSDCard();
-  toc = millis();
-  Serial.print(":SDcard:");Serial.print(toc - tic);
-  tic = toc;
+//  toc = millis();
+//  Serial.print(":SDcard:");Serial.print(toc - tic);
+//  tic = toc;
 //  if (memoryFlag > 5) {
 //    eeprom.log();
 //    memoryFlag = 0;
@@ -168,9 +168,9 @@ void toGoalLoop(){
 //  else {
 //    memoryFlag += 1;
 //  }
-  toc = millis();
-  Serial.print(":EEPROM:");Serial.print(toc - tic);
-  tic = toc;
+//  toc = millis();
+//  Serial.print(":EEPROM:");Serial.print(toc - tic);
+//  tic = toc;
 
   //---------------------Communication(sending HK for every 10 seconds)------------------------------------------------------
 
@@ -190,13 +190,13 @@ void toGoalLoop(){
     start = millis();
     Serial.println(":Communication end!");
   }
-  toc = millis();
-  Serial.print(":comm(end):");Serial.print(toc - tic);
-  tic = toc;
+//  toc = millis();
+//  Serial.print(":comm(end):");Serial.print(toc - tic);
+//  tic = toc;
   
   //---------------------ステータス更新--------------------------------------------------
-  int stoc = millis();
-  Serial.print(":looptime:");Serial.print(stoc -stic);
+//  int stoc = millis();
+//  Serial.print(":looptime:");Serial.print(stoc -stic);
   //最後にシリアル通信を改行する
   Serial.println("");
 }
@@ -478,53 +478,7 @@ void LogToSDCard() {
   int timer = sdstop - sdstart;
   if(timer > 5000)
   {
-    globalFile.print(rover.data.xMag);
-    globalFile.print(",");
-    globalFile.print(rover.data.yMag);
-    globalFile.print(",");
-    globalFile.print(",");
-    globalFile.print(",");
-    globalFile.print(rover.data.x);
-    globalFile.print(",");
-    globalFile.print(",");
-    globalFile.print(",");
-    globalFile.print(",");
-    globalFile.print(",");
-    globalFile.print(",");
-    if(gps.updateFlag == 1){
-      globalFile.print(rover.data.latR,6);
-      globalFile.print(",");
-      globalFile.print(rover.data.lngR,6);
-      globalFile.print(",");
-    }
-    else{
-      globalFile.print(",");
-      globalFile.print(",");
-    }
-    globalFile.print(rover.data.degRtoA);
-    globalFile.print(",");
-    globalFile.print(rover.data.rangeRtoA);
-    globalFile.print(",");
-    globalFile.print(rover.data.motorControl);
-    globalFile.println("");
-    globalFile.close();
-    toc = millis();
-    Serial.print(":closeSDcard:");Serial.print(toc - tic);
-    tic = toc;
-    globalFile = SD.open("datalog.txt", FILE_WRITE);
-    toc = millis();
-    Serial.print(":openSDcard:");Serial.print(toc - tic);
-    tic = toc;
-    if (globalFile) {
-    }
-    // if the file isn't open, pop up an error:
-    else {
-//      Serial.println("error opening datalog.txt");
-    }
-    sdstart = millis();
-  }
-  else
-  {
+    Serial.println("--------------Going to SDopenclose...---------------");
     globalFile.print(rover.data.xMag);
     globalFile.print(",");
     globalFile.print(rover.data.yMag);
@@ -549,6 +503,53 @@ void LogToSDCard() {
     globalFile.print(",");
     globalFile.print(rover.data.lngR,6);
     globalFile.print(",");
+    globalFile.print(rover.data.degRtoA);
+    globalFile.print(",");
+    globalFile.print(rover.data.rangeRtoA);
+    globalFile.print(",");
+    globalFile.print(rover.data.motorControl);
+    globalFile.println("");
+    globalFile.close();
+//    toc = millis();
+//    Serial.print(":closeSDcard:");Serial.print(toc - tic);
+//    tic = toc;
+    globalFile = SD.open("datalog.txt", FILE_WRITE);
+//    toc = millis();
+//    Serial.print(":openSDcard:");Serial.print(toc - tic);
+//    tic = toc;
+    if (globalFile) {
+    }
+    // if the file isn't open, pop up an error:
+    else {
+//      Serial.println("error opening datalog.txt");
+    }
+    sdstart = millis();
+  }
+  else
+  {
+    globalFile.print(rover.data.xMag);
+    globalFile.print(",");
+    globalFile.print(rover.data.yMag);
+    globalFile.print(",");
+    globalFile.print(",");
+    globalFile.print(",");
+    globalFile.print(rover.data.x);
+    globalFile.print(",");
+    globalFile.print(",");
+    globalFile.print(",");
+    globalFile.print(",");
+    globalFile.print(",");
+    globalFile.print(",");
+    if(gps.updateFlag == 1){
+      globalFile.print(rover.data.latR,6);
+      globalFile.print(",");
+      globalFile.print(rover.data.lngR,6);
+      globalFile.print(",");
+    }
+    else{
+      globalFile.print(",");
+      globalFile.print(",");
+    }
     globalFile.print(rover.data.degRtoA);
     globalFile.print(",");
     globalFile.print(rover.data.rangeRtoA);

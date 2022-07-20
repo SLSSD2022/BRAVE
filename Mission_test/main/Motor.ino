@@ -37,48 +37,48 @@ void Motor::setThreshold(int threshold,int spinthreshold)
 
 void Motor::right(int power)
 {
-//    if(power > 0){
-//      digitalWrite(ENABLE, HIGH); // enable
-//      analogWrite(CH1, power);
-//      digitalWrite(CH2, LOW);
-//    }
-//    else if(power < 0){
-//      digitalWrite(ENABLE, HIGH); // enable
-//      digitalWrite(CH1, LOW);
-//      analogWrite(CH2, power);
-//    }
-//    else{//power == 0
-//      digitalWrite(ENABLE, HIGH);
-//      digitalWrite(CH1, HIGH);
-//      digitalWrite(CH2, HIGH);
-//    }
+    if(power > 0){
+      digitalWrite(ENABLE, HIGH); // enable
+      analogWrite(CH1, power);
+      digitalWrite(CH2, LOW);
+    }
+    else if(power < 0){
+      digitalWrite(ENABLE, HIGH); // enable
+      digitalWrite(CH1, LOW);
+      analogWrite(CH2, power);
+    }
+    else{//power == 0
+      digitalWrite(ENABLE, HIGH);
+      digitalWrite(CH1, HIGH);
+      digitalWrite(CH2, HIGH);
+    }
     this->powerR = power;
-//    Serial.print(":powerR:");
-//    Serial.print(power);
+    Serial.print(":powerR:");
+    Serial.print(power);
     return;
 }
 
 void Motor::left(int power)
 {
   int newpower = (int)power*this->deltaLR;
-//  if(power > 0){
-//    digitalWrite(ENABLE, HIGH); // enable
-//    analogWrite(CH3, newpower);
-//    digitalWrite(CH4, LOW);
-//  }
-//  else if(power < 0){
-//    digitalWrite(ENABLE, HIGH); // enable
-//    digitalWrite(CH3, LOW);
-//    analogWrite(CH4, newpower);
-//  }
-//  else{//power == 0
-//    digitalWrite(ENABLE, HIGH);
-//    digitalWrite(CH3, HIGH);
-//    digitalWrite(CH4, HIGH);
-//  }
+  if(power > 0){
+    digitalWrite(ENABLE, HIGH); // enable
+    analogWrite(CH3, newpower);
+    digitalWrite(CH4, LOW);
+  }
+  else if(power < 0){
+    digitalWrite(ENABLE, HIGH); // enable
+    digitalWrite(CH3, LOW);
+    analogWrite(CH4, newpower);
+  }
+  else{//power == 0
+    digitalWrite(ENABLE, HIGH);
+    digitalWrite(CH3, HIGH);
+    digitalWrite(CH4, HIGH);
+  }
   this->powerL = newpower;
-//  Serial.print(":powerL:");
-//  Serial.print(newpower);
+  Serial.print(":powerL:");
+  Serial.print(newpower);
   return;
 }
 

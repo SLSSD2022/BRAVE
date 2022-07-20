@@ -23,7 +23,7 @@ const int emergencyStopDist = 10;
 LIDAR lidar(&Serial3);
 
 //------------------------------Motor------------------------------
-Motor motor(3,5,4,6,7);
+Motor motor(3,4,5,7,6);
 const int Threshold = 10;
 const int spinThreshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
 const int nominalSpeed = 150;
@@ -84,12 +84,12 @@ void setup()
   Serial.println("==Hello! This is 'BRAVE', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
-  rover.status.landed = 1;
-  rover.status.separated = 1;
-  rover.status.evacuated = 1;
-  rover.status.GPSreceived = 1;
-  rover.status.calibrated = 1;
-  rover.status.toGoal = 1;
+  rover.status.landed = 0;
+  rover.status.separated = 0;
+  rover.status.evacuated = 0;
+  rover.status.GPSreceived = 0;
+  rover.status.calibrated = 0;
+  rover.status.toGoal = 0;
   rover.status.near = 0;//ゴール5m付近のとき
   rover.status.search = 0;//ゴール5m付近で測距するとき
 // double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
@@ -133,12 +133,11 @@ void setup()
     bufy[i] = 0;
   }
   int i = EEPROM.read(0x00);
-  SDprint("datalog.txt","2022/7/17(likely) simulation No.");
+  SDprint("datalog.txt","2022/7/18(likely) simulation No.");
   SDprintln("datalog.txt",i);
   EEPROM.write(0x00,i+1);
   Serial.println("------------------ Mission Start!!! ------------------");
   start = millis();
-  globalFile = SD.open("datalog.txt", FILE_WRITE);
 }
 
 
@@ -207,6 +206,7 @@ void loop()
 
   //=================================wait for GPS status=================================
   while (!rover.status.GPSreceived) {
+    Serial.println("GPSreceiving");
     stop = millis();
     if (stop > (start + 1000)) {
       Serial.println("Waiting for GPS coordinates...");
@@ -231,6 +231,12 @@ void loop()
 
       rover.status.GPSreceived = 1;
       rover.status.toGoal = 1;
+      globalFile = SD.open("datalog.txt", FILE_WRITE);
+      if (globalFile) {
+      }
+      else {
+        Serial.println("error opening datalog.txt");
+      }
     }
     else{
       Serial.println("GPS Coordinates not received yet");
@@ -241,7 +247,7 @@ void loop()
 
   if((rover.status.toGoal > 0)  && rover.success.full == 0)
   {
-    tic = millis();
+//    tic = millis();
 //    Serial.println("--------------Going to Main loop...---------------");
     toGoalLoop();
   }
@@ -259,7 +265,7 @@ void loop()
 void goalCalculation() {
   //基本方針:最初の時点でどう巡るかを決定する。
   unsigned int range[3];
-  gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);
+  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
   SDprint("datalog.txt","recentGPS");
   SDprint("datalog.txt",rover.data.latR);
   SDprint("datalog.txt",",");
