@@ -103,12 +103,12 @@ void Communication::HKtoGS(IMU* imu_p,dataStruct* roverData_p)
 
   commStop = millis();
   while (1) { //then go into waiting loop for ACK or NACK
-    if (HWSerial->available() > 0) {
-      char c = HWSerial->read();
-      if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) {
+      if (HWSerial->available() > 0) {
+        char c = HWSerial->read();
+        if ( c != '\n' && (bufferPos < MaxBufferSize - 1) ) {
         buff[bufferPos] = c;
         bufferPos++;
-      }
+        }
       else
       {
         buff[bufferPos] = '\0';
@@ -128,9 +128,9 @@ void Communication::HKtoGS(IMU* imu_p,dataStruct* roverData_p)
       }
     }
     commStart = millis();
-    if (commStart > commStop + 200) { //if 200ms passes, then send HK again
+    if (commStart-commStop > 200){
+      Serial.print("timeout 200ms");
       writeToTwelite(imu_p,roverData_p);
-      Serial.println("timeout:200ms");
       break;
     }
   }
