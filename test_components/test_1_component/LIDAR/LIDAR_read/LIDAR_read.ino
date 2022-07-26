@@ -10,7 +10,7 @@ void setup() {
     ; // wait for serial port to connect. Needed for native USB port only
   }
 
-  Serial2.begin(115200);
+  Serial3.begin(115200);
   while (!Serial2) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
@@ -18,8 +18,8 @@ void setup() {
 
 void loop() { // run over and over
 
-  while (Serial2.available() > 0) {
-    byte c = Serial2.read();
+  while (Serial3.available() > 0) {
+    byte c = Serial3.read();
     switch(bytenum){
       case 0://frame header must be 0x59
 //        Serial.print("Byte0:");

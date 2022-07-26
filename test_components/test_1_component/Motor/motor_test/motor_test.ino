@@ -1,8 +1,8 @@
 const int ENABLE = 3;
 const int CH1 = 4;
 const int CH2 = 5;
-const int CH3 = 6;
-const int CH4 = 7;
+const int CH3 = 7;
+const int CH4 = 6;
 
 void setup() {
   // put your setup fcode here, to run once:

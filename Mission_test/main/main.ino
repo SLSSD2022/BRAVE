@@ -84,12 +84,12 @@ void setup()
   Serial.println("==Hello! This is 'BRAVE', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
-  rover.status.landed = 0;
-  rover.status.separated = 0;
-  rover.status.evacuated = 0;
-  rover.status.GPSreceived = 0;
+  rover.status.landed = 1;
+  rover.status.separated = 1;
+  rover.status.evacuated = 1;
+  rover.status.GPSreceived = 1;
   rover.status.calibrated = 0;
-  rover.status.toGoal = 0;
+  rover.status.toGoal = 1;
   rover.status.near = 0;//ゴール5m付近のとき
   rover.status.search = 0;//ゴール5m付近で測距するとき
 // double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)

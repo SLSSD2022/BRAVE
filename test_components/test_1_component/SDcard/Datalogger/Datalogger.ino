@@ -23,8 +23,8 @@
 #include <SPI.h>
 #include <SD.h>
 
-const int chipSelect = 46;
-const int SDSW = 50;
+const int chipSelect = 53;
+const int SDSW = 49;
 
 void setup() {
   // Open serial communications and wait for port to open:
@@ -62,7 +62,7 @@ void loop() {
   String dataString = "";
 
   // read three sensors and append to the string:
-  for (int i = 0; i < 15; i++) {
+  for (int i = 0; i < 25; i++) {
     dataString += String(i);
     if (i < 15) {
       dataString += ",";
@@ -71,7 +71,7 @@ void loop() {
 
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
-  File dataFile = SD.open("datalog.txt", FILE_WRITE);
+  File dataFile = SD.open("datalog3.txt", FILE_WRITE);
 
   // if the file is available, write to it:
   if (dataFile) {
