@@ -94,7 +94,7 @@ void toGoalLoop(){
   imu.printAll();
   rover.data.printAll();
 
-  if (rover.data.rangeRtoA < 100.0) {
+  if (rover.data.rangeRtoA < 0.5) {
     comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
     if (rover.mode.autoGpsOnly) {
       successManagement();
@@ -240,11 +240,7 @@ void successManagement() {
     /*myCAMSaveToSDFile();*/
   
     //現在位置を確認
-    gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
-    ///////ここでは手動でアップデート
-    rover.data.latR = comm.gpsPacket.gpsData.latA[goalRoute[0]];
-    rover.data.lngR = comm.gpsPacket.gpsData.lngA[goalRoute[0]];  
-    //////
+    gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
     globalFile.print("recentGPS:");
     globalFile.print(rover.data.latR,5);
     globalFile.print(",");
@@ -303,11 +299,7 @@ void successManagement() {
     rover.status.toGoal += 1;
 
     //現在位置を確認
-    gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
-    ///////ここでは手動でアップデート
-    rover.data.latR = comm.gpsPacket.gpsData.latA[goalRoute[1]];
-    rover.data.lngR = comm.gpsPacket.gpsData.lngA[goalRoute[1]];  
-    //////
+    gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
     globalFile.print("recentGPS:");
     globalFile.print(rover.data.latR,5);
     globalFile.print(",");
@@ -329,11 +321,7 @@ void successManagement() {
     eeprom.write(27, (byte)rover.success.goalGPS); //logger//logger
     globalFile.println("**************Achieved all goal!**************");
     //現在位置を確認
-    gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
-    ///////ここでは手動でアップデート
-    rover.data.latR = comm.gpsPacket.gpsData.latA[goalRoute[2]];
-    rover.data.lngR = comm.gpsPacket.gpsData.lngA[goalRoute[2]];  
-    //////
+    gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
     globalFile.print("recentGPS:");
     globalFile.print(rover.data.latR,5);
     globalFile.print(",");
