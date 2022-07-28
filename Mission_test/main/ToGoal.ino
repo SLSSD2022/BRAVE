@@ -17,8 +17,11 @@ const int SPI_CS = 7;
 #endif
 */
 
-
+const int emergencyStopDist = 10;
 boolean emergencyStopFlag = 0;
+int obsCount = 0;
+int avoidCount = 20;
+boolean avoidFlag = 0;
 
 int spinsearchCount = 0;//探索中のシーケンス管理カウント
 const int spinsearchIteration = 1;//探索中のスピン移動に使うループ回数
@@ -77,7 +80,7 @@ void toGoalLoop(){
 //  rover.data.cmLidar = lidar.getDistance();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
-  //rover.data.cmHead = ultrasonicHead.getDistance();
+  rover.data.cmHead = ultrasonicHead.getDistance();
 
   //---------------------超音波(長・前面)取得--------------------------------------------------
   //rover.data.cmLong = ultrasonicLong.getDistance();
@@ -95,6 +98,7 @@ void toGoalLoop(){
   imu.printAll();
   rover.data.printAll();
 
+  //mission achieve judgement
   if (rover.data.rangeRtoA < 1.0) {
     comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
     if (rover.mode.autoGpsOnly) {
@@ -105,10 +109,20 @@ void toGoalLoop(){
       rover.status.search = 1;
     }
   }
+
+  //emergencystop&avoidance
   if (rover.data.cmHead < emergencyStopDist) {
-    //emergencyStopFlag = 1;
+    obsCount += 1;
+    emergencyStopFlag = 1;
+    if(obsCount > avoidCount){
+      avoidFlag = 1;
+      emergencyStopFlag = 0;
+    }else{
+      avoidFlag = 0;
+    }
   } else {
     emergencyStopFlag = 0;
+    avoidFlag = 0;
   }
 
   //---------------------Special control for each status------------------------------------------------------
@@ -167,6 +181,11 @@ void toGoalLoop(){
   }
   else if (emergencyStopFlag == 0 && rover.status.calibrated == 1 && rover.status.near == 0 ) { //通常走行時
     motor.angleGo(rover.data.x,rover.data.degRtoA,nominalSpeed);
+  }
+
+  if (avoidFlag == 1) {
+    motor.avoidance();
+    avoidFlag = 0;
   }
   rover.data.motorControl = motor.controlStatus;
 //  toc = millis();

@@ -183,3 +183,14 @@ void Motor::angleGo(float bodyDeg,float goalDeg,int power)
   }
   return;
 }
+
+void Motor::avoidance()
+{
+    this->goStraight(-255);
+    delay(1000);
+    this->spinRight(255);
+    delay(300);
+    this->goStraight(255);
+    delay(1000);
+    return;
+}

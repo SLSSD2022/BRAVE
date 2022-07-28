@@ -17,7 +17,6 @@
 Ultrasonic ultrasonicHead(22,24);//(trigpin,echopin)
 Ultrasonic ultrasonicBottom(11,10);//(trigpin,echopin)
 Ultrasonic ultrasonicLong(A15);//(readpin)
-const int emergencyStopDist = 10;
 
 //------------------------------LIDAR sensor------------------------------
 LIDAR lidar(&Serial3);

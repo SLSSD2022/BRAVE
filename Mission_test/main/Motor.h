@@ -28,6 +28,7 @@ public:
     void spinLeft(int power);
     void spinRight(int power);
     void angleGo(float bodyDeg,float goalDeg,int power);
+    void avoidance();
 };
 
 
