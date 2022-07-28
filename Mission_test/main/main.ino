@@ -3,6 +3,7 @@
 #include <EEPROM.h>
 #include <SPI.h>
 #include <SD.h>
+#include <Servo.h>
 #include "./Rover.h"
 #include "./Ultrasonic.h"
 #include "./LIDAR.h"
@@ -19,8 +20,20 @@ Ultrasonic ultrasonicBottom(11,10);//(trigpin,echopin)
 Ultrasonic ultrasonicLong(A15);//(readpin)
 const int emergencyStopDist = 10;
 
-//------------------------------LIDAR sensor------------------------------
+//------------------------------LIDAR sensor & Servo motor------------------------------
 LIDAR lidar(&Serial3);
+// サーボモーター(ヨー)
+Servo servoYaw;
+const int YAW_PIN = 23;    
+const int Yawdeg = 90;  
+const int YawdegMax = 120;
+const int YawdegMin = 85;
+// サーボモーター(ピッチ)
+Servo servoPitch;
+const int PITCH_PIN = 25;    
+const int Pitchdeg = 72;   
+const int PitchdegMax = 130;
+const int PitchdegMin = 30;     
 
 //------------------------------Motor------------------------------
 Motor motor(3,4,5,6,7);
@@ -116,6 +129,10 @@ void setup()
   eeprom.init(30);
   SDinit();
   pinMode(DETECTION_PIN,INPUT_PULLUP);
+  servoYaw.attach(YAW_PIN, 500, 2400);  // サーボの割当(パルス幅500~2400msに指定)
+  servoYaw.write(Yawdeg);
+  servoPitch.attach(PITCH_PIN, 500, 2400);  // サーボの割当(パルス幅500~2400msに指定)
+  servoPitch.write(Pitchdeg);
 
 
   //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
