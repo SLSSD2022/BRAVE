@@ -311,7 +311,6 @@ void successManagement() {
     globalFile.println(rover.data.lngR,5);
     
     globalFile.println("I'm satisfied with this Log in this mission! Goodbye!");
-    globalFile.close();
 
     rover.status.near = 0;
     rover.status.search = 0;
@@ -319,9 +318,7 @@ void successManagement() {
   }
   globalFile.close();
   delay(3000);
-  Serial.println("AHA");
   myCAMSaveToSDFile();
-  Serial.println("UHU");
   globalFile = SD.open("datalog.txt", FILE_WRITE);
   if (globalFile) {
   }

@@ -287,7 +287,7 @@ void loop()
 void goalCalculation() {
   //基本方針:最初の時点でどう巡るかを決定する。
   unsigned int range[3];
-  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
+  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
   SDprint("datalog.txt","recentGPS:");
   SDprint("datalog.txt",rover.data.latR);
   SDprint("datalog.txt",",");
@@ -299,7 +299,7 @@ void goalCalculation() {
     goalRoute[i] = i;
   }
   
-  SDprintln("datalog.txt","--------path calculated!--------");
+  SDprintln("datalog.txt","--path calculated!--");
   SDprint("datalog.txt",goalRoute[0]);
   SDprint("datalog.txt",":");SDprintln("datalog.txt",range[0]);
   
@@ -313,7 +313,7 @@ void goalCalculation() {
   eeprom.write(25, (byte)goalRoute[1]);
   eeprom.write(26, (byte)goalRoute[2]);
   
-  SDprintln("datalog.txt","--------shortest path calculated!--------");
+  SDprintln("datalog.txt","--shortest path calculated!--");
   SDprint("datalog.txt",goalRoute[0]);
   SDprint("datalog.txt",":");
   SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[0]]);
