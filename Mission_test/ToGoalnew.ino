@@ -94,7 +94,7 @@ void toGoalLoop(){
   imu.printAll();
   rover.data.printAll();
 
-  if (rover.data.rangeRtoA < 100.0) {
+  if (rover.data.rangeRtoA < 1.0) {
     comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
     if (rover.mode.autoGpsOnly) {
       successManagement();
@@ -233,22 +233,19 @@ void successManagement() {
   if (rover.status.toGoal == 1) {
     rover.success.goalGPS = rover.status.toGoal;
     eeprom.write(27, (byte)rover.success.goalGPS); //logger
-    globalFile.println("**************Achieved one goal!**************");
+    SDprintln("datalog.txt","Achieved one goal!");
+    SDprintln("datalog.txt",rover.status.toGoal);
     rover.status.toGoal += 1;
 
     //写真を撮る
     /*myCAMSaveToSDFile();*/
   
     //現在位置を確認
-    gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
-    ///////ここでは手動でアップデート
-    rover.data.latR = comm.gpsPacket.gpsData.latA[goalRoute[0]];
-    rover.data.lngR = comm.gpsPacket.gpsData.lngA[goalRoute[0]];  
-    //////
-    globalFile.print("recentGPS:");
-    globalFile.print(rover.data.latR,5);
-    globalFile.print(",");
-    globalFile.println(rover.data.lngR,5);
+    gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
+    SDprint("datalog.txt","recentGPS");
+    SDprint("datalog.txt",rover.data.latR);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",rover.data.lngR);
     
     //最短距離の計算
     unsigned int range[2];//goalRoute[1]<=>range[0]とgoalRoute[2]<=>range[1]を比較
@@ -256,12 +253,12 @@ void successManagement() {
       range[i] = gps.distanceBetween(rover.data.latR, rover.data.lngR, comm.gpsPacket.gpsData.latA[goalRoute[i+1]], comm.gpsPacket.gpsData.lngA[goalRoute[i+1]]);
     }
     
-    globalFile.println("--path calculated!--");
-    globalFile.print(goalRoute[1]);
-    globalFile.print(":");globalFile.println(range[0]);
-
-    globalFile.print(goalRoute[2]);
-    globalFile.print(":");globalFile.println(range[1]);
+    SDprintln("datalog.txt","--------path calculated!--------");
+    SDprint("datalog.txt",goalRoute[1]);
+    SDprint("datalog.txt",":");SDprintln("datalog.txt",range[0]);
+    
+    SDprint("datalog.txt",goalRoute[2]);
+    SDprint("datalog.txt",":");SDprintln("datalog.txt",range[1]);
     if(range[0] > range[1]){//2番目の方が遠い場合交換
       int num =  goalRoute[1];
       goalRoute[1] = goalRoute[2];
@@ -271,22 +268,22 @@ void successManagement() {
     eeprom.write(25, (byte)goalRoute[1]);
     eeprom.write(26, (byte)goalRoute[2]);
     
-    globalFile.println("--shortest path calculated!--");
-    globalFile.print(goalRoute[0]);
-    globalFile.print(":");
-    globalFile.print(comm.gpsPacket.gpsData.latA[goalRoute[0]],5);
-    globalFile.print(",");
-    globalFile.println(comm.gpsPacket.gpsData.lngA[goalRoute[0]],5);
-    globalFile.print(goalRoute[1]);
-    globalFile.print(":");
-    globalFile.print(comm.gpsPacket.gpsData.latA[goalRoute[1]],5);
-    globalFile.print(",");
-    globalFile.println(comm.gpsPacket.gpsData.lngA[goalRoute[1]],5);
-    globalFile.print(goalRoute[2]);
-    globalFile.print(":");
-    globalFile.print(comm.gpsPacket.gpsData.latA[goalRoute[2]],5);
-    globalFile.print(",");
-    globalFile.println(comm.gpsPacket.gpsData.lngA[goalRoute[2]],5);
+    SDprintln("datalog.txt","--------shortest path calculated!--------");
+    SDprint("datalog.txt",goalRoute[0]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[0]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[0]]);
+    SDprint("datalog.txt",goalRoute[1]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[1]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[1]]);
+    SDprint("datalog.txt",goalRoute[2]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[2]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[2]]);
 
     //目的地をセット
     rover.data.latA = comm.gpsPacket.gpsData.latA[goalRoute[1]];
@@ -299,26 +296,31 @@ void successManagement() {
   else if (rover.status.toGoal == 2) {
     rover.success.goalGPS = rover.status.toGoal;
     eeprom.write(27, (byte)rover.success.goalGPS); //logger
-    globalFile.println("**************Achieved two goal!**************");
+    SDprintln("datalog.txt","Achieved two goal!");
+    SDprintln("datalog.txt",rover.status.toGoal);
     rover.status.toGoal += 1;
-
-    //現在位置を確認
-    gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
-    ///////ここでは手動でアップデート
-    rover.data.latR = comm.gpsPacket.gpsData.latA[goalRoute[1]];
-    rover.data.lngR = comm.gpsPacket.gpsData.lngA[goalRoute[1]];  
-    //////
-    globalFile.print("recentGPS:");
-    globalFile.print(rover.data.latR,5);
-    globalFile.print(",");
-    globalFile.println(rover.data.lngR,5);
-
-    //最短距離を計算(不要)
+    
+    SDprintln("datalog.txt","--------shortest path calculated!--------");
+    SDprint("datalog.txt",goalRoute[0]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[0]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[0]]);
+    SDprint("datalog.txt",goalRoute[1]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[1]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[1]]);
+    SDprint("datalog.txt",goalRoute[2]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[2]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[2]]);
 
     //目的地をセット
     rover.data.latA = comm.gpsPacket.gpsData.latA[goalRoute[2]];
     rover.data.lngA = comm.gpsPacket.gpsData.lngA[goalRoute[2]];
-    
+
     rover.status.near = 0;
     rover.status.search = 0;
     comm.updateGoalStat(); // Increment "aim to goal" for moving to next
@@ -327,20 +329,8 @@ void successManagement() {
     rover.success.goalGPS = rover.status.toGoal;
     rover.success.full = 1;
     eeprom.write(27, (byte)rover.success.goalGPS); //logger//logger
-    globalFile.println("**************Achieved all goal!**************");
-    //現在位置を確認
-    gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
-    ///////ここでは手動でアップデート
-    rover.data.latR = comm.gpsPacket.gpsData.latA[goalRoute[2]];
-    rover.data.lngR = comm.gpsPacket.gpsData.lngA[goalRoute[2]];  
-    //////
-    globalFile.print("recentGPS:");
-    globalFile.print(rover.data.latR,5);
-    globalFile.print(",");
-    globalFile.println(rover.data.lngR,5);
-    
-    globalFile.println("I'm satisfied with this Log in this mission! Goodbye!");
-    globalFile.close();
+    SDprintln("datalog.txt","Achieved all goal!");
+    SDprintln("datalog.txt",rover.status.toGoal);
 
     rover.status.near = 0;
     rover.status.search = 0;

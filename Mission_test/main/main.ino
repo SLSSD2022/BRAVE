@@ -84,12 +84,12 @@ void setup()
   Serial.println("==Hello! This is 'BRAVE', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
-  rover.status.landed = 0;
-  rover.status.separated = 0;
-  rover.status.evacuated = 0;
-  rover.status.GPSreceived = 0;
-  rover.status.calibrated = 0;
-  rover.status.toGoal = 1;
+  rover.status.landed = 1;
+  rover.status.separated = 1;
+  rover.status.evacuated = 1;
+  rover.status.GPSreceived = 1;
+  rover.status.calibrated = 1;
+  rover.status.toGoal = 0;
   rover.status.near = 0;//ゴール5m付近のとき
   rover.status.search = 0;//ゴール5m付近で測距するとき
 // double LatA = 35.7100069, LngA = 139.8108103;  //目的地Aの緯度経度(スカイツリー)
@@ -100,7 +100,7 @@ void setup()
   rover.data.latA = 35.792549133300;
   rover.data.lngA = 139.8909301757812; //目的地Aの緯度経度(松戸)
   rover.data.latR = 35.792137145996;
-  rover.data.lngR = 139.8909149169921;  //現在地の初期想定値(松戸木蔭)35.7921371459960,139.8909149169921
+  rover.data.lngR = 139.8909149169921;  //現在地の初期想定値(松戸木蔭)
   rover.printAll();
 
   //initialization
@@ -133,12 +133,43 @@ void setup()
     bufy[i] = 0;
   }
   int i = EEPROM.read(0x00);
-  SDprint("datalog.txt","2022/7/28(likely) simulation No.");
+  SDprint("datalog.txt","2022/7/29(likely) simulation No.");
   SDprintln("datalog.txt",i);
   
   EEPROM.write(0x00,i+1);
   Serial.println("------------------ Mission Start!!! ------------------");
   start = millis();
+//////////
+    comm.gpsPacket.gpsData.latA[0] = 35.792549133300;
+    comm.gpsPacket.gpsData.lngA[0] = 139.8909301757812;
+    comm.gpsPacket.gpsData.latA[1] = 35.7926101684570;
+    comm.gpsPacket.gpsData.lngA[1] = 139.8906097412109;
+    comm.gpsPacket.gpsData.latA[2] = 35.7924537658691;
+    comm.gpsPacket.gpsData.lngA[2] = 139.8905334472656;
+    
+    SDprintln("datalog.txt","Landing Confirmed");
+    
+    SDlogGPSdata();
+    eeprom.logGPSdata();//log the gps data of destination to EEPROM
+    
+    goalCalculation();//calculate distance to goals and decide root
+
+    int first = goalRoute[0];//set first goal to the destination
+    comm.updateGoalStat(); //Move to next Goal
+    rover.data.latA = comm.gpsPacket.gpsData.latA[first];
+    rover.data.lngA = comm.gpsPacket.gpsData.lngA[first];
+    
+
+    rover.status.GPSreceived = 1;
+    rover.status.toGoal = 1;
+    globalFile = SD.open("datalog.txt", FILE_WRITE);
+    if (globalFile) {
+    }
+    else {
+      Serial.println("error opening datalog.txt");
+    }
+//////////
+  
 }
 
 
@@ -266,8 +297,8 @@ void loop()
 void goalCalculation() {
   //基本方針:最初の時点でどう巡るかを決定する。
   unsigned int range[3];
-  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
-  SDprint("datalog.txt","recentGPS");
+  gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
+  SDprint("datalog.txt","recentGPS:");
   SDprint("datalog.txt",rover.data.latR);
   SDprint("datalog.txt",",");
   SDprintln("datalog.txt",rover.data.lngR);
