@@ -186,6 +186,7 @@ void toGoalLoop(){
   if (avoidFlag == 1) {
     motor.avoidance();
     avoidFlag = 0;
+    obsCount = 0;
   }
   rover.data.motorControl = motor.controlStatus;
 //  toc = millis();
