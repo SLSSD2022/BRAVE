@@ -1,23 +1,4 @@
 
-/*
-#include <ArduCAM.h>
-#include "memorysaver.h"
-//This demo can only work on OV2640_MINI_2MP or OV5642_MINI_5MP or OV5642_MINI_5MP_BIT_ROTATION_FIXED platform.
-#if !(defined OV5642_MINI_5MP || defined OV5642_MINI_5MP_BIT_ROTATION_FIXED || defined OV2640_MINI_2MP || defined OV3640_MINI_3MP)
-  #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
-#endif
-#define SD_CS 9
-const int SPI_CS = 7;
-#if defined (OV2640_MINI_2MP)
-  ArduCAM myCAM( OV2640, SPI_CS );
-#elif defined (OV3640_MINI_3MP)
-  ArduCAM myCAM( OV3640, SPI_CS );
-#else
-  ArduCAM myCAM( OV5642, SPI_CS );
-#endif
-*/
-
-
 boolean emergencyStopFlag = 0;
 
 int spinsearchCount = 0;//探索中のシーケンス管理カウント
@@ -95,7 +76,7 @@ void toGoalLoop(){
   imu.printAll();
   rover.data.printAll();
 
-  if (rover.data.rangeRtoA < 1.0) {
+  if (rover.data.rangeRtoA > 1.0) {
     comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
     if (rover.mode.autoGpsOnly) {
       successManagement();
@@ -257,7 +238,18 @@ void successManagement() {
     rover.status.search = 0;
     rover.mode.sleep = 1;
   }
+  globalFile.close();
   delay(3000);
+  Serial.println("AHA");
+  myCAMSaveToSDFile();
+  Serial.println("UHU");
+  globalFile = SD.open("datalog.txt", FILE_WRITE);
+  if (globalFile) {
+  }
+  // if the file isn't open, pop up an error:
+  else {
+//      Serial.println("error opening datalog.txt");
+  }
   return;
 }
 
@@ -631,7 +623,7 @@ void LogToSDCard() {
 //  }
 }
 
-/*
+
 
 void myCAMSaveToSDFile(){
   char str[8];
@@ -716,4 +708,4 @@ void myCAMSaveToSDFile(){
       buf[i++] = temp;   
     } 
   } 
-}*/
+}

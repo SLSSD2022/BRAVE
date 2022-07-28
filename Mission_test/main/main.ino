@@ -3,6 +3,7 @@
 #include <EEPROM.h>
 #include <SPI.h>
 #include <SD.h>
+#include <ArduCAM.h>
 #include "./Rover.h"
 #include "./Ultrasonic.h"
 #include "./LIDAR.h"
@@ -11,6 +12,7 @@
 #include "./IMU.h"
 #include "./Communication.h"
 #include "./EXPROM.h"
+#include "memorysaver.h"
 
 
 //-----------------------------Ultrasonic sensor--------------------------------
@@ -54,6 +56,19 @@ File globalFile;
 unsigned long sdstart;
 unsigned long sdstop;
 //------------------------------Onboard Camera------------------------------
+//This demo can only work on OV2640_MINI_2MP or OV5642_MINI_5MP or OV5642_MINI_5MP_BIT_ROTATION_FIXED platform.
+#if !(defined OV5642_MINI_5MP || defined OV5642_MINI_5MP_BIT_ROTATION_FIXED || defined OV2640_MINI_2MP || defined OV3640_MINI_3MP)
+  #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
+#endif
+const int SPI_CS = 48;
+#if defined (OV2640_MINI_2MP)
+  ArduCAM myCAM( OV2640, SPI_CS );
+#elif defined (OV3640_MINI_3MP)
+  ArduCAM myCAM( OV3640, SPI_CS );
+#else
+  ArduCAM myCAM( OV5642, SPI_CS );
+#endif
+
 
 //------------------------------TWElite------------------------------
 Communication comm(&Serial2,8,9);//HardwareSerialPort,BPS pin,RST pin
@@ -84,11 +99,11 @@ void setup()
   Serial.println("==Hello! This is 'BRAVE', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
-  rover.status.landed = 0;
-  rover.status.separated = 0;
-  rover.status.evacuated = 0;
-  rover.status.GPSreceived = 0;
-  rover.status.calibrated = 0;
+  rover.status.landed = 1;
+  rover.status.separated = 1;
+  rover.status.evacuated = 1;
+  rover.status.GPSreceived = 1;
+  rover.status.calibrated = 1;
   rover.status.toGoal = 1;
   rover.status.near = 0;//ゴール5m付近のとき
   rover.status.search = 0;//ゴール5m付近で測距するとき
@@ -116,6 +131,7 @@ void setup()
   eeprom.init(30);
   SDinit();
   pinMode(DETECTION_PIN,INPUT_PULLUP);
+  ArduCAMinit();
 
 
   //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
@@ -138,6 +154,7 @@ void setup()
   
   EEPROM.write(0x00,i+1);
   Serial.println("------------------ Mission Start!!! ------------------");
+  myCAMSaveToSDFile();
   start = millis();
 }
 
@@ -169,6 +186,7 @@ void loop()
       comm.updateRoverComsStat(0b10000000); //"GroundLanding" in Comms Status is 1 -> waiting for separation
       comm.sendStatus();
       start = millis();
+      myCAMSaveToSDFile();
       SDprintln("datalog.txt","Landing Confirmed");
     }
     else{
@@ -187,6 +205,7 @@ void loop()
     if(digitalRead(DETECTION_PIN) == 0){
       comm.updateRoverComsStat(0b11000000);//"Separation Detection" in Comms Status is 1 -> waiting for distancing from MC
       comm.sendStatus(); 
+      myCAMSaveToSDFile();
       Serial.println("Pin disconnected..Start distancing...");
       SDprintln("datalog.txt","Separation Confirmed");
       //evacuation
@@ -198,6 +217,7 @@ void loop()
       comm.updateRoverComsStat(0b11100000);//"Moved away/ Evacuation / Distancing" in Comms Status is 1 -> waiting for GPS
       comm.sendStatus(); 
       start = millis();
+      myCAMSaveToSDFile();
       SDprintln("datalog.txt","Distancing from MC Confirmed");
     } else if (digitalRead(DETECTION_PIN) == 1){
       Serial.println("Pin still connected");
@@ -311,7 +331,7 @@ void goalCalculation() {
   return;
 }
 
-void swap(unsigned int* a, unsigned int* b) {
+void swapint(unsigned int* a, unsigned int* b) {
   unsigned int temp;
   temp = *a;
   *a = *b;
@@ -320,9 +340,9 @@ void swap(unsigned int* a, unsigned int* b) {
 }
 
 void sortRange(unsigned int* data, unsigned int* array) {
-  if (data[0] > data[1]) swap(&array[0], &array[1]);
-  if (data[0] > data[2]) swap(&array[0], &array[2]);
-  if (data[1] > data[2]) swap(&array[1], &array[2]);
+  if (data[0] > data[1]) swapint(&array[0], &array[1]);
+  if (data[0] > data[2]) swapint(&array[0], &array[2]);
+  if (data[1] > data[2]) swapint(&array[1], &array[2]);
   return;
 }
 
@@ -450,4 +470,88 @@ void SDprintln(String textfile,float printdata){
   }else {
   Serial.println("error opening datalog.txt");
   }
+}
+
+void ArduCAMinit(){
+  uint8_t vid, pid;
+  uint8_t temp;
+  Serial.println(F("ArduCAM Start!"));
+  //set the CS as an output:
+  pinMode(SPI_CS,OUTPUT);
+  digitalWrite(SPI_CS, HIGH);
+  // initialize SPI:
+  SPI.begin();
+    
+  //Reset the CPLD
+  myCAM.write_reg(0x07, 0x80);
+  delay(100);
+  myCAM.write_reg(0x07, 0x00);
+  delay(100);
+    
+  while(1){
+    //Check if the ArduCAM SPI bus is OK
+    myCAM.write_reg(ARDUCHIP_TEST1, 0x55);
+    temp = myCAM.read_reg(ARDUCHIP_TEST1);
+    
+    if (temp != 0x55){
+      Serial.println(F("SPI interface Error!"));
+      delay(1000);continue;
+    }else{
+      Serial.println(F("SPI interface OK."));break;
+    }
+  }
+  
+  #if defined (OV2640_MINI_2MP)
+    while(1){
+      //Check if the camera module type is OV2640
+      myCAM.wrSensorReg8_8(0xff, 0x01);
+      myCAM.rdSensorReg8_8(OV2640_CHIPID_HIGH, &vid);
+      myCAM.rdSensorReg8_8(OV2640_CHIPID_LOW, &pid);
+      if ((vid != 0x26 ) && (( pid != 0x41 ) || ( pid != 0x42 ))){
+        Serial.println(F("Can't find OV2640 module!"));
+        delay(1000);continue;
+      }
+      else{
+        Serial.println(F("OV2640 detected."));break;
+      } 
+    }
+  #elif defined (OV3640_MINI_3MP)
+    while(1){
+      //Check if the camera module type is OV3640
+      myCAM.rdSensorReg16_8(OV3640_CHIPID_HIGH, &vid);
+      myCAM.rdSensorReg16_8(OV3640_CHIPID_LOW, &pid);
+      if ((vid != 0x36) || (pid != 0x4C)){
+        Serial.println(F("Can't find OV3640 module!"));
+        delay(1000);continue; 
+      }else{
+        Serial.println(F("OV3640 detected."));break;    
+      }
+   } 
+  #else
+    while(1){
+      //Check if the camera module type is OV5642
+      myCAM.wrSensorReg16_8(0xff, 0x01);
+      myCAM.rdSensorReg16_8(OV5642_CHIPID_HIGH, &vid);
+      myCAM.rdSensorReg16_8(OV5642_CHIPID_LOW, &pid);
+      if((vid != 0x56) || (pid != 0x42)){
+        Serial.println(F("Can't find OV5642 module!"));
+        delay(1000);continue;
+      }
+      else{
+        Serial.println(F("OV5642 detected."));break;
+      } 
+    }
+  #endif
+  myCAM.set_format(JPEG);
+  myCAM.InitCAM();
+  #if defined (OV2640_MINI_2MP)
+    myCAM.OV2640_set_JPEG_size(OV2640_320x240);
+  #elif defined (OV3640_MINI_3MP)
+    myCAM.OV3640_set_JPEG_size(OV3640_320x240);
+  #else
+    myCAM.write_reg(ARDUCHIP_TIM, VSYNC_LEVEL_MASK);   //VSYNC is active HIGH
+    myCAM.OV5642_set_JPEG_size(OV5642_320x240);
+  #endif
+  delay(1000);
+  
 }

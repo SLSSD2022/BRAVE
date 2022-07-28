@@ -21,8 +21,8 @@
 #if !(defined OV5642_MINI_5MP || defined OV5642_MINI_5MP_BIT_ROTATION_FIXED || defined OV2640_MINI_2MP || defined OV3640_MINI_3MP)
   #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
 #endif
-#define SD_CS 9
-const int SPI_CS = 7;
+#define SD_CS 53
+const int SPI_CS = 48;
 #if defined (OV2640_MINI_2MP)
   ArduCAM myCAM( OV2640, SPI_CS );
 #elif defined (OV3640_MINI_3MP)
@@ -209,5 +209,3 @@ void loop(){
 myCAMSaveToSDFile();
 delay(5000);
 }
-
-
