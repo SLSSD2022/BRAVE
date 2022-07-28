@@ -231,97 +231,17 @@ void toGoalLoop(){
 //=========Status control function============================================================================//
 void successManagement() {
   motor.stop();
-  if (rover.status.toGoal == 1) {
+  if (rover.status.toGoal < 3) {
     rover.success.goalGPS = rover.status.toGoal;
     eeprom.write(27, (byte)rover.success.goalGPS); //logger
     SDprintln("datalog.txt","Achieved one goal!");
     SDprintln("datalog.txt",rover.status.toGoal);
+
+    int next = goalRoute[rover.status.toGoal];//set next goal to the destination
     rover.status.toGoal += 1;
-
-    //写真を撮る
-    /*myCAMSaveToSDFile();*/
-  
-    //現在位置を確認
-    gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
-    SDprint("datalog.txt","recentGPS");
-    SDprint("datalog.txt",rover.data.latR);
-    SDprint("datalog.txt",",");
-    SDprintln("datalog.txt",rover.data.lngR);
+    rover.data.latA = comm.gpsPacket.gpsData.latA[next];
+    rover.data.lngA = comm.gpsPacket.gpsData.lngA[next];
     
-    //最短距離の計算
-    unsigned int range[2];//goalRoute[1]<=>range[0]とgoalRoute[2]<=>range[1]を比較
-    for (int i = 0; i < 2 ; i++) {
-      range[i] = gps.distanceBetween(rover.data.latR, rover.data.lngR, comm.gpsPacket.gpsData.latA[goalRoute[i+1]], comm.gpsPacket.gpsData.lngA[goalRoute[i+1]]);
-    }
-    
-    SDprintln("datalog.txt","--------path calculated!--------");
-    SDprint("datalog.txt",goalRoute[1]);
-    SDprint("datalog.txt",":");SDprintln("datalog.txt",range[0]);
-    
-    SDprint("datalog.txt",goalRoute[2]);
-    SDprint("datalog.txt",":");SDprintln("datalog.txt",range[1]);
-    if(range[0] > range[1]){//2番目の方が遠い場合交換
-      int num =  goalRoute[1];
-      goalRoute[1] = goalRoute[2];
-      goalRoute[2] = num;
-    }
-    eeprom.write(24, (byte)goalRoute[0]);
-    eeprom.write(25, (byte)goalRoute[1]);
-    eeprom.write(26, (byte)goalRoute[2]);
-    
-    SDprintln("datalog.txt","--------shortest path calculated!--------");
-    SDprint("datalog.txt",goalRoute[0]);
-    SDprint("datalog.txt",":");
-    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[0]]);
-    SDprint("datalog.txt",",");
-    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[0]]);
-    SDprint("datalog.txt",goalRoute[1]);
-    SDprint("datalog.txt",":");
-    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[1]]);
-    SDprint("datalog.txt",",");
-    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[1]]);
-    SDprint("datalog.txt",goalRoute[2]);
-    SDprint("datalog.txt",":");
-    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[2]]);
-    SDprint("datalog.txt",",");
-    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[2]]);
-
-    //目的地をセット
-    rover.data.latA = comm.gpsPacket.gpsData.latA[goalRoute[1]];
-    rover.data.lngA = comm.gpsPacket.gpsData.lngA[goalRoute[1]];
-
-    rover.status.near = 0;
-    rover.status.search = 0;
-    comm.updateGoalStat(); // Increment "aim to goal" for moving to next
-  }
-  else if (rover.status.toGoal == 2) {
-    rover.success.goalGPS = rover.status.toGoal;
-    eeprom.write(27, (byte)rover.success.goalGPS); //logger
-    SDprintln("datalog.txt","Achieved two goal!");
-    SDprintln("datalog.txt",rover.status.toGoal);
-    rover.status.toGoal += 1;
-    
-    SDprintln("datalog.txt","--------shortest path calculated!--------");
-    SDprint("datalog.txt",goalRoute[0]);
-    SDprint("datalog.txt",":");
-    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[0]]);
-    SDprint("datalog.txt",",");
-    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[0]]);
-    SDprint("datalog.txt",goalRoute[1]);
-    SDprint("datalog.txt",":");
-    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[1]]);
-    SDprint("datalog.txt",",");
-    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[1]]);
-    SDprint("datalog.txt",goalRoute[2]);
-    SDprint("datalog.txt",":");
-    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[2]]);
-    SDprint("datalog.txt",",");
-    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[2]]);
-
-    //目的地をセット
-    rover.data.latA = comm.gpsPacket.gpsData.latA[goalRoute[2]];
-    rover.data.lngA = comm.gpsPacket.gpsData.lngA[goalRoute[2]];
-
     rover.status.near = 0;
     rover.status.search = 0;
     comm.updateGoalStat(); // Increment "aim to goal" for moving to next
