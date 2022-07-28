@@ -1,4 +1,22 @@
 
+/*
+#include <ArduCAM.h>
+#include "memorysaver.h"
+//This demo can only work on OV2640_MINI_2MP or OV5642_MINI_5MP or OV5642_MINI_5MP_BIT_ROTATION_FIXED platform.
+#if !(defined OV5642_MINI_5MP || defined OV5642_MINI_5MP_BIT_ROTATION_FIXED || defined OV2640_MINI_2MP || defined OV3640_MINI_3MP)
+  #error Please select the hardware platform and camera module in the ../libraries/ArduCAM/memorysaver.h file
+#endif
+#define SD_CS 9
+const int SPI_CS = 7;
+#if defined (OV2640_MINI_2MP)
+  ArduCAM myCAM( OV2640, SPI_CS );
+#elif defined (OV3640_MINI_3MP)
+  ArduCAM myCAM( OV3640, SPI_CS );
+#else
+  ArduCAM myCAM( OV5642, SPI_CS );
+#endif
+*/
+
 
 boolean emergencyStopFlag = 0;
 
@@ -213,17 +231,96 @@ void toGoalLoop(){
 //=========Status control function============================================================================//
 void successManagement() {
   motor.stop();
-  if (rover.status.toGoal < 3) {
+  if (rover.status.toGoal == 1) {
     rover.success.goalGPS = rover.status.toGoal;
     eeprom.write(27, (byte)rover.success.goalGPS); //logger
     SDprintln("datalog.txt","Achieved one goal!");
     SDprintln("datalog.txt",rover.status.toGoal);
-
-    
-    int next = goalRoute[rover.status.toGoal];//set next goal to the destination
     rover.status.toGoal += 1;
-    rover.data.latA = comm.gpsPacket.gpsData.latA[next];
-    rover.data.lngA = comm.gpsPacket.gpsData.lngA[next];
+
+    //写真を撮る
+    /*myCAMSaveToSDFile();*/
+  
+    //現在位置を確認
+    gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
+    SDprint("datalog.txt","recentGPS");
+    SDprint("datalog.txt",rover.data.latR);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",rover.data.lngR);
+    
+    //最短距離の計算
+    unsigned int range[2];//goalRoute[1]<=>range[0]とgoalRoute[2]<=>range[1]を比較
+    for (int i = 0; i < 2 ; i++) {
+      range[i] = gps.distanceBetween(rover.data.latR, rover.data.lngR, comm.gpsPacket.gpsData.latA[goalRoute[i+1]], comm.gpsPacket.gpsData.lngA[goalRoute[i+1]]);
+    }
+    
+    SDprintln("datalog.txt","--------path calculated!--------");
+    SDprint("datalog.txt",goalRoute[1]);
+    SDprint("datalog.txt",":");SDprintln("datalog.txt",range[0]);
+    
+    SDprint("datalog.txt",goalRoute[2]);
+    SDprint("datalog.txt",":");SDprintln("datalog.txt",range[1]);
+    if(range[0] > range[1]){//2番目の方が遠い場合交換
+      int num =  goalRoute[1];
+      goalRoute[1] = goalRoute[2];
+      goalRoute[2] = num;
+    }
+    eeprom.write(24, (byte)goalRoute[0]);
+    eeprom.write(25, (byte)goalRoute[1]);
+    eeprom.write(26, (byte)goalRoute[2]);
+    
+    SDprintln("datalog.txt","--------shortest path calculated!--------");
+    SDprint("datalog.txt",goalRoute[0]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[0]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[0]]);
+    SDprint("datalog.txt",goalRoute[1]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[1]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[1]]);
+    SDprint("datalog.txt",goalRoute[2]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[2]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[2]]);
+
+    //目的地をセット
+    rover.data.latA = comm.gpsPacket.gpsData.latA[goalRoute[1]];
+    rover.data.lngA = comm.gpsPacket.gpsData.lngA[goalRoute[1]];
+
+    rover.status.near = 0;
+    rover.status.search = 0;
+    comm.updateGoalStat(); // Increment "aim to goal" for moving to next
+  }
+  else if (rover.status.toGoal == 2) {
+    rover.success.goalGPS = rover.status.toGoal;
+    eeprom.write(27, (byte)rover.success.goalGPS); //logger
+    SDprintln("datalog.txt","Achieved two goal!");
+    SDprintln("datalog.txt",rover.status.toGoal);
+    rover.status.toGoal += 1;
+    
+    SDprintln("datalog.txt","--------shortest path calculated!--------");
+    SDprint("datalog.txt",goalRoute[0]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[0]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[0]]);
+    SDprint("datalog.txt",goalRoute[1]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[1]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[1]]);
+    SDprint("datalog.txt",goalRoute[2]);
+    SDprint("datalog.txt",":");
+    SDprint("datalog.txt",comm.gpsPacket.gpsData.latA[goalRoute[2]]);
+    SDprint("datalog.txt",",");
+    SDprintln("datalog.txt",comm.gpsPacket.gpsData.lngA[goalRoute[2]]);
+
+    //目的地をセット
+    rover.data.latA = comm.gpsPacket.gpsData.latA[goalRoute[2]];
+    rover.data.lngA = comm.gpsPacket.gpsData.lngA[goalRoute[2]];
 
     rover.status.near = 0;
     rover.status.search = 0;
@@ -613,3 +710,90 @@ void LogToSDCard() {
 //    sdbufIndex = 0;
 //  }
 }
+
+/*
+
+void myCAMSaveToSDFile(){
+  char str[8];
+  byte buf[256];
+  static int i = 0;
+  static int k = 0;
+  uint8_t temp = 0,temp_last=0;
+  uint32_t length = 0;
+  bool is_header = false;
+  File outFile;
+  //Flush the FIFO
+  myCAM.flush_fifo();
+  //Clear the capture done flag
+  myCAM.clear_fifo_flag();
+  //Start capture
+  myCAM.start_capture();
+  Serial.println(F("start Capture"));
+  while(!myCAM.get_bit(ARDUCHIP_TRIG , CAP_DONE_MASK));
+  Serial.println(F("Capture Done."));  
+  length = myCAM.read_fifo_length();
+  Serial.print(F("The fifo length is :"));
+  Serial.println(length, DEC);
+  if (length >= MAX_FIFO_SIZE) //384K
+  {
+    Serial.println(F("Over size."));
+    return ;
+  }
+  if (length == 0 ) //0 kb
+  {
+    Serial.println(F("Size is 0."));
+    return ;
+  }
+  //Construct a file name
+  k = k + 1;
+  itoa(k, str, 10);
+  strcat(str, ".jpg");
+  //Open the new file
+  outFile = SD.open(str, O_WRITE | O_CREAT | O_TRUNC);
+  if(!outFile){
+    Serial.println(F("File open faild"));
+    return;
+  }
+  myCAM.CS_LOW();
+  myCAM.set_fifo_burst();
+  while ( length-- )
+  {
+    temp_last = temp;
+    temp =  SPI.transfer(0x00);
+    //Read JPEG data from FIFO
+    if ( (temp == 0xD9) && (temp_last == 0xFF) ) //If find the end ,break while,
+    {
+      buf[i++] = temp;  //save the last  0XD9     
+      //Write the remain bytes in the buffer
+      myCAM.CS_HIGH();
+      outFile.write(buf, i);    
+      //Close the file
+      outFile.close();
+      Serial.println(F("Image save OK."));
+      is_header = false;
+      i = 0;
+    }  
+    if (is_header == true)
+    { 
+      //Write image data to buffer if not full
+      if (i < 256)
+      buf[i++] = temp;
+      else
+      {
+        //Write 256 bytes image data to file
+        myCAM.CS_HIGH();
+        outFile.write(buf, 256);
+        i = 0;
+        buf[i++] = temp;
+        myCAM.CS_LOW();
+        myCAM.set_fifo_burst();
+      }        
+    }
+    else if ((temp == 0xD8) & (temp_last == 0xFF))
+    {
+      is_header = true;
+      buf[i++] = temp_last;
+      buf[i++] = temp;   
+    } 
+  } 
+}*/

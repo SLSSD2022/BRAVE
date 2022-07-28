@@ -10,6 +10,10 @@
 //================================================================//
 
 #include<Wire.h>
+#include <SPI.h>
+#include <SD.h>
+const int chipSelect = 53;
+const int SDSW = 49;
 // BMX055 加速度センサのI2Cアドレス  
 #define Addr_Accl 0x19  // (JP1,JP2,JP3 = Openの時)
 // BMX055 ジャイロセンサのI2Cアドレス
@@ -30,6 +34,24 @@ int   zMag  = 0;
 
 void setup()
 {
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
+    // don't do anything more:
+    while (1);
+  }
+  Serial.println("card initialized.");
+
+  pinMode(SDSW,INPUT_PULLUP);
+  while(1){
+    if(digitalRead(SDSW) == 0){
+      Serial.println("Card inserted!");
+      break;
+    }
+    else{
+      Serial.println("Card not inserted!");
+    }
+    delay(1000);
+  }
   // Wire(Arduino-I2C)の初期化
   Wire.begin();
   // デバッグ用シリアル通信は9600bps
@@ -72,6 +94,32 @@ void loop()
   Serial.print(",");
   Serial.print(zMag);
   Serial.println(""); 
+  // make a string for assembling the data to log:
+  String dataString = "";
+
+  // read three sensors and append to the string:
+  for (int i = 0; i < 25; i++) {
+    dataString += String(xMag);
+    if (i < 25) {
+      dataString += ",";
+    }
+  }
+
+  // open the file. note that only one file can be open at a time,
+  // so you have to close this one before opening another.
+  File dataFile = SD.open("datalog5.txt", FILE_WRITE);
+  delay(5000);
+  // if the file is available, write to it:
+  if (dataFile) {
+    dataFile.println(dataString);
+    dataFile.close();
+    // print to the serial port too:
+    Serial.println(dataString);
+  }
+  // if the file isn't open, pop up an error:
+  else {
+    Serial.println("error opening datalog.txt");
+  }
   
   delay(1000);
 }

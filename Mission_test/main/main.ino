@@ -23,21 +23,21 @@ const int emergencyStopDist = 10;
 LIDAR lidar(&Serial3);
 
 //------------------------------Motor------------------------------
-Motor motor(3,4,5,7,6);
+Motor motor(3,4,5,6,7);
 const int Threshold = 10;
 const int spinThreshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
-const int nominalSpeed = 150;
-const int slowSpeed = 100;
-const int verySlowSpeed = 70;
+const int nominalSpeed = 220;
+const int slowSpeed = 150;
+const int verySlowSpeed = 100;
 
 //------------------------------GPS---------------------------------
 GPS gps(&Serial1);
 
 //9axis filter
 //------------------------------9axis sensor------------------------------
-IMU imu(0.00, 0.00, 0.00, 0, 0, 0, 265, 20, 132);
+IMU imu(0.00, 0.00, 0.00, 0, 0, 0, 183, -112, 71);
 //キャリブレーション用バッファの長さ
-#define CAL_BUF_LEN 100
+#define CAL_BUF_LEN 200
 int bufx[CAL_BUF_LEN];
 int bufy[CAL_BUF_LEN];
 int calIndex = 0;
@@ -84,10 +84,10 @@ void setup()
   Serial.println("==Hello! This is 'BRAVE', Relaying Rover to Destination!!!===");
   Serial.println("===========================================================");
   //setting status&environment
-  rover.status.landed = 1;
-  rover.status.separated = 1;
-  rover.status.evacuated = 1;
-  rover.status.GPSreceived = 1;
+  rover.status.landed = 0;
+  rover.status.separated = 0;
+  rover.status.evacuated = 0;
+  rover.status.GPSreceived = 0;
   rover.status.calibrated = 0;
   rover.status.toGoal = 1;
   rover.status.near = 0;//ゴール5m付近のとき
@@ -97,10 +97,10 @@ void setup()
 //double LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
 //double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
 //double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
-  rover.data.latA = 35.7100069;
-  rover.data.lngA = 139.8108103; //目的地Aの緯度経度(スカイツリー)
-  rover.data.latR = 35.715328;
-  rover.data.lngR = 139.761138;  //現在地の初期想定値(7号館屋上)
+  rover.data.latA = 35.792549133300;
+  rover.data.lngA = 139.8909301757812; //目的地Aの緯度経度(松戸)
+  rover.data.latR = 35.792137145996;
+  rover.data.lngR = 139.8909149169921;  //現在地の初期想定値(松戸木蔭)35.7921371459960,139.8909149169921
   rover.printAll();
 
   //initialization
@@ -133,8 +133,9 @@ void setup()
     bufy[i] = 0;
   }
   int i = EEPROM.read(0x00);
-  SDprint("datalog.txt","2022/7/18(likely) simulation No.");
+  SDprint("datalog.txt","2022/7/28(likely) simulation No.");
   SDprintln("datalog.txt",i);
+  
   EEPROM.write(0x00,i+1);
   Serial.println("------------------ Mission Start!!! ------------------");
   start = millis();
@@ -333,15 +334,16 @@ void SDinit(){
       Serial.println("Card inserted!");
       if (SD.begin(chipSelect)) {
         Serial.println("card initialized.");
+        break;
       }
       else {
         Serial.println("Card failed, or not present");
       }
-      break;
+      //break;
     }
     else {
       Serial.println("Card not inserted!");
-      break;
+      //break;
     }
     delay(1000);
   }

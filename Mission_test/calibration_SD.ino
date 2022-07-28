@@ -15,9 +15,9 @@ const int verySlowSpeed = 70;
 
 //9axis filter
 //------------------------------9axis sensor------------------------------
-IMU imu(0.00, 0.00, 0.00, 0, 0, 0, 183, 20, 132);
+IMU imu(0.00, 0.00, 0.00, 0, 0, 0, 265, 20, 132);
 //キャリブレーション用バッファの長さ
-#define CAL_BUF_LEN 200
+#define CAL_BUF_LEN 100
 int bufx[CAL_BUF_LEN];
 int bufy[CAL_BUF_LEN];
 int calIndex = 0;
@@ -63,7 +63,7 @@ void setup()
     bufx[i] = 0;
     bufy[i] = 0;
   }
-  SDprint("datalog.txt","2022/7/28(likely) Calibration");
+  SDprint("datalog.txt","2022/7/17(likely) Calibration");
   Serial.println("------------------ Mission Start!!! ------------------");
 }
 
@@ -156,7 +156,7 @@ void calibLoop(){
 
 
 void calibNorth(){
-  //磁北方向にローバーを向かせていると仮定する
+  //磁北の反対方向にローバーを向かせていると仮定する
   //xが示すべき値は-7。計算されたx出力の差をdeltaNとする。
   deltaN = -7 - rover.data.x;
   //deltaNをcalibに加えて更新する。

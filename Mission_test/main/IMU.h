@@ -7,7 +7,7 @@
 // I2C address for BMX055 Magnetic
 #define Addr_Mag 0x13 // (JP1,JP2,JP3 = Openの時)
 #define BUF_LEN 10
-#define CAL_BUF_LEN 100
+//#define CAL_BUF_LEN 100
 
 
 class IMU {
@@ -37,10 +37,10 @@ public:
 private: 
   int buf[BUF_LEN];
   int index;
-  //キャリブレーション用バッファの長さ
-  int bufx[CAL_BUF_LEN];
-  int bufy[CAL_BUF_LEN];
-  int calIndex = 0;
+//  //キャリブレーション用バッファの長さ
+//  int bufx[CAL_BUF_LEN];
+//  int bufy[CAL_BUF_LEN];
+//  int calIndex = 0;
   
   int medianFilter();
 };

@@ -64,15 +64,15 @@ void loop() {
   // read three sensors and append to the string:
   for (int i = 0; i < 25; i++) {
     dataString += String(i);
-    if (i < 15) {
+    if (i < 25) {
       dataString += ",";
     }
   }
 
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
-  File dataFile = SD.open("datalog3.txt", FILE_WRITE);
-
+  File dataFile = SD.open("datalog4.txt", FILE_WRITE);
+  delay(5000);
   // if the file is available, write to it:
   if (dataFile) {
     dataFile.println(dataString);
