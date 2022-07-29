@@ -79,7 +79,7 @@ void toGoalLoop(){
 //  rover.data.cmLidar = lidar.getDistance();
 
   //---------------------超音波(短・前面)取得--------------------------------------------------
-  rover.data.cmHead = ultrasonicHead.getDistance();
+  //rover.data.cmHead = ultrasonicHead.getDistance();
 
   //---------------------超音波(長・前面)取得--------------------------------------------------
   //rover.data.cmLong = ultrasonicLong.getDistance();
@@ -109,19 +109,19 @@ void toGoalLoop(){
   }
 
   //emergencystop&avoidance
-  if (rover.data.cmHead < emergencyStopDist) {
-    obsCount += 1;
-    emergencyStopFlag = 1;
-    if(obsCount > avoidCount){
-      avoidFlag = 1;
-      emergencyStopFlag = 0;
-    }else{
-      avoidFlag = 0;
-    }
-  } else {
-    emergencyStopFlag = 0;
-    avoidFlag = 0;
-  }
+//  if (rover.data.cmHead < emergencyStopDist) {
+//    obsCount += 1;
+//    emergencyStopFlag = 1;
+//    if(obsCount > avoidCount){
+//      avoidFlag = 1;
+//      emergencyStopFlag = 0;
+//    }else{
+//      avoidFlag = 0;
+//    }
+//  } else {
+//    emergencyStopFlag = 0;
+//    avoidFlag = 0;
+//  }
 
   //---------------------Special control for each status------------------------------------------------------
 
@@ -181,11 +181,11 @@ void toGoalLoop(){
     motor.angleGo(rover.data.x,rover.data.degRtoA,nominalSpeed);
   }
 
-  if (avoidFlag == 1) {
-    motor.avoidance();
-    avoidFlag = 0;
-    obsCount = 0;
-  }
+//  if (avoidFlag == 1) {
+//    motor.avoidance();
+//    avoidFlag = 0;
+//    obsCount = 0;
+//  }
   rover.data.motorControl = motor.controlStatus;
 //  toc = millis();
 //  Serial.print(":motorcontrol:");Serial.print(toc - tic);

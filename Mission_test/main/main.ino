@@ -140,7 +140,6 @@ void setup()
   EEPROM.write(0x00,i+1);
   Serial.println("------------------ Mission Start!!! ------------------");
   start = millis();
-  
 }
 
 
@@ -268,8 +267,8 @@ void loop()
 void goalCalculation() {
   //基本方針:最初の時点でどう巡るかを決定する。
   unsigned int range[3];
-  gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
-  SDprint("datalog.txt","recentGPS:");
+  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);
+  SDprint("datalog.txt","recentGPS");
   SDprint("datalog.txt",rover.data.latR);
   SDprint("datalog.txt",",");
   SDprintln("datalog.txt",rover.data.lngR);
