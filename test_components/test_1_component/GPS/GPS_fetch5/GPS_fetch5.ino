@@ -35,8 +35,8 @@ void loop() { // run over and over
       Serial.print(LatA, 13);
       Serial.print(",");
       Serial.print(LngA, 13);
-      Serial.print(",");
-      Serial.print(gps.distanceBetween(LatR,LngR,LatA,LngA));
+//      Serial.print(",");
+//      Serial.print(gps.distanceBetween(LatR,LngR,LatA,LngA));
       Serial.println("");
     }
   }

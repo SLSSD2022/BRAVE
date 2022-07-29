@@ -25,9 +25,9 @@ LIDAR lidar(&Serial3);
 Motor motor(3,4,5,6,7);
 const int Threshold = 10;
 const int spinThreshold = 12; //純粋なスピン制御を行う角度を行う閾値(スピンで機軸変更する時のみ)
-const int nominalSpeed = 220;
+const int nominalSpeed = 200;
 const int slowSpeed = 150;
-const int verySlowSpeed = 100;
+const int verySlowSpeed = 70;
 
 //------------------------------GPS---------------------------------
 GPS gps(&Serial1);
@@ -96,10 +96,12 @@ void setup()
 //double LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
 //double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
 //double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
-  rover.data.latA = 35.792549133300;
-  rover.data.lngA = 139.8909301757812; //目的地Aの緯度経度(松戸)
-  rover.data.latR = 35.792137145996;
-  rover.data.lngR = 139.8909149169921;  //現在地の初期想定値(松戸木蔭)
+//  rover.data.latR = 35.792137145996;
+//  rover.data.lngR = 139.8909149169921;  //現在地の初期想定値(松戸木蔭)35.7921371459960,139.8909149169921
+  rover.data.latA = 35.7429733276367;
+  rover.data.lngA = 140.0115203857421; //目的地Aの緯度経度(日本大一塁)
+  rover.data.latR = 35.7428932189941;
+  rover.data.lngR = 140.0118103027343;  //現在地の初期想定値(日本大ホームベース)35.7428932189941,140.0118103027343
   rover.printAll();
 
   //initialization
@@ -132,7 +134,7 @@ void setup()
     bufy[i] = 0;
   }
   int i = EEPROM.read(0x00);
-  SDprint("datalog.txt","2022/7/29(likely) simulation No.");
+  SDprint("datalog.txt","2022/7/29(likely) preparation No.");
   SDprintln("datalog.txt",i);
   
   EEPROM.write(0x00,i+1);
@@ -266,7 +268,7 @@ void loop()
 void goalCalculation() {
   //基本方針:最初の時点でどう巡るかを決定する。
   unsigned int range[3];
-  gps.updateGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
+  gps.trycatchGPSlocation(&rover.data.latR,&rover.data.lngR);//updateに注意
   SDprint("datalog.txt","recentGPS:");
   SDprint("datalog.txt",rover.data.latR);
   SDprint("datalog.txt",",");
