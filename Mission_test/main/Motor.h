@@ -13,7 +13,7 @@ public:
     int powerL;
     int powerR;
     int threshold = 10; //角度の差分の閾値
-    int spinThreshold = 10; //角度の差分の閾値
+    int spinThreshold = 6; //角度の差分の閾値
     float deltaTheta;//目的方向と姿勢の相対角度差
     float deltaLR;//左右差の補正項
 
@@ -27,7 +27,8 @@ public:
     void turn(int powerL,int powerR);
     void spinLeft(int power);
     void spinRight(int power);
-    void angleGo(float bodyDeg,float goalDeg,int power);
+    void angleGo(float bodyDeg,float goalDeg,int power);  
+    void angleSpin(float bodyDeg,float goalDeg);
 };
 
 

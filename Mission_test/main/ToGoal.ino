@@ -24,8 +24,11 @@ int listcm[SEAR_BUF_LEN];
 int listdeg[SEAR_BUF_LEN];
 int searchIndex = 0;
 
-
-/*
+int stepDeg = 0;
+boolean rotFlag = 1;
+int measureDeg = 0;
+#define MEAS_DEG 100
+/* 
   ############################################################################################################
   ############################################################################################################
 */
@@ -77,14 +80,18 @@ void toGoalLoop(){
   imu.printAll();
   rover.data.printAll();
 
-  if (rover.data.rangeRtoA < 0.5) {
-    comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
-    if (rover.mode.autoGpsOnly) {
-      successManagement();
-    }
-    else if (rover.mode.autoAggressive) {
-      rover.status.near = 1;
-      rover.status.search = 1;
+  if(rover.status.near == 0){
+    if (rover.data.rangeRtoA < 0.5) {
+      comm.updateGoalStat(); // Increment "aim to goal" for reaching a goal
+      if (rover.mode.autoGpsOnly) {
+        successManagement();
+      }
+      else if (rover.mode.autoAggressive) {
+        rover.status.near = 1;
+        rover.status.search = 1;
+        stepDeg = rover.data.x;
+        rotFlag = 1;
+      }
     }
   }
   if (rover.data.cmHead < emergencyStopDist) {
@@ -103,7 +110,9 @@ void toGoalLoop(){
 
   //ゴール探索時
   if (rover.status.calibrated == 1 && rover.status.near == 1) {
+    Serial.println("Near!");
     if (rover.status.search == 1) { //ゴールの方向がまだ分かってない
+      Serial.println("SearchLoop!");
       searchLoop();
     }
     else if (rover.status.search == 0) { //ゴール探索時(ゴールの方向が分かって動いている時)
@@ -122,7 +131,17 @@ void toGoalLoop(){
   }
   else if (emergencyStopFlag == 0 && rover.status.calibrated == 1 && rover.status.near == 1) { //ゴール5m付近時
     if (rover.status.search == 1) {  //ゴールの方向がまだ分かってない->スピンしながらコーンを探索中
-      motor.spinRight(verySlowSpeed);
+      if(rotFlag == 1){
+        Serial.println("YEAHHHHH");
+        if(-10 < ((int)rover.data.x - stepDeg) && ((int)rover.data.x - stepDeg) < 10){
+          motor.stop();
+          rotFlag = 0;
+          Serial.println("NOMORE!!");
+        }
+        else{
+          motor.angleSpin(rover.data.x,(float)stepDeg);
+        }
+      }
       Serial.print(":searching");
     }
     else { //ゴール探索時(ゴールの方向が分かって動いている時)
@@ -384,37 +403,62 @@ void calibLoop(){
 }
 
 void searchLoop(){
-  if (spinsearchCount < spinsearchIteration) { //スピン段階
-    emergencyStopFlag = 0;
-    spinsearchCount += 1;
-  }
-  else {
-    emergencyStopFlag = 1;//測距中は停止する
-    bufcm[measureIndex] = rover.data.cmLidar;
-    measureIndex = (measureIndex + 1) % MEAS_BUF_LEN;
-    //バッファに値がたまったら
-    if (measureIndex == 0) {
-      //filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
-      listcm[searchIndex] = rover.data.cmLidar;//一番最後の角度がもっともらしい。
-      listdeg[searchIndex] = rover.data.x;//一番最後の角度がもっともらしい。
-      Serial.print(":measure deg:");
-      Serial.print(listdeg[searchIndex]);
-      //バッファ番号初期化(中身は放置)
-      measureIndex = 0;
-      spinsearchCount = 0;
-      searchIndex = (searchIndex + 1) % SEAR_BUF_LEN;
-      //測距リストに値がたまったら
-      if (searchIndex == 0) {
-        int listIndex = goal_angle_search();//リストから測距値の最小値と対応するリスト番号を探す。
-        rover.data.degRtoA = listdeg[listIndex];//目的地の方向を決定
-        Serial.print(":searching_completed!");
-        //リスト番号初期化(中身は放置)
-        searchIndex = 0;
-        rover.status.search = 0;//探索終了
-        emergencyStopFlag = 0;//モーター解放
+  
+  if(rotFlag == 0){
+    Serial.println("SERVO!");
+    servoPitch.write(PitchdegMin + measureDeg);
+    //bufcm[measureDeg] = rover.data.cmLidar;
+    //bufdeg[measureDeg] = rover.data.x + measureDeg - Pitchdeg;
+    measureDeg += 1;
+    if(measureDeg > MEAS_DEG){
+      Serial.println("OK THanky you!!");
+      rotFlag = 1;
+      measureDeg = 0;
+      stepDeg += 90;
+      if(stepDeg > 360){
+        stepDeg -= 360;
       }
     }
   }
+  else {  //ゴールの方向がまだ分かってない->スピンしながらコーンを探索中
+    if(rotFlag == 1){
+      Serial.println("NOTYET");
+    //do nothing
+    }
+  }
+  
+  
+//  if (spinsearchCount < spinsearchIteration) { //スピン段階
+//    emergencyStopFlag = 0;
+//    spinsearchCount += 1;
+//  }
+//  else {
+//    emergencyStopFlag = 1;//測距中は停止する
+//    bufcm[measureIndex] = rover.data.cmLidar;
+//    measureIndex = (measureIndex + 1) % MEAS_BUF_LEN;
+//    //バッファに値がたまったら
+//    if (measureIndex == 0) {
+//      //filter_angle_search();//フィルタリングした測距値をリストに一組追加する。
+//      listcm[searchIndex] = rover.data.cmLidar;//一番最後の角度がもっともらしい。
+//      listdeg[searchIndex] = rover.data.x;//一番最後の角度がもっともらしい。
+//      Serial.print(":measure deg:");
+//      Serial.print(listdeg[searchIndex]);
+//      //バッファ番号初期化(中身は放置)
+//      measureIndex = 0;
+//      spinsearchCount = 0;
+//      searchIndex = (searchIndex + 1) % SEAR_BUF_LEN;
+//      //測距リストに値がたまったら
+//      if (searchIndex == 0) {
+//        int listIndex = goal_angle_search();//リストから測距値の最小値と対応するリスト番号を探す。
+//        rover.data.degRtoA = listdeg[listIndex];//目的地の方向を決定
+//        Serial.print(":searching_completed!");
+//        //リスト番号初期化(中身は放置)
+//        searchIndex = 0;
+//        rover.status.search = 0;//探索終了
+//        emergencyStopFlag = 0;//モーター解放
+//      }
+//    }
+//  }
 }
 
 

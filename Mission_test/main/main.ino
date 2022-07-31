@@ -4,6 +4,7 @@
 #include <SPI.h>
 #include <SD.h>
 #include <ArduCAM.h>
+#include <Servo.h>
 #include "./Rover.h"
 #include "./Ultrasonic.h"
 #include "./LIDAR.h"
@@ -23,7 +24,18 @@ const int emergencyStopDist = 10;
 
 //------------------------------LIDAR sensor------------------------------
 LIDAR lidar(&Serial3);
-
+// サーボモーター(ヨー)
+Servo servoYaw;
+const int YAW_PIN = 23;    
+const int Yawdeg = 90;  
+const int YawdegMax = 120;
+const int YawdegMin = 85;
+// サーボモーター(ピッチ)
+Servo servoPitch;
+const int PITCH_PIN = 25;    
+const int Pitchdeg = 72;   
+const int PitchdegMax = 130;
+const int PitchdegMin = 30; 
 //------------------------------Motor------------------------------
 Motor motor(3,4,5,6,7);
 const int Threshold = 10;
@@ -112,10 +124,15 @@ void setup()
 //double LatA = 35.7140655517578, LngA = 139.7602539062500; //目的地Aの緯度経度(工学部広場)
 //double LatA = 35.719970703125, LngA = 139.7361145019531; //目的地Aの緯度経度((教育の森公園)
 //double LatR = 35.715328, LngR = 139.761138;  //現在地の初期想定値(7号館屋上)
-  rover.data.latA = 35.792549133300;
-  rover.data.lngA = 139.8909301757812; //目的地Aの緯度経度(松戸)
-  rover.data.latR = 35.792137145996;
-  rover.data.lngR = 139.8909149169921;  //現在地の初期想定値(松戸木蔭)
+//  rover.data.latA = 35.792549133300;
+//  rover.data.lngA = 139.8909301757812; //目的地Aの緯度経度(松戸)
+//  rover.data.latR = 35.792137145996;
+//  rover.data.lngR = 139.8909149169921;  //現在地の初期想定値(松戸木蔭)
+  rover.data.latA = 35.7429733276367;
+  rover.data.lngA = 140.0115203857421; //目的地Aの緯度経度(日本大一塁)
+  rover.data.latR = 35.7428932189941;
+  rover.data.lngR = 140.0118103027343;  //現在地の初期想定値(日本大ホームベース)35.7428932189941,140.0118103027343
+
   rover.printAll();
 
   //initialization
@@ -132,6 +149,10 @@ void setup()
   SDinit();
   pinMode(DETECTION_PIN,INPUT_PULLUP);
   ArduCAMinit();
+  servoYaw.attach(YAW_PIN, 500, 2400);  // サーボの割当(パルス幅500~2400msに指定)
+  servoYaw.write(Yawdeg);
+  servoPitch.attach(PITCH_PIN, 500, 2400);  // サーボの割当(パルス幅500~2400msに指定)
+  servoPitch.write(Pitchdeg);
 
 
   //ログを初期化(この方法だとめっちゃ時間かかるので今後改善が必要)
@@ -149,7 +170,7 @@ void setup()
     bufy[i] = 0;
   }
   int i = EEPROM.read(0x00);
-  SDprint("datalog.txt","2022/7/29(likely) simulation No.");
+  SDprint("datalog.txt","2022/7/29 final No.");
   SDprintln("datalog.txt",i);
   
   EEPROM.write(0x00,i+1);

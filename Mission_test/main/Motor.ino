@@ -183,3 +183,48 @@ void Motor::angleGo(float bodyDeg,float goalDeg,int power)
   }
   return;
 }
+
+void Motor::angleSpin(float bodyDeg,float goalDeg)
+{
+  int deltaTheta = 0;
+  if (bodyDeg < goalDeg) {
+    deltaTheta = goalDeg - bodyDeg;
+//    Serial.print(":bodyDeg < goalDeg:");
+//    Serial.print(deltaTheta);
+
+    //閾値内にあるときは真っ直ぐ
+    if ((0 <= deltaTheta && deltaTheta <= this->threshold / 2) || (360 - this->threshold / 2 <= deltaTheta && deltaTheta <= goalDeg)) {
+      motor.stop();
+    }
+    //閾値よりプラスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+    else if (this->threshold / 2 < deltaTheta && deltaTheta <= 180) {
+      motor.spinRight(deltaTheta * 120 / 180);//"spin right"
+    }
+
+    //閾値よりマイナスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+    else {
+      motor.spinLeft(deltaTheta * 120 / 180);//"spin left"
+    }
+  }
+  else {
+    deltaTheta = bodyDeg - goalDeg;
+//    Serial.print(":goalDeg < bodyDeg:");
+//    Serial.print(deltaTheta);
+
+    //閾値内にあるときは真っ直ぐ
+    if ((0 <= deltaTheta && deltaTheta <= this->threshold / 2) || (360 - this->threshold / 2 <= deltaTheta && deltaTheta <= 360)) {
+      motor.stop();
+    }
+    //閾値よりプラスで大きい時は反時計回りに回るようにする（右が速くなるようにする）
+    else if (this->threshold / 2 < deltaTheta && deltaTheta <= 180) {
+      motor.spinLeft(deltaTheta * 120 / 180);//"spin left"
+    }
+
+    //閾値よりマイナスで大きい時は時計回りに回るようにする（左が速くなるようにする）
+    else {
+      motor.spinRight(deltaTheta * 120 / 180);//"spin right"
+
+    }
+  }
+  return;
+}
